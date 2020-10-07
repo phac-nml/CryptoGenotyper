@@ -28,7 +28,7 @@ setup(
    url='https://github.com/phac-nml/CryptoGenotyper',
    author='Christine Yanta',
    author_email='christine.yanta@canada.ca',
-   description=('crypto_typer is a tool that allows for subtyping the parasite, Cryptosporidium'),
+   description=('CryptoGenotyper is a tool that allows for subtyping the parasite, Cryptosporidium'),
    keywords='Cryptosporidium typer',
    classfiers=classifiers,
    package_dir={'CryptoGenotyper':'CryptoGenotyper'},
