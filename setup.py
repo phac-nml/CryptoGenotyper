@@ -15,37 +15,30 @@ Programming Language :: Python :: 3.6
 def read(fname):
    return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
-exec(open('crypto_typer/version.py').read())
+exec(open('CryptoGenotyper/version.py').read())
 
 setup(
-   name='crypto_typer',
+   name='cryptogenotyper',
    include_package_data=True,
    version='1.0',
    python_requires='>=3.6',
    setup_requires=['pytest-runner'],
    tests_require=['pytest'],
    packages=find_packages(exclude=['tests','databases']),
-   url='https://github.com/christineyanta/crypto_typer',
+   url='https://github.com/phac-nml/CryptoGenotyper',
    author='Christine Yanta',
    author_email='christine.yanta@canada.ca',
    description=('crypto_typer is a tool that allows for subtyping the parasite, Cryptosporidium'),
    keywords='Cryptosporidium typer',
    classfiers=classifiers,
-   package_dir={'crypto_typer':'crypto_typer'},
+   package_dir={'CryptoGenotyper':'CryptoGenotyper'},
 
    install_requires=[
-      'biopython >=1.70',
+      'biopython >=1.70,<1.78',
       'numpy >=1.1'
    ],
 
    entry_points={
-      'console_scripts': ['crypto_typer=crypto_typer.typer:main'],
+      'console_scripts': ['cryptogenotyper=CryptoGenotyper.typer:main'],
    },
 )
-
-#crypto_typer -i ./crypto_typer/crypto_typer/example/P17705_Crypto16-2F-20170927_SSUF_G12_084.ab1 -m 18S -t forward -f SSUF -o test
-#python setup.py install --record files.txt && crypto_typer -i crypto_typer/example/P17705_gp60-Crypt14-1F-20170927_gp60F_G07_051.ab1 -m gp60 -t forward -f gp60F -o test
-#python setup.py install --record files.txt && crypto_typer -i ./crypto_typer/example/P17705_Crypto16-2F-20170927_SSUF_G12_084.ab1 -m 18S -t forward -f SSUF -o test
-#python setup.py install --record files.txt && crypto_typer -i ./crypto_typer/example/ -m 18S -t contig -f SSUF -r SSUR -o test
-#python setup.py install --record files.txt && crypto_typer -i ./test/ -m gp60 -t contig -f gp60F -r gp60R -o test
-#crypto_typer -i P17705_Crypto16-2F-20170927_SSUF_G12_084.ab1 -m 18S -t forward -f SSUF -o test

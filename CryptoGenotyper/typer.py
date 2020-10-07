@@ -3,10 +3,10 @@
 import os
 import textwrap
 
-from crypto_typer.msr import msr_main
-from crypto_typer.gp60 import gp60_main
+from CryptoGenotyper.msr import msr_main
+from CryptoGenotyper.gp60 import gp60_main
 import argparse
-from crypto_typer.version import  __version__
+from CryptoGenotyper.version import  __version__
 
 def make_custom_database(input_fasta):
     print("Making custom database from fasta file")
@@ -15,14 +15,14 @@ def make_custom_database(input_fasta):
 
 
 def parse_cli_arguments():
-    parser = argparse.ArgumentParser(prog="crypto_typer",
+    parser = argparse.ArgumentParser(prog="cryptogenotyper",
                                      description='In silico type cryptosporidium from sanger reads in AB1 format\n',
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
                                      epilog = textwrap.dedent('''Example usage using example ab1 files included in /example folder:
-    crypto_typer -i example/P17705_Crypto16-2F-20170927_SSUF_G12_084.ab1 -m 18S -t forward -f SSUF -o test
-    crypto_typer -i example/P17705_gp60-Crypt14-1F-20170927_gp60F_G07_051.ab1 -m gp60 -t forward -f gp60F -o test
-    crypto_typer -i example/ -m 18S -t contig -f SSUF -r SSUR -o test
-    crypto_typer -i example/ -m gp60 -t contig -f gp60F -r gp60R -o test
+    cryptogenotyper -i example/P17705_Crypto16-2F-20170927_SSUF_G12_084.ab1 -m 18S -t forward -f SSUF -o test
+    cryptogenotyper -i example/P17705_gp60-Crypt14-1F-20170927_gp60F_G07_051.ab1 -m gp60 -t forward -f gp60F -o test
+    cryptogenotyper -i example/ -m 18S -t contig -f SSUF -r SSUR -o test
+    cryptogenotyper -i example/ -m gp60 -t contig -f gp60F -r gp60R -o test
                                                               '''))
 
     parser.add_argument('--verbose', action='store_true', dest='verbose',
