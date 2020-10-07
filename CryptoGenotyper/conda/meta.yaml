@@ -1,0 +1,39 @@
+{% set version = "1.1" %}
+
+package:
+    name: crypto_typer
+    version: {{ version }}
+
+source:
+  #git_url: https://github.com/christineyanta/crypto_typer.git
+  #git_tag: 21e93099fe20d6ee6e6e7d5d9c38de45e9e25b66
+  path: /Users/kirill/WORK/GRDI-REBECCA/crypto_typer
+  #url: https://github.com/christineyanta/crypto_typer/archive/{{ version }}.tar.gz
+  #sha256: 78d3d7e2efa34e6eb5890b2b9c9de3aeab8c5baf6be4d54d237f670caeac7b21
+
+build:
+    number: 19
+    noarch: python
+    script: python -m pip install --no-deps --ignore-installed .
+
+requirements:
+    build:
+        - python >=3.4
+        - pip
+    run:
+        - python >=3.4
+        - numpy >=1.15.4
+        - biopython >=1.70
+        - blast ==2.9.0
+        - clustalw >=2.1
+
+test:
+  commands:
+    - "crypto_typer -h"
+    - "blastn -help"
+
+
+about:
+    home: https://github.com/christineyanta/crypto_typer
+    summary: 'This package Crypto-Genotyper: tool to genotype the parasite, Cryptosporidium, based on the SSU rRNA and gp60 markers.'
+    license: Apache License, Version 2.0
