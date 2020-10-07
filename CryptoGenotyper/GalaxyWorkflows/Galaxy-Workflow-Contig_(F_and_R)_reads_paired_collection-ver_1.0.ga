@@ -1,0 +1,146 @@
+{
+    "uuid": "119361f1-cfcd-49a3-9e8e-6e267b07451e",
+    "tags": [
+        "Report"
+    ],
+    "format-version": "0.1",
+    "name": "CryptotyperWorkflowWithReport-ver1.0",
+    "version": 12,
+    "steps": {
+        "0": {
+            "tool_id": null,
+            "tool_version": null,
+            "outputs": [],
+            "workflow_outputs": [
+                {
+                    "output_name": "output",
+                    "uuid": "596d7cb6-822e-4113-948e-c342724c5fbf",
+                    "label": null
+                }
+            ],
+            "input_connections": {},
+            "tool_state": "{\"collection_type\": \"list:paired\"}",
+            "id": 0,
+            "uuid": "c198b640-227b-4408-97ad-129e60b09325",
+            "errors": null,
+            "name": "Input dataset collection",
+            "label": null,
+            "inputs": [],
+            "position": {
+                "top": 200,
+                "left": 155
+            },
+            "annotation": "",
+            "content_id": null,
+            "type": "data_collection_input"
+        },
+        "1": {
+            "tool_id": "cryptotyper",
+            "tool_version": "1.1",
+            "outputs": [
+                {
+                    "type": "fasta",
+                    "name": "outfile"
+                },
+                {
+                    "type": "tabular",
+                    "name": "outfile_report"
+                }
+            ],
+            "workflow_outputs": [
+                {
+                    "output_name": "outfile",
+                    "uuid": "32a78977-ccbe-49f5-8e4d-05171bcb0e73",
+                    "label": null
+                },
+                {
+                    "output_name": "outfile_report",
+                    "uuid": "852320dd-58e6-4f25-9b87-11af4e802da8",
+                    "label": null
+                }
+            ],
+            "input_connections": {
+                "primers|abi_input": {
+                    "output_name": "output",
+                    "id": 0
+                }
+            },
+            "tool_state": "{\"marker\": \"\\\"18S\\\"\", \"__page__\": null, \"__rerun_remap_job_id__\": null, \"primers\": \"{\\\"__current_case__\\\": 0, \\\"abi_input\\\": {\\\"__class__\\\": \\\"ConnectedValue\\\"}, \\\"seqtype\\\": \\\"contig\\\"}\", \"reference\": \"{\\\"__current_case__\\\": 1, \\\"ref\\\": \\\"yes\\\"}\"}",
+            "id": 1,
+            "uuid": "3412ac6a-9105-45d8-83bd-7334dabf2d26",
+            "errors": null,
+            "name": "cryptotyper",
+            "post_job_actions": {},
+            "label": null,
+            "inputs": [],
+            "position": {
+                "top": 349,
+                "left": 252.5
+            },
+            "annotation": "",
+            "content_id": "cryptotyper",
+            "type": "tool"
+        },
+        "2": {
+            "tool_id": "toolshed.g2.bx.psu.edu/repos/mandorodriguez/concat_text_files/concat_text_files/1.0.0",
+            "tool_version": "1.0.0",
+            "outputs": [
+                {
+                    "type": "txt",
+                    "name": "out_file1"
+                }
+            ],
+            "workflow_outputs": [
+                {
+                    "output_name": "out_file1",
+                    "uuid": "13446e10-870f-4322-bccc-fa7ee25da33f",
+                    "label": null
+                }
+            ],
+            "input_connections": {
+                "input_files": {
+                    "output_name": "outfile_report",
+                    "id": 1
+                }
+            },
+            "tool_state": "{\"__page__\": null, \"__rerun_remap_job_id__\": null, \"input_files\": \"{\\\"__class__\\\": \\\"ConnectedValue\\\"}\"}",
+            "id": 2,
+            "tool_shed_repository": {
+                "owner": "mandorodriguez",
+                "changeset_revision": "8bf77d768a2b",
+                "name": "concat_text_files",
+                "tool_shed": "toolshed.g2.bx.psu.edu"
+            },
+            "uuid": "470cff23-1bd5-4237-a7c8-056a09d40b98",
+            "errors": null,
+            "name": "Concat text files",
+            "post_job_actions": {
+                "ChangeDatatypeActionout_file1": {
+                    "output_name": "out_file1",
+                    "action_type": "ChangeDatatypeAction",
+                    "action_arguments": {
+                        "newtype": "tabular"
+                    }
+                },
+                "RenameDatasetActionout_file1": {
+                    "output_name": "out_file1",
+                    "action_type": "RenameDatasetAction",
+                    "action_arguments": {
+                        "newname": "#{input_files}-CumulativeReport"
+                    }
+                }
+            },
+            "label": null,
+            "inputs": [],
+            "position": {
+                "top": 363,
+                "left": 548.5
+            },
+            "annotation": "",
+            "content_id": "toolshed.g2.bx.psu.edu/repos/mandorodriguez/concat_text_files/concat_text_files/1.0.0",
+            "type": "tool"
+        }
+    },
+    "annotation": "",
+    "a_galaxy_workflow": "true"
+}
