@@ -1,7 +1,7 @@
-{% set version = "1.1" %}
+{% set version = "1.0" %}
 
 package:
-    name: crypto_typer
+    name: cryptogenotyper
     version: {{ version }}
 
 source:
@@ -23,17 +23,17 @@ requirements:
     run:
         - python >=3.4
         - numpy >=1.15.4
-        - biopython >=1.70
+        - biopython >=1.70,<1.78
         - blast ==2.9.0
         - clustalw >=2.1
 
 test:
   commands:
-    - "crypto_typer -h"
+    - "cryptogenotyper -h"
     - "blastn -help"
 
 
 about:
     home: https://github.com/christineyanta/crypto_typer
-    summary: 'This package Crypto-Genotyper: tool to genotype the parasite, Cryptosporidium, based on the SSU rRNA and gp60 markers.'
+    summary: 'This package CryptoGenotyper: tool to genotype the parasite, Cryptosporidium, based on the SSU rRNA and gp60 markers.'
     license: Apache License, Version 2.0
