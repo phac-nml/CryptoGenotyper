@@ -1,4 +1,5 @@
 <div style="text-align:center"><img src="logo.jpg" /></div>
+
 ## CryptoGenotyper
 
 The `CryptoGenotyper` is a fast and reproducible tool that can be used to classify the genotype of *Cryptosporidium* samples by directly analyzing the DNA electropherogram files (.ab1) that correspond to two of its characteristic gene markers: SSU rRNA and *gp60*. 
