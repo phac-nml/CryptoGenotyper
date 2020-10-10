@@ -1406,6 +1406,17 @@ def buildContig(s1, s2):
 
 
 def gp60_main(pathlist, fPrimers, rPrimers, typeSeq, expName, customdatabsename, noheader):
+
+    if not fPrimers:
+        fPrimers=""
+    else:
+        fPrimers = fPrimers.replace(' ', '').split(',')
+    if not rPrimers:
+        rPrimers=""
+    else:
+        rPrimers = rPrimers.replace(' ', '').split(',')
+
+
     pathlist = [path for path in pathlist if fPrimers in path or rPrimers in path]  # select only files matching the primers
 
     contig = False
@@ -1421,9 +1432,6 @@ def gp60_main(pathlist, fPrimers, rPrimers, typeSeq, expName, customdatabsename,
     elif typeSeq == 'contig':
         contig = True
 
-
-    fPrimers=fPrimers.replace(' ','').split(',')
-    rPrimers=rPrimers.replace(' ','').split(',')
 
 
     tabfile = io.StringIO()
@@ -1591,13 +1599,13 @@ def gp60_main(pathlist, fPrimers, rPrimers, typeSeq, expName, customdatabsename,
 
     experimentName = expName + "_"
 
-    output_report_file_name = experimentName+'crypto_typer_report.fa'
+    output_report_file_name = experimentName+'cryptogenotyper_report.fa'
     filename = os.path.join('.', output_report_file_name)
     #print(filename)
     with open(filename, 'w') as resultFile:
         resultFile.write (file.getvalue())
 
-    output_tabreport_file_name = experimentName+'crypto_typer_report.txt'
+    output_tabreport_file_name = experimentName+'cryptogenotyper_report.txt'
     tab_filename = os.path.join('.', output_tabreport_file_name)
 
     with open(tab_filename, 'w') as tabFile:

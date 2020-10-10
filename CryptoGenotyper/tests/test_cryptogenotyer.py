@@ -1,5 +1,5 @@
 import os,sys
-from crypto_typer.typer import main as crypto_typer_main
+from CryptoGenotyper.typer import main as cryptogenotyper_main
 
 
 
@@ -18,7 +18,7 @@ def test_default_database_gp60_contiginput(input_dir=os.path.abspath(os.path.joi
     ]
 
     sys.argv[1:] = args
-    crypto_typer_main()
+    cryptogenotyper_main()
 
 def test_custom_database_gp60_contiginput(input_dir=os.path.abspath(os.path.join(os.path.dirname(__file__),"..","example"))):
     args = [
@@ -33,7 +33,7 @@ def test_custom_database_gp60_contiginput(input_dir=os.path.abspath(os.path.join
     ]
 
     sys.argv[1:] = args
-    crypto_typer_main()
+    cryptogenotyper_main()
 
 def test_custom_database_18S(input_dir=os.path.abspath(os.path.join(os.path.dirname(__file__),"..","example"))):
 
@@ -49,7 +49,7 @@ def test_custom_database_18S(input_dir=os.path.abspath(os.path.join(os.path.dirn
     ]
 
     sys.argv[1:] = args
-    crypto_typer_main()
+    cryptogenotyper_main()
 
 def test_default_database_18S(input_dir=os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "example"))):
     args = [
@@ -63,13 +63,13 @@ def test_default_database_18S(input_dir=os.path.abspath(os.path.join(os.path.dir
     ]
 
     sys.argv[1:] = args
-    crypto_typer_main()
+    cryptogenotyper_main()
 
-def test_default_singlefile(input_dir="P17705_Crypto16-2F-20170927_SSUF_G12_084.ab1"):
-    os.chdir("/Users/kirill/WORK/GRDI-REBECCA/crypto_typer/crypto_typer/example/")
+def test_default_singlefile(input_dir=os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "example"))):
+    os.chdir(input_dir)
 
     args = [
-        "-i", input_dir,
+        "-i", "P17705_Crypto16-2F-20170927_SSUF_G12_084.ab1",
         "-m", "18S",
         "-t", "forward",
         "-f", "SSUF",
@@ -80,5 +80,5 @@ def test_default_singlefile(input_dir="P17705_Crypto16-2F-20170927_SSUF_G12_084.
 
     sys.argv[1:] = args
 
-    crypto_typer_main()
+    cryptogenotyper_main()
 

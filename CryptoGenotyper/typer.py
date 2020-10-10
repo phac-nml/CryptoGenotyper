@@ -40,10 +40,10 @@ def parse_cli_arguments():
                         help="Name of the forward primer to identify forward read (e.g. gp60F, SSUF)")
     parser.add_argument('-r', '--reverseprimername', type=str, required=False,
                         help="Name of the reverse primer to identify forward read (e.g. gp60R, SSUR)")
-    parser.add_argument('-o', '--outputprefix', type=str, required=False,
+    parser.add_argument('-o', '--outputprefix', type=str, required=False, default="cryptorun",
                         help="Output name prefix for the results (e.g. test results in test_report.fa)")
     parser.add_argument('-d', '--databasefile',type=str, required=False,
-                        help="Custom database reference file")
+                        help="Path to custom database reference FASTA file")
     parser.add_argument('-v', '--version', action='version', version='%(prog)s {}'.format(__version__))
     parser.add_argument('--noheaderline',action='store_true',dest='header',help='Display header on tab-delimited file [False]', required=False)
 
@@ -53,7 +53,7 @@ def parse_cli_arguments():
 def main():
     args= parse_cli_arguments()
 
-    print("Running crypto_typer {}".format(__version__))
+    print("Running cryptogenotyper v{}".format(__version__))
 
     if args.databasefile:
         make_custom_database(input_fasta=args.databasefile)
@@ -68,13 +68,14 @@ def main():
     header = args.header
 
     pathlist=list()
-    if os.path.isfile(seq_dir):
-        seq_dir = os.path.dirname(os.path.abspath(seq_dir)) #get directory name
+    if os.path.isdir(seq_dir):
+        seq_dir = os.path.abspath(seq_dir) #get directory name
 
-
-    for file in os.listdir(seq_dir):
-        if file.endswith("ab1"):
-            pathlist.append(os.path.abspath(seq_dir+"/"+file))
+        for file in os.listdir(seq_dir):
+            if file.endswith("ab1"):
+                pathlist.append(os.path.abspath(seq_dir + "/" + file))
+    else:
+        pathlist.append(os.path.abspath(seq_dir)) #get absolute path of a single file
 
 
     if typeSeq == "contig":

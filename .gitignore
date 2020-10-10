@@ -2,14 +2,13 @@
 
 build/
 dist/
-crypto_typer/test/
+CryptoGenotyper/test/
 
 *DS_Store
 
-*crypto_typer_report*
+*cryptogenotyper_report*
 
 *xml
-*.fa
 *.txt
 *.pyc
 

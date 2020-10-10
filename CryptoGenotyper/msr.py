@@ -2164,6 +2164,15 @@ class MixedSeq(object):
 def msr_main(pathlist, forwardP, reverseP, typeSeq, expName, customdatabsename, noheader):
     tabfile = io.StringIO()
 
+    if not forwardP:
+        forwardP=""
+    if not reverseP:
+        reverseP=""
+
+    pathlist = [path for path in pathlist if
+                forwardP in path or reverseP in path]  # select only files matching the primers
+    pathlist.sort()
+
 
     if not noheader:
         tabfile.write("Sample Name\tType of Sequences\tMixed?\tSpecies\tSequence\tComments\tBit Score\tQuery Length (bp)\tQuery Coverage\tE-value\tPercent Identity\tAccession Number\n")
@@ -2176,14 +2185,14 @@ def msr_main(pathlist, forwardP, reverseP, typeSeq, expName, customdatabsename, 
         file.write("\n  ;>Reference File: " + customdatabsename)
     else:
         file.write("\n  ;>Reference File: " + "msr_ref.fa")
-    file.write("\n  ;>Forward Primer: " + forwardP)
-    file.write("\n  ;>Reverse Primer: " + reverseP)
+    file.write("\n  ;>Forward Primer: " + str(forwardP))
+    file.write("\n  ;>Reverse Primer: " + str(reverseP))
     file.write("\n;>****************************************************************************")
     file.write("\n;>Program Results:\n")
     #**************************************************************
 
-    pathlist = [path for path in pathlist if forwardP in path or reverseP in path] #select only files matching the primers
-    pathlist.sort()
+
+
 
     if len(pathlist) == 0:
         exit("No files in the input are matching the forward or reverse primer. Aborting.")
@@ -2391,13 +2400,13 @@ def msr_main(pathlist, forwardP, reverseP, typeSeq, expName, customdatabsename, 
                 reverse.outputResults("", customdatabsename, typeSeq)
 
     experimentName = expName + "_"
-    output_report_file_name = experimentName + 'crypto_typer_report.fa'
+    output_report_file_name = experimentName + 'cryptogenotyper_report.fa'
     filename = os.path.join('.', output_report_file_name )
 
     with open(filename, 'w') as resultFile:
         resultFile.write (file.getvalue ())
 
-    output_tabreport_file_name = experimentName + 'crypto_typer_report.txt'
+    output_tabreport_file_name = experimentName + 'cryptogenotyper_report.txt'
     tabfilename = os.path.join('.', output_tabreport_file_name )
 
     with open(tabfilename, 'w') as resultFile:

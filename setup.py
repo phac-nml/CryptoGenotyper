@@ -24,7 +24,7 @@ setup(
    python_requires='>=3.6',
    setup_requires=['pytest-runner'],
    tests_require=['pytest'],
-   packages=find_packages(exclude=['tests','databases']),
+   packages=find_packages(exclude=['tests']),
    url='https://github.com/phac-nml/CryptoGenotyper',
    author='Christine Yanta',
    author_email='christine.yanta@canada.ca',

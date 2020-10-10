@@ -1,2 +1,1 @@
-include crypto_typer/reference_database/*
-include crypto_typer/tests/*
+include CryptoGenotyper/reference_database/*
