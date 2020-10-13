@@ -10,6 +10,7 @@
 
 import io
 import os
+import re
 
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -1405,19 +1406,16 @@ def buildContig(s1, s2):
 
 
 
-def gp60_main(pathlist, fPrimers, rPrimers, typeSeq, expName, customdatabsename, noheader):
-
-    if not fPrimers:
-        fPrimers=""
-    else:
-        fPrimers = fPrimers.replace(' ', '').split(',')
-    if not rPrimers:
-        rPrimers=""
-    else:
-        rPrimers = rPrimers.replace(' ', '').split(',')
+def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, noheader):
 
 
-    pathlist = [path for path in pathlist if fPrimers in path or rPrimers in path]  # select only files matching the primers
+    fPrimer = fPrimer.replace(' ', '')
+    rPrimer = rPrimer.replace(' ', '')
+
+
+    pathlist = [path for path in pathlist if
+                re.search(fPrimer, path) or re.search(rPrimer, path)]  # select only files matching the primers
+    pathlist.sort()
 
     contig = False
     onlyForwards = False
@@ -1449,17 +1447,17 @@ def gp60_main(pathlist, fPrimers, rPrimers, typeSeq, expName, customdatabsename,
         file.write("\n  ;>Reference File: " + "gp60_ref.fa (default)")
     file.write("\n  ;>Program mode: " + typeSeq)
     if typeSeq == 'forward':
-        file.write("\n  ;>Forward Primer: " + str(fPrimers))
+        file.write("\n  ;>Forward Primer: " + str(fPrimer))
     elif typeSeq == 'reverse':
-        file.write("\n  ;>Reverse Primer: " + str(rPrimers))
+        file.write("\n  ;>Reverse Primer: " + str(rPrimer))
     elif typeSeq == 'contig':
-        file.write("\n  ;>Forward Primer: " + str(fPrimers))
-        file.write("\n  ;>Reverse Primer: " + str(rPrimers))
+        file.write("\n  ;>Forward Primer: " + str(fPrimer))
+        file.write("\n  ;>Reverse Primer: " + str(rPrimer))
     file.write("\n;>****************************************************************************")
     file.write("\n;>Program Results:\n")
     #**************************************************************
 
-    pathlist.sort()
+
     if contig:
         if len(pathlist)%2 == 0:
             for idx, path in enumerate(pathlist):
@@ -1468,24 +1466,24 @@ def gp60_main(pathlist, fPrimers, rPrimers, typeSeq, expName, customdatabsename,
 
 
 
-                for i in range(0, len(fPrimers)):
-                    if fPrimers[i] in path:
-                        forwSeq = forward.readFiles(path, True, file, tabfile)
-                        break
-                    else:
-                        forwSeq = True
+                #for i in range(0, len(fPrimers)):
+                #if fPrimer in path:
+                forwSeq = forward.readFiles(path, True, file, tabfile)
+                    #break
+                #else:
+                #    forwSeq = True
 
-                for i in range(0, len(rPrimers)):
-                    if len(pathlist) <= idx+1:
-                        print("Ensure primer names entered match those in the sequencing file name.")
-                        exit()
+                #for i in range(0, len(rPrimers)):
+                #    if len(pathlist) <= idx+1:
+                #        print("Ensure primer names entered match those in the sequencing file name.")
+                #        exit()
 
-                    if rPrimers[i] in pathlist[idx+1]:
-                        revSeq = reverse.readFiles(pathlist[idx+1], False, file, tabfile)
-                        pathlist.remove(pathlist[idx+1])
-                        break
-                    else:
-                        revSeq = False
+                #if rPrimer in pathlist[idx+1]:
+                revSeq = reverse.readFiles(pathlist[idx+1], False, file, tabfile)
+                pathlist.remove(pathlist[idx+1])
+                    #break
+                #else:
+                #   revSeq = False
 
 
                 forwardPhred = forward.averagePhredQuality
@@ -1567,6 +1565,8 @@ def gp60_main(pathlist, fPrimers, rPrimers, typeSeq, expName, customdatabsename,
                     forward.printFasta("", "contig", forward.name.split(".ab1")[0] + ", " + reverse.name.split(".ab1")[0])
 
         else:
+            print("ERROR: Uneven number of input files ({}). "
+                  "Cannot find all paired forward and reverse files. Aborting ...".format(len(pathlist)))
             tabfile.write("\nCannot find all paired forward and reverse files.  Make sure all files are included to produce the contig.")
             file.write("\nCannot find all paired forward and reverse files.  Make sure all files are included to produce the contig.")
 

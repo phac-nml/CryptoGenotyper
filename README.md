@@ -27,7 +27,7 @@ apt install clustalw ncbi-blast+ python3 python3-numpy python3-pip && pip3 insta
 The `CryptoGenotyper` can be installed by pulling source code from this repository or via `conda` package management system from the `bioconcda` channel.
 
 * `git clone https://github.com/phac-nml/CryptoGenotyper.git && cd CryptoGenotyper && python3 setup.py install`
-* `conda install -c bioconda cryptotyper`
+* `conda install -c bioconda cryptogenotyper`
 
 ## Usage
 Only few parameters required to run `cryptogenotyper` including input `*.ab1` file, marker (`18S` or `gp60`), sequence type (`forward`, `reverse`, `contig`), output prefix. 

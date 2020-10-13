@@ -1,13 +1,11 @@
 import io
 import os
+import re
 
 from Bio import SeqIO
-from Bio.Seq import Seq
 from Bio.Align.Applications import ClustalwCommandline
 from Bio import AlignIO
-from Bio.Alphabet import generic_dna
-from Bio.Align import MultipleSeqAlignment
-from Bio.SeqRecord import SeqRecord
+
 
 from Bio.Blast.Applications import NcbiblastnCommandline
 from Bio.Blast import NCBIXML
@@ -2162,15 +2160,14 @@ class MixedSeq(object):
 
 
 def msr_main(pathlist, forwardP, reverseP, typeSeq, expName, customdatabsename, noheader):
+
     tabfile = io.StringIO()
 
-    if not forwardP:
-        forwardP=""
-    if not reverseP:
-        reverseP=""
+    forwardP = forwardP.replace(' ', '')
+    reverseP= reverseP.replace(' ', '')
 
     pathlist = [path for path in pathlist if
-                forwardP in path or reverseP in path]  # select only files matching the primers
+                re.search(forwardP,path) or re.search(reverseP,path)]  # select only files matching the primers
     pathlist.sort()
 
 
@@ -2199,14 +2196,16 @@ def msr_main(pathlist, forwardP, reverseP, typeSeq, expName, customdatabsename, 
 
 
     if len(pathlist)%2 != 0 and typeSeq == 'contig':
-        file.write("\nError: Need to include both forward and reverse sequences of all samples to produce contig.")
+        print("ERROR: Uneven number of input files ({}). "
+              "Cannot find all paired forward and reverse files. Aborting ...".format(len(pathlist)))
+        file.write("\nError: Need to include both forward and reverse sequences of ALL samples to produce contig.")
         file.write("\nSequences files given:\n")
 
         for i in range(len(pathlist)):
             file.write(pathlist[i])
             file.write("\n")
 
-        tabfile.write("Error: Need to include both forward and reverse sequences of all samples to produce contig.\t\t\t\t\t\t\t\t\t\t\t\n")
+        tabfile.write("Error: Need to include both forward and reverse sequences of ALL samples to produce contig.\t\t\t\t\t\t\t\t\t\t\t\n")
 
     elif typeSeq == "contig":
         for idx in range(0,len(pathlist),2):
@@ -2404,13 +2403,13 @@ def msr_main(pathlist, forwardP, reverseP, typeSeq, expName, customdatabsename, 
     filename = os.path.join('.', output_report_file_name )
 
     with open(filename, 'w') as resultFile:
-        resultFile.write (file.getvalue ())
+        resultFile.write(file.getvalue())
 
     output_tabreport_file_name = experimentName + 'cryptogenotyper_report.txt'
     tabfilename = os.path.join('.', output_tabreport_file_name )
 
     with open(tabfilename, 'w') as resultFile:
-        resultFile.write (tabfile.getvalue ())
+        resultFile.write (tabfile.getvalue())
 
     print("Fasta report written to " + os.getcwd()+"/"+output_report_file_name)
     print("Tab-delimited report written to " + os.getcwd() + "/" + output_tabreport_file_name + "\nThe 18S run completed successfully")

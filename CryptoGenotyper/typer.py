@@ -77,20 +77,21 @@ def main():
     else:
         pathlist.append(os.path.abspath(seq_dir)) #get absolute path of a single file
 
-
-    if typeSeq == "contig":
+    fPrimer=""; rPrimer=""
+    if args.forwardprimername:
         fPrimer = args.forwardprimername
+    if args.reverseprimername:
         rPrimer = args.reverseprimername
 
+    if typeSeq == "contig":
         if marker == "18S":
             return msr_main(pathlist, fPrimer, rPrimer, typeSeq, expName, args.databasefile, header)
 
         elif marker == "gp60":
-            return gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName,args.databasefile, header)
+            return gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, args.databasefile, header)
 
     elif typeSeq == "forward":
-        fPrimer = args.forwardprimername
-
+        #fPrimer = args.forwardprimername
         if marker == "18S":
             return msr_main(pathlist, fPrimer, "", typeSeq, expName, args.databasefile, header)
 
@@ -99,7 +100,7 @@ def main():
 
 
     elif typeSeq == "reverse":
-        rPrimer = args.reverseprimername
+        #rPrimer = args.reverseprimername
 
 
         if marker == "18S":
