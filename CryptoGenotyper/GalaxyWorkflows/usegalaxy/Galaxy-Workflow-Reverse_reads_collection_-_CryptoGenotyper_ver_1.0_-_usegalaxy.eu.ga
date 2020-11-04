@@ -1,0 +1,170 @@
+{
+    "a_galaxy_workflow": "true",
+    "annotation": "",
+    "format-version": "0.1",
+    "name": "Reverse reads collection - CryptoGenotyper ver 1.0 - usegalaxy.eu",
+    "steps": {
+        "0": {
+            "annotation": "",
+            "content_id": null,
+            "errors": null,
+            "id": 0,
+            "input_connections": {},
+            "inputs": [],
+            "label": null,
+            "name": "Input dataset collection",
+            "outputs": [],
+            "position": {
+                "bottom": 307.5,
+                "height": 81,
+                "left": 316,
+                "right": 516,
+                "top": 226.5,
+                "width": 200,
+                "x": 316,
+                "y": 226.5
+            },
+            "tool_id": null,
+            "tool_state": "{\"optional\": false, \"collection_type\": \"list\"}",
+            "tool_version": null,
+            "type": "data_collection_input",
+            "uuid": "5e38a23e-2bd8-4e2b-9f2c-ecc4685ac8c2",
+            "workflow_outputs": [
+                {
+                    "label": null,
+                    "output_name": "output",
+                    "uuid": "0181b968-2bbe-4513-899a-bb17be17f4f1"
+                }
+            ]
+        },
+        "1": {
+            "annotation": "",
+            "content_id": "toolshed.g2.bx.psu.edu/repos/nml/cryptogenotyper/CryptoGenotyper/1.0+galaxy0",
+            "errors": null,
+            "id": 1,
+            "input_connections": {
+                "primers|abi_input": {
+                    "id": 0,
+                    "output_name": "output"
+                }
+            },
+            "inputs": [
+                {
+                    "description": "runtime parameter for tool CryptoGenotyper",
+                    "name": "db"
+                },
+                {
+                    "description": "runtime parameter for tool CryptoGenotyper",
+                    "name": "primers"
+                }
+            ],
+            "label": null,
+            "name": "CryptoGenotyper",
+            "outputs": [
+                {
+                    "name": "outfile",
+                    "type": "fasta"
+                },
+                {
+                    "name": "outfile_report",
+                    "type": "tabular"
+                }
+            ],
+            "position": {
+                "bottom": 543,
+                "height": 252,
+                "left": 651,
+                "right": 851,
+                "top": 291,
+                "width": 200,
+                "x": 651,
+                "y": 291
+            },
+            "post_job_actions": {},
+            "tool_id": "toolshed.g2.bx.psu.edu/repos/nml/cryptogenotyper/CryptoGenotyper/1.0+galaxy0",
+            "tool_shed_repository": {
+                "changeset_revision": "d4a96287909e",
+                "name": "cryptogenotyper",
+                "owner": "nml",
+                "tool_shed": "toolshed.g2.bx.psu.edu"
+            },
+            "tool_state": "{\"db\": {\"__class__\": \"RuntimeValue\"}, \"marker\": \"18S\", \"outputheader\": \"false\", \"primers\": {\"seqtype\": \"reverse\", \"__current_case__\": 2, \"abi_input\": {\"__class__\": \"RuntimeValue\"}}, \"__page__\": null, \"__rerun_remap_job_id__\": null}",
+            "tool_version": null,
+            "type": "tool",
+            "uuid": "a8875379-9315-4386-a0d2-d87db2b5bbf1",
+            "workflow_outputs": [
+                {
+                    "label": "CryptoGenotyper:input dataset(s):reports",
+                    "output_name": "outfile_report",
+                    "uuid": "12a5ee79-59fd-419b-a66e-ec8d0516eb64"
+                },
+                {
+                    "label": "CryptoGenotyper:input dataset(s):fastas",
+                    "output_name": "outfile",
+                    "uuid": "cf8c41a7-7614-4371-9812-6c502d2baed0"
+                }
+            ]
+        },
+        "2": {
+            "annotation": "",
+            "content_id": "toolshed.g2.bx.psu.edu/repos/bgruening/text_processing/tp_cat/0.1.0",
+            "errors": null,
+            "id": 2,
+            "input_connections": {
+                "inputs": {
+                    "id": 1,
+                    "output_name": "outfile_report"
+                }
+            },
+            "inputs": [],
+            "label": null,
+            "name": "Concatenate datasets",
+            "outputs": [
+                {
+                    "name": "out_file1",
+                    "type": "input"
+                }
+            ],
+            "position": {
+                "bottom": 399,
+                "height": 112,
+                "left": 982,
+                "right": 1182,
+                "top": 287,
+                "width": 200,
+                "x": 982,
+                "y": 287
+            },
+            "post_job_actions": {
+                "RenameDatasetActionout_file1": {
+                    "action_arguments": {
+                        "newname": "Report on #{inputs}"
+                    },
+                    "action_type": "RenameDatasetAction",
+                    "output_name": "out_file1"
+                }
+            },
+            "tool_id": "toolshed.g2.bx.psu.edu/repos/bgruening/text_processing/tp_cat/0.1.0",
+            "tool_shed_repository": {
+                "changeset_revision": "20344ce0c811",
+                "name": "text_processing",
+                "owner": "bgruening",
+                "tool_shed": "toolshed.g2.bx.psu.edu"
+            },
+            "tool_state": "{\"inputs\": {\"__class__\": \"ConnectedValue\"}, \"queries\": [], \"__page__\": null, \"__rerun_remap_job_id__\": null}",
+            "tool_version": null,
+            "type": "tool",
+            "uuid": "4bc7c2ad-adde-4ce2-b153-9cb4f96c23fe",
+            "workflow_outputs": [
+                {
+                    "label": null,
+                    "output_name": "out_file1",
+                    "uuid": "b94cdf0f-aa38-4940-b87f-6d388c24f887"
+                }
+            ]
+        }
+    },
+    "tags": [],
+    "uuid": "9a075138-35fd-4c95-8768-7b3061e1b824",
+    "version": 3
+}

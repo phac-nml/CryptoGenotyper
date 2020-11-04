@@ -1,0 +1,165 @@
+{
+    "a_galaxy_workflow": "true",
+    "annotation": "",
+    "format-version": "0.1",
+    "name": "Forward reads collection - CryptoGenotyper ver 1.0 - usegalaxy.eu",
+    "steps": {
+        "0": {
+            "annotation": "",
+            "content_id": null,
+            "errors": null,
+            "id": 0,
+            "input_connections": {},
+            "inputs": [],
+            "label": null,
+            "name": "Input dataset collection",
+            "outputs": [],
+            "position": {
+                "bottom": 336,
+                "height": 81,
+                "left": 300,
+                "right": 500,
+                "top": 255,
+                "width": 200,
+                "x": 300,
+                "y": 255
+            },
+            "tool_id": null,
+            "tool_state": "{\"optional\": false, \"collection_type\": \"list\"}",
+            "tool_version": null,
+            "type": "data_collection_input",
+            "uuid": "cd0d3ba7-effe-4a1c-b994-ab65e0c7eecd",
+            "workflow_outputs": [
+                {
+                    "label": null,
+                    "output_name": "output",
+                    "uuid": "274b5eec-49db-459c-b044-d440926eb25a"
+                }
+            ]
+        },
+        "1": {
+            "annotation": "",
+            "content_id": "toolshed.g2.bx.psu.edu/repos/nml/cryptogenotyper/CryptoGenotyper/1.0+galaxy0",
+            "errors": null,
+            "id": 1,
+            "input_connections": {},
+            "inputs": [
+                {
+                    "description": "runtime parameter for tool CryptoGenotyper",
+                    "name": "db"
+                },
+                {
+                    "description": "runtime parameter for tool CryptoGenotyper",
+                    "name": "primers"
+                }
+            ],
+            "label": null,
+            "name": "CryptoGenotyper",
+            "outputs": [
+                {
+                    "name": "outfile",
+                    "type": "fasta"
+                },
+                {
+                    "name": "outfile_report",
+                    "type": "tabular"
+                }
+            ],
+            "position": {
+                "bottom": 551.5,
+                "height": 232,
+                "left": 635,
+                "right": 835,
+                "top": 319.5,
+                "width": 200,
+                "x": 635,
+                "y": 319.5
+            },
+            "post_job_actions": {},
+            "tool_id": "toolshed.g2.bx.psu.edu/repos/nml/cryptogenotyper/CryptoGenotyper/1.0+galaxy0",
+            "tool_shed_repository": {
+                "changeset_revision": "d4a96287909e",
+                "name": "cryptogenotyper",
+                "owner": "nml",
+                "tool_shed": "toolshed.g2.bx.psu.edu"
+            },
+            "tool_state": "{\"db\": {\"__class__\": \"RuntimeValue\"}, \"marker\": \"18S\", \"outputheader\": \"false\", \"primers\": {\"seqtype\": \"forward\", \"__current_case__\": 1, \"abi_input\": {\"__class__\": \"RuntimeValue\"}}, \"__page__\": null, \"__rerun_remap_job_id__\": null}",
+            "tool_version": "1.0+galaxy0",
+            "type": "tool",
+            "uuid": "72e01ee8-c482-4e65-9754-4db669cb30a6",
+            "workflow_outputs": [
+                {
+                    "label": "CryptoGenotyper:input dataset(s):fastas",
+                    "output_name": "outfile",
+                    "uuid": "c9b04be4-1d30-483a-8f39-b9a20d349772"
+                },
+                {
+                    "label": "CryptoGenotyper:input dataset(s):reports",
+                    "output_name": "outfile_report",
+                    "uuid": "8c0ca2a3-34f2-47d5-95a8-23da69c0bc4b"
+                }
+            ]
+        },
+        "2": {
+            "annotation": "",
+            "content_id": "toolshed.g2.bx.psu.edu/repos/bgruening/text_processing/tp_cat/0.1.0",
+            "errors": null,
+            "id": 2,
+            "input_connections": {
+                "inputs": {
+                    "id": 1,
+                    "output_name": "outfile_report"
+                }
+            },
+            "inputs": [],
+            "label": null,
+            "name": "Concatenate datasets",
+            "outputs": [
+                {
+                    "name": "out_file1",
+                    "type": "input"
+                }
+            ],
+            "position": {
+                "bottom": 427.5,
+                "height": 112,
+                "left": 966,
+                "right": 1166,
+                "top": 315.5,
+                "width": 200,
+                "x": 966,
+                "y": 315.5
+            },
+            "post_job_actions": {
+                "RenameDatasetActionout_file1": {
+                    "action_arguments": {
+                        "newname": "Report on #{inputs}"
+                    },
+                    "action_type": "RenameDatasetAction",
+                    "output_name": "out_file1"
+                }
+            },
+            "tool_id": "toolshed.g2.bx.psu.edu/repos/bgruening/text_processing/tp_cat/0.1.0",
+            "tool_shed_repository": {
+                "changeset_revision": "ddf54b12c295",
+                "name": "text_processing",
+                "owner": "bgruening",
+                "tool_shed": "toolshed.g2.bx.psu.edu"
+            },
+            "tool_state": "{\"inputs\": {\"__class__\": \"ConnectedValue\"}, \"queries\": [], \"__page__\": null, \"__rerun_remap_job_id__\": null}",
+            "tool_version": "0.1.0",
+            "type": "tool",
+            "uuid": "d7271cb9-08ce-4103-9806-ef1e87af0932",
+            "workflow_outputs": [
+                {
+                    "label": null,
+                    "output_name": "out_file1",
+                    "uuid": "4ae3b729-8230-4274-b39e-6e0141a8980c"
+                }
+            ]
+        }
+    },
+    "tags": [],
+    "uuid": "ca0c4be0-85c2-418b-8fbe-f610c2fc583c",
+    "version": 3
+}
