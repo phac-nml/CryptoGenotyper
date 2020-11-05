@@ -6,9 +6,9 @@ The `default` directory provides workflows that generate final report with the h
 The `usegalaxy` directory contains workflows that are designed to run on `usegalaxy.eu` server respecting the context of the server. Currently reports are without headers
 
 ### Categories
-* Contig mode worklows designed for both forward and reverse read input per sample
-* Forward more workflows designed for forward only reads
-* Reverse mode workflows designed for reverse only reads
+* `Contig read mode` workflows designed for both forward and reverse read input per sample
+* `Forward read mode` workflows designed for forward only reads
+* `Reverse read mode` workflows designed for reverse only reads
 
 ### Installation
 Workflows should be imported into individual Galaxy instances and accounts via a file import. If any of the dependencies are missing, you will be notified. Admin of the server could easily install required dependencies depending on the workflow. 
