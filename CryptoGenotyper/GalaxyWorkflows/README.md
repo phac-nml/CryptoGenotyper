@@ -3,7 +3,7 @@ This directory provides convinient workflows to process multiple of samples and 
 
 The `default` directory provides workflows that generate final report with the header.
 
-The `usegalaxy` directory contains workflows that are designed to run on `usegalaxy.eu` server respecting the context of the server. Currently reports are without headers
+The `usegalaxy` directory contains workflows that are designed to run on [`usegalaxy.eu`](https://usegalaxy.eu/) server respecting the context of the server. Currently reports are without headers
 
 ### Categories
 * `Contig read mode` workflows designed for both forward and reverse read input per sample
