@@ -836,6 +836,7 @@ class MixedSeq(object):
             self.forwardSeq = False
 
 
+
         #**********Beginning to work with the ab1 file given:**********#
 
         #retrieves the sample file name (removes directory pathway)
@@ -878,6 +879,8 @@ class MixedSeq(object):
         #phred quality of the bases
         self.phred_qual=record.letter_annotations['phred_quality']
 
+        self.mixed=False
+
 
         gTemp = []
         aTemp = []
@@ -900,9 +903,24 @@ class MixedSeq(object):
 
 
         length = len(self.phred_qual)
+
+        if length > 800:
+            self.a=self.a[:800]
+            self.g=self.g[:800]
+            self.c=self.c[:800]
+            self.t=self.t[:800]
+            self.phred_qual=self.phred_qual[:800]
+            self.peakLoc=self.peakLoc[:800]
+            self.seq=self.seq[:800]
+            self.oldseq=self.oldseq[:800]
+            length=len(self.phred_qual)
+            self.seqLength=800
+            self.origLength=800
+
         sum=0
         for i in range(0, length):
             sum+=self.phred_qual[i]
+            #print(self.phred_qual[i])
 
         self.avgPhredQuality = int(sum/length)
         self.avgPhred = int(sum/length)
@@ -1040,6 +1058,8 @@ class MixedSeq(object):
         else:
             self.avgLRI = 0
 
+        #print(self.backgroundA,self.backgroundC, self.backgroundG,self.backgroundT)
+
 
 
 
@@ -1095,6 +1115,7 @@ class MixedSeq(object):
                 LRI = maxLRI + 0.1
 
 
+
             if LRI <= maxLRI:
                 counter += 1
                 if a == maxAmp:
@@ -1130,6 +1151,9 @@ class MixedSeq(object):
 
                 iupacBase = addIupac(firstBase, secondBase)
                 newSeq.append(iupacBase)
+
+                if i > 30 and i < self.seqLength-30 and LRI < 1.5:
+                    self.mixed = True
 
             else:
                 aBefore = 0
@@ -1439,7 +1463,7 @@ class MixedSeq(object):
                 blastn_cline = NcbiblastnCommandline(
                                                  query="query2.txt",
 
-                                                 db=os.path.dirname(__file__)+"/reference_database/blast_SSU.fa",
+                                                 db=os.path.dirname(__file__)+"/reference_database/msr_ref.fa",
                                                   outfmt=5, out="result2.xml")
             blastn_cline
             stdout, stderr = blastn_cline()
@@ -1925,7 +1949,7 @@ class MixedSeq(object):
         myfile.close()
 
         blastn_cline = NcbiblastnCommandline(cmd='blastn',query="query.txt", dust='yes',
-                                             db=os.path.dirname(__file__)+"/reference_database/blast_SSU.fa", reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="SSUresult.xml")
+                                             db=os.path.dirname(__file__)+"/reference_database/msr_ref.fa", reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="SSUresult.xml")
 
         stdout, stderr = blastn_cline()
 
@@ -1994,6 +2018,8 @@ class MixedSeq(object):
 
     #outputResults() outputs the results in .txt and .fa file formats
     def outputResults(self, contig, customdatabsename, mode):
+        #print(self.avgPhredQuality)
+        #print(self.avgLRI)
         self.file.write("\n>Sequence: " + self.name.split(".ab1")[0] + " | ")
         self.tabfile.write(self.name.split(".ab1")[0] + "\t" + mode + "\t")
 
@@ -2016,12 +2042,12 @@ class MixedSeq(object):
             seq = revcomp(seq)
             seq2 = revcomp(seq2)
 
-        if (species == "" and species2 == "") or (query_coverage < 50 and query_coverage2 < 50):
+        if (species == "" and species2 == ""): #or (query_coverage < 50 and query_coverage2 < 50):
             self.tabfile.write("\t\t\t" + "Could not analyze chromatogram. Please check manually." + "\t\t\t\t\t\t\t\n")
 
 
 
-        elif species == "" or query_coverage < 50:
+        elif species == "":# or query_coverage < 50:
             self.file.write(species2.split("|")[0])
 
             self.tabfile.write("No\t")
@@ -2029,6 +2055,12 @@ class MixedSeq(object):
             self.tabfile.write(seq2 + "\t")
 
             if self.avgPhredQuality < 10 and "C.hominis" not in species2:
+                self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
+                self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
+            elif self.backgroundA > 10 and self.backgroundC > 10 and self.backgroundT > 10 and self.backgroundG > 10:
+                self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
+                self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
+            elif self.mixed:
                 self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
                 self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
             else:
@@ -2043,7 +2075,7 @@ class MixedSeq(object):
             self.tabfile.write(str(percent_identity2) + "%\t")
             self.tabfile.write(str(accession2)+"\n")
 
-        elif species2 == "" or query_coverage2 < 50:
+        elif species2 == "":# or query_coverage2 < 50:
             self.file.write(species.split("|")[0])
 
             self.tabfile.write("No\t")
@@ -2051,6 +2083,12 @@ class MixedSeq(object):
             self.tabfile.write(seq + "\t")
 
             if self.avgPhredQuality < 10 and "C.hominis" not in species:
+                self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
+                self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
+            elif self.backgroundA > 10 and self.backgroundC > 10 and self.backgroundT > 10 and self.backgroundG > 10:
+                self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
+                self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
+            elif self.mixed:
                 self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
                 self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
             else:
@@ -2079,6 +2117,12 @@ class MixedSeq(object):
                 if self.avgPhredQuality < 10 and "C.hominis" not in species:
                     self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
                     self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
+                elif self.backgroundA > 10 and self.backgroundC > 10 and self.backgroundT > 10 and self.backgroundG > 10:
+                    self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
+                    self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
+                elif self.mixed:
+                    self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
+                    self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
                 else:
                     self.tabfile.write(" \t")
 
@@ -2093,6 +2137,12 @@ class MixedSeq(object):
                 self.tabfile.write(seq2 + "\t")
 
                 if self.avgPhredQuality < 10 and "C.hominis" not in species:
+                    self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
+                    self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
+                elif self.backgroundA > 10 and self.backgroundC > 10 and self.backgroundT > 10 and self.backgroundG > 10:
+                    self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
+                    self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
+                elif self.mixed:
                     self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
                     self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
                 else:
@@ -2421,6 +2471,7 @@ def msr_main(pathlist, forwardP, reverseP, typeSeq, expName, customdatabsename, 
     os.system("rm query1.txt")
     os.system("rm query2.txt")
     os.system("rm refseq.fa")
+    os.system("rm result1.xml result2.xml SSUresult.xml query.txt")
 
 
 if __name__ == "__main__":
