@@ -1107,14 +1107,16 @@ class analyzingGp60(object):
             # Open the file with writing permission
             myfile = open(filename, 'w')
 
+            self.seq = newseq
+            self.findRepeatRegion()
             # Write a line to the file
-            myfile.write(newseq)
+            myfile.write(''.join(newseq[self.repeatEnds:]))
 
             # Close the file
             myfile.close()
 
             blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn',query="query.txt", dust='yes',
-                                                 db=os.path.dirname(__file__)+"/reference_database/blast_gp60.fasta", reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result.xml")
+                                                 db=os.path.dirname(__file__)+"/reference_database/gp60_ref.fa", reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result.xml")
 
             stdout, stderr = blastn_cline()
 
@@ -1141,7 +1143,7 @@ class analyzingGp60(object):
                 accession = blast_record.alignments[0].hit_id
 
                 if "|" in accession:
-                    accession = accession.split("|")[1]
+                    accession = accession.split("|")[1].split("(")[1].split(")")[0]
 
                 if evalue > 1e-100 or query_coverage < 80:
                     s = newseq[hsp.query_start:hsp.query_end]
@@ -1159,7 +1161,7 @@ class analyzingGp60(object):
                     myfile.close()
 
                     blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn',query="query.txt", dust='yes',
-                                                         db=os.path.dirname(__file__)+"/reference_database/blast_gp60.fasta", reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result.xml")
+                                                         db=os.path.dirname(__file__)+"/reference_database/gp60_ref.fa", reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result.xml")
 
                     stdout, stderr = blastn_cline()
 
@@ -1186,7 +1188,7 @@ class analyzingGp60(object):
                         accession = blast_record.alignments[0].hit_id
 
                         if "|" in accession:
-                            accession = accession.split("|")[1]
+                            accession = accession.split("|")[1].split("(")[1].split(")")[0]
 
                         return bitscore,evalue,query_coverage,query_length,percent_identity, accession, newseq
                 else:
@@ -1195,6 +1197,28 @@ class analyzingGp60(object):
 
 
         else:
+            # Filename to write
+            filename = "query.txt"
+
+            # Open the file with writing permission
+            myfile = open(filename, 'w')
+
+            self.seq = sequence
+            self.findRepeatRegion()
+            # Write a line to the file
+            myfile.write(''.join(sequence[self.repeatEnds:]))
+
+            # Close the file
+            myfile.close()
+
+            blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn',query="query.txt", dust='yes',
+                                                 db=os.path.dirname(__file__)+"/reference_database/gp60_ref.fa", reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result.xml")
+
+            stdout, stderr = blastn_cline()
+
+            if (os.stat("gp60result.xml").st_size == 0):
+                return "","","","","","",""
+            
             result_handle = open("gp60result.xml", 'r')
             blast_records = NCBIXML.parse(result_handle)
             blast_record = next(blast_records)
@@ -1213,8 +1237,7 @@ class analyzingGp60(object):
             accession = blast_record.alignments[0].hit_id
 
             if "|" in accession:
-                accession = accession.split("|")[1]
-
+                accession = accession.split("|")[1].split("(")[1].split(")")[0]
 
             return bitscore,evalue,query_coverage,query_length,percent_identity, accession, sequence
 
