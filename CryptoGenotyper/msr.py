@@ -1152,7 +1152,7 @@ class MixedSeq(object):
                 iupacBase = addIupac(firstBase, secondBase)
                 newSeq.append(iupacBase)
 
-                if i > 30 and i < self.seqLength-30 and LRI < 1.5:
+                if i > 50 and i < self.seqLength-50 and LRI < 1.0:
                     self.mixed = True
 
             else:
@@ -1372,7 +1372,7 @@ class MixedSeq(object):
                                                  db="custom_db",
                                                  reward=1, penalty=-2, gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="result1.xml")
         else:
-            blastn_cline = NcbiblastnCommandline(query="query1.txt", db= os.path.dirname(__file__)+"/reference_database/blast_SSU.fa",
+            blastn_cline = NcbiblastnCommandline(query="query1.txt", db= os.path.dirname(__file__)+"/reference_database/msr_ref.fa",
                                               outfmt=5, out="result1.xml")
 
         stdout, stderr = blastn_cline()
@@ -1418,7 +1418,7 @@ class MixedSeq(object):
             blastn_cline = NcbiblastnCommandline(
                                              query="query2.txt",
 
-                                             db=os.path.dirname(__file__)+"/reference_database/blast_SSU.fa",
+                                             db=os.path.dirname(__file__)+"/reference_database/msr_ref.fa",
                                               outfmt=5, out="result2.xml")
         blastn_cline
         stdout, stderr = blastn_cline()
@@ -1495,7 +1495,7 @@ class MixedSeq(object):
 
         elif self.species1 != ";>No blast hits.":
 
-            os.system("blastdbcmd -db " + os.path.dirname(__file__)+"/reference_database/blast_SSU.fa -entry " + "'{}'".format(self.species1) + " -out refseq.fa")
+            os.system("blastdbcmd -db " + os.path.dirname(__file__)+"/reference_database/msr_ref.fa -entry " + "'{}'".format(self.species1) + " -out refseq.fa")
 
             file = open("refseq.fa", 'r')
             lines = file.readlines()
@@ -1524,7 +1524,7 @@ class MixedSeq(object):
 
         elif self.species2 != ";>No blast hits.":
 
-            os.system("blastdbcmd -db " + os.path.dirname(__file__)+"/reference_database/blast_SSU.fa -entry " + "'{}'".format(self.species2) + " -out refseq.fa")
+            os.system("blastdbcmd -db " + os.path.dirname(__file__)+"/reference_database/msr_ref.fa -entry " + "'{}'".format(self.species2) + " -out refseq.fa")
 
             file = open("refseq.fa", 'r')
             lines = file.readlines()
@@ -2057,9 +2057,7 @@ class MixedSeq(object):
             if self.avgPhredQuality < 10 and "C.hominis" not in species2:
                 self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
                 self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
-            elif self.backgroundA > 10 and self.backgroundC > 10 and self.backgroundT > 10 and self.backgroundG > 10:
-                self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
-                self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
+
             elif self.mixed:
                 self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
                 self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
@@ -2083,9 +2081,6 @@ class MixedSeq(object):
             self.tabfile.write(seq + "\t")
 
             if self.avgPhredQuality < 10 and "C.hominis" not in species:
-                self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
-                self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
-            elif self.backgroundA > 10 and self.backgroundC > 10 and self.backgroundT > 10 and self.backgroundG > 10:
                 self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
                 self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
             elif self.mixed:
@@ -2117,9 +2112,6 @@ class MixedSeq(object):
                 if self.avgPhredQuality < 10 and "C.hominis" not in species:
                     self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
                     self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
-                elif self.backgroundA > 10 and self.backgroundC > 10 and self.backgroundT > 10 and self.backgroundG > 10:
-                    self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
-                    self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
                 elif self.mixed:
                     self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
                     self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
@@ -2137,9 +2129,6 @@ class MixedSeq(object):
                 self.tabfile.write(seq2 + "\t")
 
                 if self.avgPhredQuality < 10 and "C.hominis" not in species:
-                    self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
-                    self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
-                elif self.backgroundA > 10 and self.backgroundC > 10 and self.backgroundT > 10 and self.backgroundG > 10:
                     self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
                     self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
                 elif self.mixed:
