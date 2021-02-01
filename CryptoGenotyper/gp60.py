@@ -1218,7 +1218,7 @@ class analyzingGp60(object):
 
             if (os.stat("gp60result.xml").st_size == 0):
                 return "","","","","","",""
-            
+
             result_handle = open("gp60result.xml", 'r')
             blast_records = NCBIXML.parse(result_handle)
             blast_record = next(blast_records)
@@ -1366,6 +1366,8 @@ class analyzingGp60(object):
 
             elif self.checkRepeatManually:
                 self.tabfile.write("\t" + "Note: Not all bases in repeat region had phred quality >= 20.\t")
+            elif percent_identity < 99.1:
+                self.tabfile.write("\t" + "BLAST percent identity less than 99.1%. Check manually in case of new gp60 family.\t")
             else:
                 self.tabfile.write("\tN/A\t")
 
