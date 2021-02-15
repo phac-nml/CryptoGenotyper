@@ -125,19 +125,6 @@ class analyzingGp60(object):
         #phred quality of the bases
         self.phred_qual=record.letter_annotations['phred_quality']
 
-        '''seq = ""
-        for i in range(0, len(self.seq)):
-            if self.seq[i] == 78:
-                seq += "N"
-            elif self.seq[i] == 65:
-                seq += "A"
-            elif self.seq[i] == 71:
-                seq += "G"
-            elif self.seq[i] == 84:
-                seq += "T"
-            elif self.seq[i] == 67:
-                seq += "C"
-        self.seq=list(seq)'''
 
         if any([isinstance(element,str) == False for element in self.seq]):
             self.seq = list(record.annotations['abif_raw']['PBAS2'].decode('UTF-8'))
@@ -155,12 +142,7 @@ class analyzingGp60(object):
         # Open the file with writing permission
         myfile = open(filename, 'w')
 
-        # Write a line to the file
-        #if self.forwardSeq:
-        #    myfile.write(''.join(self.seq))
-        #elif len(self.seq) > 400:
-        #    myfile.write(''.join(self.seq[:400]))
-        #else:
+
         myfile.write(''.join(self.seq))
 
         # Close the file
@@ -480,6 +462,7 @@ class analyzingGp60(object):
 
             self.repeatStarts = start
             self.repeatEnds = end
+            self.forwardSeq = True
 
 
 
@@ -1112,6 +1095,7 @@ class analyzingGp60(object):
             # Write a line to the file
             myfile.write(''.join(newseq[self.repeatEnds:]))
 
+
             # Close the file
             myfile.close()
 
@@ -1138,14 +1122,19 @@ class analyzingGp60(object):
                 evalue = hsp.expect
                 bitscore = hsp.score
 
-                query_coverage = round(hsp.align_length/blast_record.query_length*100)
+                if hsp.align_length <= blast_record.query_length :
+                    query_coverage = round(hsp.align_length/blast_record.query_length*100)
+                else:
+                    query_coverage = 100
                 query_length = blast_record.query_length
                 accession = blast_record.alignments[0].hit_id
 
                 if "|" in accession:
-                    accession = accession.split("|")[1].split("(")[1].split(")")[0]
+                    accession = accession.split("|")[-1].split("(")[1].split(")")[0]
 
-                if evalue > 1e-100 or query_coverage < 80:
+                return bitscore,evalue,query_coverage,query_length,percent_identity, accession, newseq
+
+                '''if evalue > 1e-60 or query_coverage < 80:
                     s = newseq[hsp.query_start:hsp.query_end]
 
                     # Filename to write
@@ -1156,6 +1145,8 @@ class analyzingGp60(object):
 
                     # Write a line to the file
                     myfile.write(s)
+                    print("S")
+                    print(s)
 
                     # Close the file
                     myfile.close()
@@ -1192,7 +1183,7 @@ class analyzingGp60(object):
 
                         return bitscore,evalue,query_coverage,query_length,percent_identity, accession, newseq
                 else:
-                    return bitscore,evalue,query_coverage,query_length,percent_identity, accession, newseq
+                    return bitscore,evalue,query_coverage,query_length,percent_identity, accession, newseq'''
 
 
 
@@ -1207,6 +1198,7 @@ class analyzingGp60(object):
             self.findRepeatRegion()
             # Write a line to the file
             myfile.write(''.join(sequence[self.repeatEnds:]))
+
 
             # Close the file
             myfile.close()
@@ -1232,12 +1224,15 @@ class analyzingGp60(object):
             percent_identity = round(hsp.identities/hsp.align_length,3)*100
             evalue = hsp.expect
             bitscore = hsp.score
-            query_coverage = round(hsp.align_length/blast_record.query_length*100)
+            if hsp.align_length <= blast_record.query_length :
+                query_coverage = round(hsp.align_length/blast_record.query_length*100)
+            else:
+                query_coverage = 100
             query_length = blast_record.query_length
             accession = blast_record.alignments[0].hit_id
 
             if "|" in accession:
-                accession = accession.split("|")[1].split("(")[1].split(")")[0]
+                accession = accession.split("|")[-1].split("(")[1].split(")")[0]
 
             return bitscore,evalue,query_coverage,query_length,percent_identity, accession, sequence
 
@@ -1344,6 +1339,7 @@ class analyzingGp60(object):
             self.tabfile.write("\t" + seq)
             self.file.write("\n" + seq)
 
+
             #Quality check in comments
             if not foundRepeat:
                 self.tabfile.write("\tCould not classify repeat region. Check manually.\t")
@@ -1361,8 +1357,12 @@ class analyzingGp60(object):
                         self.tabfile.write("\t" + "Note: (1) Not all bases in repeat region had phred quality >= 20. (2) A " + str(insert) + "bp insert was found.\t")
                     elif insert > 1:
                         self.tabfile.write("\t" + "Note: A " + str(insert) + "bp insert was found.\t")
+                    elif percent_identity < 99.1:
+                        self.tabfile.write("\t" + "BLAST percent identity less than 99.1%. Check manually in case of new gp60 family.\t")
                     else:
                         self.tabfile.write("\tN/A\t")
+
+
 
             elif self.checkRepeatManually:
                 self.tabfile.write("\t" + "Note: Not all bases in repeat region had phred quality >= 20.\t")
@@ -1494,22 +1494,8 @@ def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, n
                 #for i in range(0, len(fPrimers)):
                 #if fPrimer in path:
                 forwSeq = forward.readFiles(path, True, file, tabfile)
-                    #break
-                #else:
-                #    forwSeq = True
-
-                #for i in range(0, len(rPrimers)):
-                #    if len(pathlist) <= idx+1:
-                #        print("Ensure primer names entered match those in the sequencing file name.")
-                #        exit()
-
-                #if rPrimer in pathlist[idx+1]:
                 revSeq = reverse.readFiles(pathlist[idx+1], False, file, tabfile)
                 pathlist.remove(pathlist[idx+1])
-                    #break
-                #else:
-                #   revSeq = False
-
 
                 forwardPhred = forward.averagePhredQuality
                 reversePhred = reverse.averagePhredQuality
@@ -1639,9 +1625,9 @@ def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, n
     print("Fasta report written to " + os.getcwd()+"/"+output_report_file_name + ".")
     print("Tab-delimited report written to " + os.getcwd() + "/" + output_tabreport_file_name + ".\nThe gp60 run completed successfully")
 
-    os.system("rm gp60result.xml gp60result2.xml")
-    os.system("rm query.txt")
-    os.system("rm align.fa align.dnd align.aln")
+   # os.system("rm gp60result.xml gp60result2.xml")
+    #os.system("rm query.txt")
+    #os.system("rm align.fa align.dnd align.aln")
 
 if __name__ == "__main__":
 	gp60_main()
