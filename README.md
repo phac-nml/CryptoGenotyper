@@ -84,7 +84,7 @@ cryptogenotyper -i example/ -m gp60 -t contig -f gp60F -r gp60R -o test
 ```
 
 ## Citation
-Please cite the following publication if you find useful this subtyping tool in your work.
+Please cite the following publication if you find this subtyping tool useful in your work.
 
 
 Yanta, C.A., Bessonov, K., Robinson, G., Troell, K., Guy, R.A. (2021) CryptoGenotyper: A new bioinformatics tool for rapid _Cryptosporidium_ identification. _Food and Waterborne Parasitology_, 23:e00115. doi: [10.1016/j.fawpar.2021.e00115](https://doi.org/10.1016/j.fawpar.2021.e00115)
