@@ -1,0 +1,150 @@
+{
+    "a_galaxy_workflow": "true",
+    "annotation": "",
+    "format-version": "0.1",
+    "name": "gp60 - Contig (F and R) - CryptoGenotyper ver 1.1 ",
+    "steps": {
+        "0": {
+            "annotation": "",
+            "content_id": null,
+            "errors": null,
+            "id": 0,
+            "input_connections": {},
+            "inputs": [],
+            "label": null,
+            "name": "Input dataset collection",
+            "outputs": [],
+            "position": {
+                "bottom": 499,
+                "height": 81,
+                "left": 791,
+                "right": 991,
+                "top": 418,
+                "width": 200,
+                "x": 791,
+                "y": 418
+            },
+            "tool_id": null,
+            "tool_state": "{\"optional\": false, \"collection_type\": \"list:paired\"}",
+            "tool_version": null,
+            "type": "data_collection_input",
+            "uuid": "9495570f-403a-4443-9fea-6fed4c0953c9",
+            "workflow_outputs": [
+                {
+                    "label": null,
+                    "output_name": "output",
+                    "uuid": "089d28be-751c-4b06-acc5-631bac024b76"
+                }
+            ]
+        },
+        "1": {
+            "annotation": "",
+            "content_id": "CryptoGenotyper",
+            "errors": null,
+            "id": 1,
+            "input_connections": {
+                "primers|abi_input": {
+                    "id": 0,
+                    "output_name": "output"
+                }
+            },
+            "inputs": [
+                {
+                    "description": "runtime parameter for tool CryptoGenotyper",
+                    "name": "db"
+                },
+                {
+                    "description": "runtime parameter for tool CryptoGenotyper",
+                    "name": "primers"
+                }
+            ],
+            "label": null,
+            "name": "CryptoGenotyper",
+            "outputs": [
+                {
+                    "name": "outfile",
+                    "type": "fasta"
+                },
+                {
+                    "name": "outfile_report",
+                    "type": "tabular"
+                }
+            ],
+            "position": {
+                "bottom": 585,
+                "height": 212,
+                "left": 1169.5,
+                "right": 1369.5,
+                "top": 373,
+                "width": 200,
+                "x": 1169.5,
+                "y": 373
+            },
+            "post_job_actions": {},
+            "tool_id": "CryptoGenotyper",
+            "tool_state": "{\"db\": {\"__class__\": \"RuntimeValue\"}, \"marker\": \"gp60\", \"outputheader\": \"false\", \"primers\": {\"seqtype\": \"contig\", \"__current_case__\": 0, \"abi_input\": {\"__class__\": \"RuntimeValue\"}}, \"__page__\": null, \"__rerun_remap_job_id__\": null}",
+            "tool_version": "1.0+galaxy0",
+            "type": "tool",
+            "uuid": "3be0aa23-008e-4ecc-8ad6-9906933159eb",
+            "workflow_outputs": [
+                {
+                    "label": "CryptoGenotyper:input dataset(s):fastas",
+                    "output_name": "outfile",
+                    "uuid": "b1ee1ddc-a6ef-47e0-9844-4c902d167090"
+                },
+                {
+                    "label": "CryptoGenotyper:input dataset(s):reports",
+                    "output_name": "outfile_report",
+                    "uuid": "1b8f87ad-15d0-4ad2-8d32-ce1f9ae7f1aa"
+                }
+            ]
+        },
+        "2": {
+            "annotation": "",
+            "content_id": "tp_cat",
+            "errors": null,
+            "id": 2,
+            "input_connections": {
+                "inputs": {
+                    "id": 1,
+                    "output_name": "outfile_report"
+                }
+            },
+            "inputs": [],
+            "label": null,
+            "name": "Concatenate datasets",
+            "outputs": [
+                {
+                    "name": "out_file1",
+                    "type": "input"
+                }
+            ],
+            "position": {
+                "bottom": 548,
+                "height": 112,
+                "left": 1464.5,
+                "right": 1664.5,
+                "top": 436,
+                "width": 200,
+                "x": 1464.5,
+                "y": 436
+            },
+            "post_job_actions": {},
+            "tool_id": "tp_cat",
+            "tool_state": "{\"inputs\": {\"__class__\": \"ConnectedValue\"}, \"queries\": [], \"__page__\": null, \"__rerun_remap_job_id__\": null}",
+            "tool_version": "0.1.0",
+            "type": "tool",
+            "uuid": "0c6ef3f5-a388-4b8d-bafc-89bf079b012e",
+            "workflow_outputs": [
+                {
+                    "label": null,
+                    "output_name": "out_file1",
+                    "uuid": "fe411841-d3b0-4e2f-adae-4a0475f11b68"
+                }
+            ]
+        }
+    },
+    "tags": [],
+    "uuid": "b2d7263e-55f2-4a29-9b3f-0b1bbf13996e",
+    "version": 2
+}
