@@ -11,6 +11,7 @@
 import io
 import os
 import re
+from CryptoGenotyper import logging, definitions
 
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -32,6 +33,8 @@ global TESTING
 TESTING = False
 
 
+# setup the application logging
+LOG = logging.create_logger(__name__)
 
 #analyzingGp60 Class Description:
 #   This class keeps all the information of each Cryptosporidium sample's
@@ -77,7 +80,7 @@ class analyzingGp60(object):
 
 
 
-    def readFiles(self, dataFile, forw, output, tabFile):
+    def readFiles(self, dataFile, forw, output, tabFile, filetype = "abi"):
         #setting whether the sequence is the forward or reverse strand
         #(used later on know whether the reverse complement is needed)
         if forw:
@@ -94,21 +97,35 @@ class analyzingGp60(object):
         #retrieves the sample file name (removes directory pathway)
         self.name = dataFile.split("/")[len(dataFile.split("/"))-1]
 
-        if TESTING:
-            print("\nSequence: ", self.name) #Lets user know which sequence the program is on
+        LOG.debug("\nSequence: ", self.name) #Lets user know which sequence the program is on
 
         #opens the ab1 file
-        handle=open(dataFile,"rb")
-        record=SeqIO.read(handle, "abi")
+        if  filetype == "abi":
+            handle=open(dataFile,"rb")
+            record=SeqIO.read(handle, filetype)
+            #retrieving base amplitude data
+            self.g=np.array(record.annotations['abif_raw']['DATA9'])
+            self.a=np.array(record.annotations['abif_raw']['DATA10'])
+            self.t=np.array(record.annotations['abif_raw']['DATA11'])
+            self.c=np.array(record.annotations['abif_raw']['DATA12'])
 
-        #retrieving base amplitude data
-        self.g=np.array(record.annotations['abif_raw']['DATA9'])
-        self.a=np.array(record.annotations['abif_raw']['DATA10'])
-        self.t=np.array(record.annotations['abif_raw']['DATA11'])
-        self.c=np.array(record.annotations['abif_raw']['DATA12'])
+            #obtaining primary bases, includes N's
+            raw_seq = list(record.annotations['abif_raw']['PBAS2'].decode('UTF-8'))
 
-        #obtaining primary bases, includes N's
-        self.seq=list(record.annotations['abif_raw']['PBAS2'])
+            #peak locations
+            self.peakLoc=np.array(record.annotations['abif_raw']['PLOC2'])
+
+            #phred quality of the bases
+            self.phred_qual=record.letter_annotations['phred_quality']
+            self.seq = raw_seq
+        elif filetype == "fasta" or filetype == "fa":
+            handle=open(dataFile,"r")   
+            record=SeqIO.read(handle, filetype)
+            raw_seq = list(record.seq)
+            self.seq = raw_seq
+            self.phred_qual = [60] * len(raw_seq)
+
+        
         self.seqLength = len(self.seq)
 
 
@@ -118,44 +135,38 @@ class analyzingGp60(object):
         self.b = 0
         self.e = 0
 
-        #peak locations
-        self.peakLoc=np.array(record.annotations['abif_raw']['PLOC2'])
+        
 
 
-        #phred quality of the bases
-        self.phred_qual=record.letter_annotations['phred_quality']
-
-
-        if any([isinstance(element,str) == False for element in self.seq]):
-            self.seq = list(record.annotations['abif_raw']['PBAS2'].decode('UTF-8'))
+        #if any([isinstance(element,str) == False for element in self.seq]):
+        #    self.seq = list(record.annotations['abif_raw']['PBAS2'].decode('UTF-8'))
             #self.oldseq = list(record.annotations['abif_raw']['PBAS2'].decode('UTF-8'))
+       #     print(self.seq);exit()
 
         b = 0
         e = 0
 
-
-
-
-
-        filename = "query.txt"
-
-        # Open the file with writing permission
+        filename = f"query_vs_blast_gp60.txt"
         myfile = open(filename, 'w')
 
-
+        LOG.debug(f"Sequence FASTA {self.name} "+''.join(self.seq)) #debug
         myfile.write(''.join(self.seq))
 
         # Close the file
         myfile.close()
-
-        blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn',query="query.txt", dust='yes',
-                                             db=os.path.dirname(__file__)+"/reference_database/blast_gp60.fasta", reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result2.xml")
-
+        
+        dbpath = os.path.join(os.path.dirname(__file__),"reference_database/blast_gp60.fasta")
+        blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn',query=filename, dust='yes',
+                                             db= dbpath,
+                                             reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result2.xml")
+        LOG.info(f"Querying {self.name} seq of {len(self.seq)}bp against the {os.path.basename(blastn_cline.db)} gp60 database ...")
         stdout, stderr = blastn_cline()
+        LOG.debug(f"BLASTN stdout={stdout} and stderr={stderr}")
+        
 
         if (os.stat("gp60result2.xml").st_size == 0):
+            LOG.error(f"Generated an empty gp60 BLAST result for {self.name}")
             return False
-
         else:
             result_handle = open("gp60result2.xml", 'r')
             blast_records = NCBIXML.parse(result_handle)
@@ -170,11 +181,12 @@ class analyzingGp60(object):
             self.species = br_alignment.hit_id
             b = hsp.query_start
             e = hsp.query_end
-
+            
             if b > (len(self.seq)*0.25):
+                dbpath = os.path.join(os.path.dirname(__file__),"reference_database/gp60_ref.fa")
+                LOG.info(f"Querying {self.name} against the {dbpath} gp60 database ...")
 
-
-                filename = "query.txt"
+                filename = f"query_vs_gp60_ref.txt"
 
                 # Open the file with writing permission
                 myfile = open(filename, 'w')
@@ -185,9 +197,9 @@ class analyzingGp60(object):
                 # Close the file
                 myfile.close()
 
-                blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn',query="query.txt", dust='yes',
+                blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn',query=filename, dust='yes',
                                                      db=os.path.dirname(__file__)+"/reference_database/gp60_ref.fa", reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=1e-5, outfmt=5, out="gp60result.xml")
-
+                LOG.info(f"Querying {self.name} against the {blastn_cline.db} gp60 database ...")
                 stdout, stderr = blastn_cline()
 
                 if (os.stat("gp60result.xml").st_size !=0):
@@ -207,6 +219,7 @@ class analyzingGp60(object):
 
         #Checking quality of the sequence.  If the avg. phred quality < 20 (99% base
         #   calling certainty), then the sequence cannot be analyzed.
+        
         quality=0
         full_quality = 0
 
@@ -217,14 +230,12 @@ class analyzingGp60(object):
             full_quality += self.phred_qual[i]
 
         full_quality = full_quality/self.seqLength
-
+        
 
         quality = quality / len(self.phred_qual[b:e])
         self.averagePhredQuality = round(quality,2)
-
-
-
-
+        LOG.info(f"Average PHRED {self.name} sequence quality is {self.averagePhredQuality}")
+      
         if quality < 20 or full_quality < 10:
             #self.file.write("\n")
             #self.file.write("\n;>Sequence: " + self.name.split(".ab1")[0])
@@ -232,21 +243,19 @@ class analyzingGp60(object):
 
             #self.tabfile.write(self.name.split(".ab1")[0] + "\t-\t-\t-\t" + "Poor sequence quality. Check manually.\t" + str(self.averagePhredQuality) + "\n")
 
-            if TESTING:
-                print("\tPoor sequence data. Could not analyze. Refer to sequence manually.")
+            LOG.warning(f"\tPoor sequence data for {self.name}. Could not analyze. Refer to sequence manually.")
 
             return False
-
         else:
             self.peakLoc = copy.copy(self.peakLoc[b:e])
             self.seq = copy.copy(self.seq[b:e])
             self.phred_qual = copy.copy(self.phred_qual[b:e])
             self.seqLength = len(self.seq)
-
+            
 
             self.b = b
             self.e = e
-
+            LOG.info(f"Final sequence length {self.seqLength}bp selected from raw {len(raw_seq)} bp sequence ({round(self.seqLength/len(raw_seq)*100,1)}%) with selection range from {self.b} to {self.e}")
             #calling trimSeq to trim the ends of the Sanger sequence
             #goodTrim = self.trimSeq()
             return True
@@ -260,7 +269,10 @@ class analyzingGp60(object):
     #trimSeq() trims both ends of the Sanger sequence since the sequencing is
     #   never clear (usually messy) at the beginning and the end.  Trims based
     #   on phred_quality (10 bases in a row with 99% base calling accuracy)
-    def trimSeq(self):
+    def trimSeq(self, filetype="ab1"):
+        if filetype == "fasta" or filetype == "fa":
+            self.seq = "".join(self.seq)
+            return True
         qual_cutOff = 20 #99% certainty
         foundBegin = False
         foundEnd = False
@@ -692,6 +704,7 @@ class analyzingGp60(object):
 
             #repeat region sequence
             seq = copy.copy(self.seq[self.repeatStarts:self.repeatEnds])
+            LOG.info(f"Found repeat {len(seq)} bp sequence in {self.name} of {len(self.seq)} bp with coordinates {self.repeatStarts}-{self.repeatEnds}: {seq}")
 
             numTCA = seq.count("TCA")
             numTCG = seq.count("TCG")
@@ -730,6 +743,7 @@ class analyzingGp60(object):
                 repeat = ""
 
             self.repeats = repeat
+            LOG.info(f"Final repeat value is {repeat}")
             return True
 
         else:
@@ -738,8 +752,7 @@ class analyzingGp60(object):
 
 
     def determineFamily(self,customdatabsename):
-
-
+        LOG.info(f"Determine family and species of {self.name} of {len(self.seq)}bp sequence ...")
         # Filename to write
         filename = "query.txt"
 
@@ -762,8 +775,9 @@ class analyzingGp60(object):
                                                  reward=1, penalty=-2, gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result.xml")
         else:
             blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn',query="query.txt", dust='yes',
-                                             db=os.path.dirname(__file__)+"/reference_database/gp60_ref.fa", reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result.xml")
-
+                                             db=os.path.dirname(__file__)+"/reference_database/gp60_ref.fa", 
+                                             reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result.xml")
+        LOG.info(f"Querying {self.name} against the {os.path.basename(blastn_cline.db)} gp60 database ...")
         stdout, stderr = blastn_cline()
 
         if (os.stat("gp60result.xml").st_size == 0):
@@ -824,14 +838,16 @@ class analyzingGp60(object):
                     hit = blast_record.alignments[0].hit_id
                     data = hit.split(" ")[0]
                     self.species = blast_record.alignments[0].hit_id
+                
+                LOG.info(f"Species identified {self.species} from {os.path.basename(blastn_cline.db)} gp60 database")        
 
             else:
                 #exit("No BLAST hits found for the input sequence from {}".format(file))
                 self.species="No blast hits."
-                return
+                #return
 
 
-    def blast(self, sequence, contig):
+    def blast(self, sequence, contig, filetype):
         # Filename to write
         filename = "query.txt"
 
@@ -844,9 +860,12 @@ class analyzingGp60(object):
         # Close the file
         myfile.close()
 
+        
         blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn',query="query.txt", dust='yes',
-                                             db=os.path.dirname(__file__)+"/reference_database/blast_gp60.fasta", reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result.xml")
-
+                                             db=os.path.dirname(__file__)+"/reference_database/blast_gp60.fasta", 
+                                             reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result.xml")
+        
+        LOG.info(f"Running BLASTN on {len(sequence)}bp sequence from {self.name} on {os.path.basename(blastn_cline.db)} and contig value is {contig}")
         stdout, stderr = blastn_cline()
 
         if (os.stat("gp60result.xml").st_size == 0):
@@ -896,7 +915,7 @@ class analyzingGp60(object):
                 if abs(self.peakLoc[i]-self.peakLoc[i+1]) < 10:
                     pass
 
-                elif subject[i] == '-':
+                if subject[i] == '-':
                     newseq += query[i]
                 else:
                     query = query[i:]
@@ -916,11 +935,11 @@ class analyzingGp60(object):
                     break
 
             l = len(query)
+            
 
 
             queryOffset=0
             subjectOffset=0
-
 
             for i in range(0, l):
                 #print(query[i+queryOffset], subject[i+subjectOffset], self.a[i], self.g[i], self.c[i], self.t[i])
@@ -1206,6 +1225,7 @@ class analyzingGp60(object):
             blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn',query="query.txt", dust='yes',
                                                  db=os.path.dirname(__file__)+"/reference_database/gp60_ref.fa", reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result.xml")
 
+            LOG.info(f"Running BLASTN on filtered sequence {len(self.seq)}bp from {self.name} on {blastn_cline.db}")
             stdout, stderr = blastn_cline()
 
             if (os.stat("gp60result.xml").st_size == 0):
@@ -1233,6 +1253,7 @@ class analyzingGp60(object):
 
             if "|" in accession:
                 accession = accession.split("|")[-1].split("(")[1].split(")")[0]
+            LOG.info(f"{self.name} BLAST results on {len(sequence[self.repeatEnds:])} bp sequence after repeat region {query_coverage}% coverage, {percent_identity}% identity, top hit accession {accession}")    
 
             return bitscore,evalue,query_coverage,query_length,percent_identity, accession, sequence
 
@@ -1240,8 +1261,9 @@ class analyzingGp60(object):
 
     #printFasta() prints the results of the alignment and the repeat
     #   region for each sample. It then prints the fasta sequence for
-    #   each sample that can succesfully be analyzed
-    def printFasta(self, contig, mode, sampleName):
+    #   each sample that can successfully be analyzed
+    def printFasta(self, contig, mode, sampleName, filetype="ab1"):
+        LOG.info(f"Running printFasta() on {self.name} and current {self.species} and repeat encoding {self.repeats} ...")
         #IF WANTING TO PRINT TO SCREEN INSTEAD
         if TESTING and contig!="":
             print(">Contig: ", end="")
@@ -1259,17 +1281,19 @@ class analyzingGp60(object):
 
         #Output type of sequences
         self.tabfile.write(mode + "\t")
-
+        
+        #for forward or reverse inputs
         if contig == "":
             sequence=str(self.seq)
-
+            print(sequence)
             if sequence != "Poor Sequence Quality":
-                bitscore,evalue,query_coverage,query_length,percent_identity, accession, seq = self.blast(sequence,False)
+                bitscore,evalue,query_coverage,query_length,percent_identity, accession, seq = self.blast(sequence,False, filetype)
 
         else:
             sequence = contig
 
             if sequence != "Poor Sequence Quality":
+                LOG.info("Running BLAST on contig of acceptable quality and getting top hit accession ...")
                 bitscore,evalue,query_coverage,query_length,percent_identity, accession, seq = self.blast(sequence, True)
 
         if self.seq == "Poor Sequence Quality":
@@ -1286,12 +1310,10 @@ class analyzingGp60(object):
 
         else:
             self.seq = seq
-
             self.determineFamily("")
 
 
             #Output Species and Subfamily(ex. C.parvum\tIIa)
-
             if len(self.species.split("(")) > 0:
                 speciesName = self.species.split("(")[0]
 
@@ -1387,6 +1409,7 @@ class analyzingGp60(object):
 
 #Function to build the contig of forward and reverse sequences
 def buildContig(s1, s2):
+    LOG.info("Building contig of forward and reverse sequences ...")
     if s1 == "":
         return s2
     elif s2 == "":
@@ -1428,19 +1451,40 @@ def buildContig(s1, s2):
 
         return contig
 
-
+def getFileType(path):
+    #pathtypes = [filetype  for path in pathlist for filetype in FILETYPES if path.endswith(filetype)]
+    #print(pathtypes)
+    filetype = [filetype for filetype in definitions.FILETYPES if path.endswith(filetype) ]
+    if filetype and len(filetype) == 1:
+        filetype = filetype[0]
+        if 'ab1' == filetype:
+            filetype = "abi"
+        return filetype 
+    else:
+        return None
 
 
 def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, noheader):
-
-
     fPrimer = fPrimer.replace(' ', '')
     rPrimer = rPrimer.replace(' ', '')
 
+    pathlist = [path for path in pathlist if re.search("|".join(definitions.FILETYPES),path)]
 
-    pathlist = [path for path in pathlist if
-                re.search(fPrimer, path) or re.search(rPrimer, path)]  # select only files matching the primers
+    if fPrimer and rPrimer:
+        pathlist = [path for path in pathlist if re.search(fPrimer, path) or re.search(rPrimer, path)]  # select only files matching the primers
+    elif fPrimer:
+        pathlist = [path for path in pathlist if re.search(fPrimer, path)]
+    elif rPrimer:
+        pathlist = [path for path in pathlist if re.search(rPrimer, path)]
+
+    
+   
+    if pathlist == []:
+        LOG.error(f"No supported input files found in {pathlist}. Supported input filetypes are ab1, fasta, fastq")
+        exit()
+    
     pathlist.sort()
+    LOG.info(f"Processing {len(pathlist)} files:\n{"\n".join(pathlist)}")
 
     contig = False
     onlyForwards = False
@@ -1463,13 +1507,13 @@ def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, n
         tabfile.write("Sample Name\tType of Sequences\tSpecies\tSubtype\tSequence\tComments\tAvg. Phred Quality\tBit Score\tQuery Length (bp)\tQuery Coverage\tE-value\tPercent Identity\tAccession Number\n")
 
     file = io.StringIO()
-
+    #Write output fasta with comments
     file.write("\n;>****************************************************************************")
     file.write("\n;>gp60 SEQUENCE ANALYSIS INPUT PARAMETERS:")
     if customdatabsename:
         file.write("\n  ;>Reference File: " + customdatabsename)
     else:
-        file.write("\n  ;>Reference File: " + "gp60_ref.fa (default)")
+        file.write("\n  ;>Reference File: " + "gp60_ref.fa (default)") #debug this might not be always true, actually it is blast_gp60.fa as default
     file.write("\n  ;>Program mode: " + typeSeq)
     if typeSeq == 'forward':
         file.write("\n  ;>Forward Primer: " + str(fPrimer))
@@ -1486,16 +1530,17 @@ def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, n
     if contig:
         if len(pathlist)%2 == 0:
             for idx, path in enumerate(pathlist):
-                forward = analyzingGp60()
-                reverse = analyzingGp60()
+                LOG.info(f"Analyzing {os.path.basename(pathlist[idx])} and {os.path.basename(pathlist[idx+1])} in contig mode")
+                forward = analyzingGp60() #forward read object
+                reverse = analyzingGp60() #reverse read object
 
 
-
+                
                 #for i in range(0, len(fPrimers)):
                 #if fPrimer in path:
-                forwSeq = forward.readFiles(path, True, file, tabfile)
-                revSeq = reverse.readFiles(pathlist[idx+1], False, file, tabfile)
-                pathlist.remove(pathlist[idx+1])
+                forwSeqbool = forward.readFiles(path, True, file, tabfile)
+                revSeqbool = reverse.readFiles(pathlist[idx+1], False, file, tabfile)
+                pathlist.remove(pathlist[idx+1])    
 
                 forwardPhred = forward.averagePhredQuality
                 reversePhred = reverse.averagePhredQuality
@@ -1504,32 +1549,38 @@ def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, n
 
                 forward.averagePhredQuality = str(forwardPhred) + "(F); " + str(reversePhred) + "(R)"
 
-                if forwSeq and revSeq:
+                if forwSeqbool and revSeqbool:
                     goodTrimF = forward.trimSeq()
                     goodTrimR = reverse.trimSeq()
+                    #print(dir(forward),dir(reverse),customdatabsename)
+                    #print(f"forward seq top hit blast {forward.species} reverse {reverse.species}")
+                    #'a', 'averagePhredQuality', 'b', 'beginSeq', 'blast', 'c', 'checkRepeatManually', 'determineFamily', 'determineRepeats', 'doublePeaksinRepeat', 'e', 'endSeq', 'file', 'findRepeatRegion', 'fixN', 'forwardSeq', 'g', 'name', 'oldseq', 'peakLoc', 'phred_qual', 'printFasta', 'readFiles', 'repeatEnds', 'repeatStarts', 'repeats', 'seq', 'seqLength', 'species', 't', 'tabfile', 'trimSeq'
 
                     if not goodTrimF and not goodTrimR:
                         forward.repeats="Could not classify repeat region. Check manually."
                         reverse.repeats="Could not classify repeat region. Check manually."
 
                     else:
-                        forward.determineFamily(customdatabsename)
-                        reverse.determineFamily(customdatabsename)
+                        
+                        if customdatabsename:
+                            forward.determineFamily(customdatabsename)
+                            reverse.determineFamily(customdatabsename)
 
 
                         if forward.species == reverse.species and forward.species!= "":
+                            LOG.info(f"Determining repeats for {forward.name} and {reverse.name} ...")
                             forward.determineRepeats()
                             reverse.determineRepeats()
 
-
+                    
                     #if the crypto subfamily was found, find repeat region
                     if forward.species == reverse.species and forward.species != "" and forward.repeats == reverse.repeats and forward.repeats != "":
                         #forward.determineFamily(customdatabsename)
                         #reverse.determineFamily(customdatabsename)
-
+                        
                         Fbitscore,Fevalue,Fquery_coverage,Fquery_length,Fpercent_identity, Faccession, Fnewseq = forward.blast(str(forward.seq), False)
                         Rbitscore,Revalue,Rquery_coverage,Rquery_length,Rpercent_identity, Raccession, Rnewseq = reverse.blast(str(reverse.seq), False)
-
+                        LOG.info(f"Build contig from forward and reverse extracted sequences of {len(Fnewseq)}bp and {len(Rnewseq)}bp")
                         contig = buildContig(Fnewseq, Rnewseq)
 
                         sampleName = forward.name.split(".ab1")[0] + ", " + reverse.name.split(".ab1")[0]
@@ -1541,8 +1592,8 @@ def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, n
                         #reverse.determineFamily(customdatabsename)
                         forward.printFasta("", "forward", forward.name.split(".ab1")[0])
                         reverse.printFasta("", "reverse", reverse.name.split(".ab1")[0])
-
-                elif forwSeq and not revSeq:
+                    
+                elif forwSeqbool and not revSeqbool:
                     goodTrim = forward.trimSeq()
 
                     if not goodTrim:
@@ -1557,7 +1608,7 @@ def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, n
                     reverse.seq = "Poor Sequence Quality"
                     reverse.printFasta("", "reverse", reverse.name.split(".ab1")[0])
 
-                elif revSeq and not forwSeq:
+                elif revSeqbool and not forwSeqbool:
                     forward.seq = "Poor Sequence Quality"
                     forward.printFasta("", "forward", forward.name.split(".ab1")[0])
 
@@ -1573,7 +1624,7 @@ def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, n
 
                 else:
                     forward.seq = "Poor Sequence Quality"
-                    forward.printFasta("", "contig", forward.name.split(".ab1")[0] + ", " + reverse.name.split(".ab1")[0])
+                    forward.printFasta("", "contig", forward.name.split(".ab1")[0] + ", " + reverse.name.split(".ab1")[0])    
 
         else:
             print("ERROR: Uneven number of input files ({}). "
@@ -1583,38 +1634,37 @@ def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, n
 
     else:
         for path in pathlist:
+            filetype = getFileType(path)
+            LOG.info(f"Running {path} as {filetype} file type")
             forward = analyzingGp60()
+                
             if onlyForwards:
-                seq = forward.readFiles(path, True, file, tabfile)
+                read_ok = forward.readFiles(path, True, file, tabfile, filetype)
             elif onlyReverse:
-                seq = forward.readFiles(path, False, file, tabfile)
-
-            if not seq:
+                read_ok = forward.readFiles(path, False, file, tabfile, filetype)
+         
+            if read_ok == False:
                 forward.seq = "Poor Sequence Quality"
-                forward.printFasta("", typeSeq, forward.name.split(".ab1")[0])
+                forward.printFasta("", typeSeq, forward.name.split(f".{filetype}")[0])
             else:
-                goodTrim = forward.trimSeq()
-
-
-                if not goodTrim:
+                goodTrim = forward.trimSeq(filetype)
+                if goodTrim == False:
                     forward.repeats="Could not classify repeat region. Check manually."
-
                 else:
                     forward.determineFamily(customdatabsename)
 
 
-                forward.printFasta("", typeSeq, forward.name.split(".ab1")[0])
+                forward.printFasta("", typeSeq, forward.name.split(f".{filetype}")[0], filetype)
 
-        if TESTING:
-            print("\tFinished analyzing sequence.")
+        LOG.info(f"Finished analyzing sequence {path} ...")
 
     experimentName = expName + "_"
 
     output_report_file_name = experimentName+'cryptogenotyper_report.fa'
     filename = os.path.join('.', output_report_file_name)
-    #print(filename)
+    
     with open(filename, 'w') as resultFile:
-        resultFile.write (file.getvalue())
+        resultFile.write(file.getvalue())
 
     output_tabreport_file_name = experimentName+'cryptogenotyper_report.txt'
     tab_filename = os.path.join('.', output_tabreport_file_name)

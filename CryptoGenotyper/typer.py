@@ -7,6 +7,8 @@ from CryptoGenotyper.msr import msr_main
 from CryptoGenotyper.gp60 import gp60_main
 import argparse
 from CryptoGenotyper.version import  __version__
+from CryptoGenotyper import logging
+
 
 def make_custom_database(input_fasta):
     print("Making custom database from fasta file")
@@ -28,7 +30,8 @@ def parse_cli_arguments():
     parser.add_argument('--verbose', action='store_true', dest='verbose',
                         help='Turn on verbose logging [False].', required=False)
     parser.add_argument('-i','--input',  nargs=1,  required=True,
-                        help="Path to directory with AB1 forward and reverse files OR path to a single AB1 file")
+                        help='''Path to SINGLE directory with AB1 forward and reverse files OR path to a SINGLE AB1 file. 
+                        Use -f and/or -r to filter inputs''')
     parser.add_argument('-m', '--marker', type=str, required=True,
                         help="Name of the marker. Currently gp60 and 18S markers are supported")
     parser.add_argument('-t', '--seqtype', type=str, required=True,
@@ -52,9 +55,9 @@ def parse_cli_arguments():
 #in command line: sequences, marker, contig/f/r, fname, rname, expName
 def main():
     args= parse_cli_arguments()
-
-    print("Running cryptogenotyper v{}".format(__version__))
-
+    LOG = logging.create_logger(__name__)
+    LOG.info("Running cryptogenotyper v{}".format(__version__))
+    LOG.info(args)
     if args.databasefile:
         make_custom_database(input_fasta=args.databasefile)
 
@@ -93,10 +96,10 @@ def main():
     elif typeSeq == "forward":
         #fPrimer = args.forwardprimername
         if marker == "18S":
-            return msr_main(pathlist, fPrimer, "", typeSeq, expName, args.databasefile, header)
+            return msr_main(pathlist, fPrimer, rPrimer, typeSeq, expName, args.databasefile, header)
 
         elif marker == "gp60":
-            return gp60_main(pathlist, fPrimer, "", typeSeq, expName, args.databasefile,header)
+            return gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, args.databasefile,header)
 
 
     elif typeSeq == "reverse":

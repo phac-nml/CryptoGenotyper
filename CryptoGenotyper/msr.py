@@ -1,6 +1,7 @@
 import io
 import os
 import re
+from CryptoGenotyper import logging, definitions
 
 from Bio import SeqIO
 from Bio.Align.Applications import ClustalwCommandline
@@ -2204,6 +2205,16 @@ def msr_main(pathlist, forwardP, reverseP, typeSeq, expName, customdatabsename, 
 
     forwardP = forwardP.replace(' ', '')
     reverseP= reverseP.replace(' ', '')
+
+    pathlist = [path for path in pathlist if re.search("|".join(definitions.FILETYPES),path)]
+
+
+    if forwardP and reverseP:
+        pathlist = [path for path in pathlist if re.search(forwardP, path) or re.search(reverseP, path)]  # select only files matching the primers
+    elif reverseP:
+        pathlist = [path for path in pathlist if re.search(forwardP, path)]
+    elif reverseP:
+        pathlist = [path for path in pathlist if re.search(reverseP, path)]
 
     pathlist = [path for path in pathlist if
                 re.search(forwardP,path) or re.search(reverseP,path)]  # select only files matching the primers

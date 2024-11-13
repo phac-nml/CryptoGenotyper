@@ -20,7 +20,7 @@ exec(open('CryptoGenotyper/version.py').read())
 setup(
    name='cryptogenotyper',
    include_package_data=True,
-   version='1.0',
+   version='1.5.0',
    python_requires='>=3.6',
    setup_requires=['pytest-runner'],
    tests_require=['pytest'],
