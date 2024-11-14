@@ -903,78 +903,118 @@ class analyzingGp60(object):
                 else:
                     subject = record.seq
 
-            newseq=""
-
-            tempA = []
-            tempC = []
-            tempT = []
-            tempG = []
-            tempPL = []
-
-            for i in range(0, len(query)):
-                if abs(self.peakLoc[i]-self.peakLoc[i+1]) < 10:
-                    pass
-
-                if subject[i] == '-':
-                    newseq += query[i]
-                else:
-                    query = query[i:]
-                    subject = subject[i:]
-
-                    tempA = self.a
-                    tempG = self.g
-                    tempC = self.c
-                    tempT = self.t
-                    tempPL = self.peakLoc
-
-                    self.a = self.a[i:]
-                    self.g = self.g[i:]
-                    self.t = self.t[i:]
-                    self.c = self.c[i:]
-                    self.peakLoc = self.peakLoc[i:]
-                    break
-
-            l = len(query)
             
 
+            if filetype == "ab1" or filetype == "abi":
+                newseq=""
+                tempA = []
+                tempC = []
+                tempT = []
+                tempG = []
+                tempPL = []
 
-            queryOffset=0
-            subjectOffset=0
+                for i in range(0, len(query)):
+                    if abs(self.peakLoc[i]-self.peakLoc[i+1]) < 10:
+                        pass
 
-            for i in range(0, l):
-                #print(query[i+queryOffset], subject[i+subjectOffset], self.a[i], self.g[i], self.c[i], self.t[i])
+                    if subject[i] == '-':
+                        newseq += query[i]
+                    else:
+                        query = query[i:]
+                        subject = subject[i:]
 
-                if (i+queryOffset) >= len(self.peakLoc) or (i+subjectOffset)>=len(subject):
-                    break
-                if query[i+queryOffset] != subject[i+subjectOffset]:
-                    if queryOffset == -1:
-                        if (i+queryOffset+1) >= len(self.peakLoc):
-                            pass
-                        elif abs(self.peakLoc[i+queryOffset]-self.peakLoc[i+queryOffset+1]) <= 10:
-                            queryOffset = 0
-                            subjectOffset = -1
+                        tempA = self.a
+                        tempG = self.g
+                        tempC = self.c
+                        tempT = self.t
+                        tempPL = self.peakLoc
 
-                    elif (i+queryOffset)>= self.repeatStarts and (i+queryOffset)<=self.repeatEnds:
-                        #print("IN")
-                        if (i+queryOffset+1) >= len(self.peakLoc):
-                            pass
-                        elif abs(self.peakLoc[i+queryOffset]-self.peakLoc[i+queryOffset+1]) <= 10 or abs(self.peakLoc[i+queryOffset]-self.peakLoc[i+queryOffset-1]) <= 10:
-                            if subject[i+subjectOffset] != '-' and query[i+queryOffset]!='-' and (query[i+queryOffset] == query[i+queryOffset-1] or query[i+queryOffset] == query[i+queryOffset+1]):
-                                newseq+= subject[i+subjectOffset]
+                        self.a = self.a[i:]
+                        self.g = self.g[i:]
+                        self.t = self.t[i:]
+                        self.c = self.c[i:]
+                        self.peakLoc = self.peakLoc[i:]
+                        break
+
+                l = len(query)
+            
+                queryOffset=0
+                subjectOffset=0
+
+                for i in range(0, l):
+                    #print(l, query[i+queryOffset], subject[i+subjectOffset], self.a[i], self.g[i], self.c[i], self.t[i])
+
+                    if (i+queryOffset) >= len(self.peakLoc) or (i+subjectOffset)>=len(subject):
+                        break
+                    if query[i+queryOffset] != subject[i+subjectOffset]:
+                        if queryOffset == -1:
+                            if (i+queryOffset+1) >= len(self.peakLoc):
+                                pass
+                            elif abs(self.peakLoc[i+queryOffset]-self.peakLoc[i+queryOffset+1]) <= 10:
+                                queryOffset = 0
+                                subjectOffset = -1
+
+                        elif (i+queryOffset)>= self.repeatStarts and (i+queryOffset)<=self.repeatEnds:
+                            #print("IN")
+                            if (i+queryOffset+1) >= len(self.peakLoc):
+                                pass
+                            elif abs(self.peakLoc[i+queryOffset]-self.peakLoc[i+queryOffset+1]) <= 10 or abs(self.peakLoc[i+queryOffset]-self.peakLoc[i+queryOffset-1]) <= 10:
+                                if subject[i+subjectOffset] != '-' and query[i+queryOffset]!='-' and (query[i+queryOffset] == query[i+queryOffset-1] or query[i+queryOffset] == query[i+queryOffset+1]):
+                                    newseq+= subject[i+subjectOffset]
+                                else:
+                                    if query[i+queryOffset] != '-':
+                                        newseq += query[i+queryOffset]
                             else:
                                 if query[i+queryOffset] != '-':
-                                    newseq += query[i+queryOffset]
-                        else:
-                            if query[i+queryOffset] != '-':
 
+                                    a= self.a[i+queryOffset]
+                                    c= self.c[i+queryOffset]
+                                    g= self.g[i+queryOffset]
+                                    t= self.t[i+queryOffset]
+
+                                    maxAmp = max(a,c,g,t)
+                                    lri = 1.6 #2.1
+
+
+                                    if subject[i+subjectOffset] == 'A':
+                                        if a != 0 and a != maxAmp:
+                                            lri = math.log((maxAmp/a),2)
+                                    elif subject[i+subjectOffset] == "G":
+                                        if g != 0 and g != maxAmp:
+                                            lri = math.log((maxAmp/g),2)
+                                    elif subject[i+subjectOffset] == "C":
+                                        if c != 0 and c!=maxAmp:
+                                            lri = math.log((maxAmp/c),2)
+                                    elif subject[i+subjectOffset] == "T":
+                                        if t != 0 and t!=maxAmp:
+                                            lri = math.log((maxAmp/t),2)
+
+                                    if lri <= 1.5: #2.0
+                                        newseq += subject[i+subjectOffset]
+                                    else:
+                                        newseq += query[i+queryOffset]
+
+                        elif query[i+queryOffset] == "-":
+                            pass
+                        elif subject[i+subjectOffset] == "-":
+                            if (i+queryOffset+1) >= len(self.peakLoc):
+                                pass
+                            elif abs(self.peakLoc[i+queryOffset]-self.peakLoc[i+queryOffset+1]) < 10 : #>9
+                                queryOffset = -1
+
+                            else:
+                                pass
+                        else:
+                            if i+queryOffset < len(self.a):
                                 a= self.a[i+queryOffset]
                                 c= self.c[i+queryOffset]
                                 g= self.g[i+queryOffset]
                                 t= self.t[i+queryOffset]
 
-                                maxAmp = max(a,c,g,t)
-                                lri = 1.6 #2.1
+                                #print(a,c,g,t, query[i+queryOffset], subject[i+subjectOffset])
 
+                                maxAmp = max(a,c,g,t)
+                                lri = 3.1
 
                                 if subject[i+subjectOffset] == 'A':
                                     if a != 0 and a != maxAmp:
@@ -989,119 +1029,79 @@ class analyzingGp60(object):
                                     if t != 0 and t!=maxAmp:
                                         lri = math.log((maxAmp/t),2)
 
-                                if lri <= 1.5: #2.0
+                                if lri <= 3.0:
                                     newseq += subject[i+subjectOffset]
                                 else:
-                                    newseq += query[i+queryOffset]
+                                    rest = 0
+                                    if maxAmp == a:
+                                        rest = max(c,g,t)
+                                    elif maxAmp == g:
+                                        rest = max(c,a,t)
+                                    elif maxAmp == c:
+                                        rest = max(g,a,t)
+                                    elif maxAmp == t:
+                                        rest = max(c,a,g)
 
-                    elif query[i+queryOffset] == "-":
-                        pass
-                    elif subject[i+subjectOffset] == "-":
-                        if (i+queryOffset+1) >= len(self.peakLoc):
-                            pass
-                        elif abs(self.peakLoc[i+queryOffset]-self.peakLoc[i+queryOffset+1]) < 10 : #>9
-                            queryOffset = -1
+                                    beforeMax = max(self.a[i+queryOffset-1], self.g[i+queryOffset-1], self.c[i+queryOffset-1],self.t[i+queryOffset-1])
+                                    beforeBase = query[i+queryOffset-1]
 
-                        else:
-                            pass
-                    else:
-                        if i+queryOffset < len(self.a):
-                            a= self.a[i+queryOffset]
-                            c= self.c[i+queryOffset]
-                            g= self.g[i+queryOffset]
-                            t= self.t[i+queryOffset]
+                                    tocontinue = False
 
-                            #print(a,c,g,t, query[i+queryOffset], subject[i+subjectOffset])
+                                    if beforeBase == 'A' and beforeMax == self.a[i+queryOffset-1] or beforeBase == 'G' and beforeMax == self.g[i+queryOffset-1] or beforeBase == 'C' and beforeMax == self.c[i+queryOffset-1] or beforeBase == 'T' and beforeMax == self.t[i+queryOffset-1]:
+                                        if (i+queryOffset+1) < len(self.a):
+                                            afterMax = max(self.a[i+queryOffset+1], self.g[i+queryOffset+1], self.c[i+queryOffset+1],self.t[i+queryOffset+1])
+                                            afterBase = query[i+queryOffset+1]
 
-                            maxAmp = max(a,c,g,t)
-                            lri = 3.1
+                                            if afterBase == 'A' and afterMax == self.a[i+queryOffset+1] or afterBase == 'G' and afterMax == self.g[i+queryOffset+1] or afterBase == 'C' and afterMax == self.c[i+queryOffset+1] or afterBase == 'T' and afterMax == self.t[i+queryOffset+1]:
+                                                #newseq += query[i+queryOffset]
+                                                tocontinue = False
 
-                            if subject[i+subjectOffset] == 'A':
-                                if a != 0 and a != maxAmp:
-                                    lri = math.log((maxAmp/a),2)
-                            elif subject[i+subjectOffset] == "G":
-                                if g != 0 and g != maxAmp:
-                                    lri = math.log((maxAmp/g),2)
-                            elif subject[i+subjectOffset] == "C":
-                                if c != 0 and c!=maxAmp:
-                                    lri = math.log((maxAmp/c),2)
-                            elif subject[i+subjectOffset] == "T":
-                                if t != 0 and t!=maxAmp:
-                                    lri = math.log((maxAmp/t),2)
-
-                            if lri <= 3.0:
-                                newseq += subject[i+subjectOffset]
-                            else:
-                                rest = 0
-                                if maxAmp == a:
-                                    rest = max(c,g,t)
-                                elif maxAmp == g:
-                                    rest = max(c,a,t)
-                                elif maxAmp == c:
-                                    rest = max(g,a,t)
-                                elif maxAmp == t:
-                                    rest = max(c,a,g)
-
-                                beforeMax = max(self.a[i+queryOffset-1], self.g[i+queryOffset-1], self.c[i+queryOffset-1],self.t[i+queryOffset-1])
-                                beforeBase = query[i+queryOffset-1]
-
-                                tocontinue = False
-
-                                if beforeBase == 'A' and beforeMax == self.a[i+queryOffset-1] or beforeBase == 'G' and beforeMax == self.g[i+queryOffset-1] or beforeBase == 'C' and beforeMax == self.c[i+queryOffset-1] or beforeBase == 'T' and beforeMax == self.t[i+queryOffset-1]:
-                                    if (i+queryOffset+1) < len(self.a):
-                                        afterMax = max(self.a[i+queryOffset+1], self.g[i+queryOffset+1], self.c[i+queryOffset+1],self.t[i+queryOffset+1])
-                                        afterBase = query[i+queryOffset+1]
-
-                                        if afterBase == 'A' and afterMax == self.a[i+queryOffset+1] or afterBase == 'G' and afterMax == self.g[i+queryOffset+1] or afterBase == 'C' and afterMax == self.c[i+queryOffset+1] or afterBase == 'T' and afterMax == self.t[i+queryOffset+1]:
-                                            #newseq += query[i+queryOffset]
-                                            tocontinue = False
-
+                                            else:
+                                                tocontinue = True
                                         else:
-                                            tocontinue = True
+                                            tocontinue=True
                                     else:
-                                        tocontinue=True
-                                else:
-                                    tocontinue = True
+                                        tocontinue = True
 
-                                if tocontinue:
-                                    if subject[i+subjectOffset] == 'A':
-                                        if a == rest:
-                                            newseq += subject[i+subjectOffset]
-                                        else:
-                                            newseq += query[i+queryOffset]
+                                    if tocontinue:
+                                        if subject[i+subjectOffset] == 'A':
+                                            if a == rest:
+                                                newseq += subject[i+subjectOffset]
+                                            else:
+                                                newseq += query[i+queryOffset]
 
-                                    elif subject[i+subjectOffset] == 'C':
-                                        if c == rest:
-                                            newseq += subject[i+subjectOffset]
-                                        else:
-                                            newseq += query[i+queryOffset]
+                                        elif subject[i+subjectOffset] == 'C':
+                                            if c == rest:
+                                                newseq += subject[i+subjectOffset]
+                                            else:
+                                                newseq += query[i+queryOffset]
 
-                                    elif subject[i+subjectOffset] == 'G':
-                                        if g == rest:
-                                            newseq += subject[i+subjectOffset]
-                                        else:
-                                            newseq += query[i+queryOffset]
-                                    elif subject[i+subjectOffset] == 'T':
-                                        if t == rest:
-                                            newseq += subject[i+subjectOffset]
-                                        else:
-                                            newseq += query[i+queryOffset]
-                                else:
-                                    newseq += query[i+queryOffset]
-                        else:
-                            newseq += query[i+queryOffset]
+                                        elif subject[i+subjectOffset] == 'G':
+                                            if g == rest:
+                                                newseq += subject[i+subjectOffset]
+                                            else:
+                                                newseq += query[i+queryOffset]
+                                        elif subject[i+subjectOffset] == 'T':
+                                            if t == rest:
+                                                newseq += subject[i+subjectOffset]
+                                            else:
+                                                newseq += query[i+queryOffset]
+                                    else:
+                                        newseq += query[i+queryOffset]
+                            else:
+                                newseq += query[i+queryOffset]
 
-                else:
-                    newseq += query[i+queryOffset]
+                    else:
+                        newseq += query[i+queryOffset]
+            
+                if tempA != [] and tempC != [] and tempG != [] and tempT != []:
+                    self.a = tempA
+                    self.c = tempC
+                    self.g = tempG
+                    self.t = tempT
+                    self.peakLoc = tempPL
 
-
-            if tempA != [] and tempC != [] and tempG != [] and tempT != []:
-                self.a = tempA
-                self.c = tempC
-                self.g = tempG
-                self.t = tempT
-                self.peakLoc = tempPL
-
+                self.seq = newseq
 
             # Filename to write
             filename = "query.txt"
@@ -1109,10 +1109,10 @@ class analyzingGp60(object):
             # Open the file with writing permission
             myfile = open(filename, 'w')
 
-            self.seq = newseq
+            
             self.findRepeatRegion()
             # Write a line to the file
-            myfile.write(''.join(newseq[self.repeatEnds:]))
+            myfile.write(''.join(self.seq[self.repeatEnds:]))
 
 
             # Close the file
@@ -1151,7 +1151,7 @@ class analyzingGp60(object):
                 if "|" in accession:
                     accession = accession.split("|")[-1].split("(")[1].split(")")[0]
 
-                return bitscore,evalue,query_coverage,query_length,percent_identity, accession, newseq
+                return bitscore,evalue,query_coverage,query_length,percent_identity, accession, self.seq
 
                 '''if evalue > 1e-60 or query_coverage < 80:
                     s = newseq[hsp.query_start:hsp.query_end]
@@ -1285,7 +1285,6 @@ class analyzingGp60(object):
         #for forward or reverse inputs
         if contig == "":
             sequence=str(self.seq)
-            print(sequence)
             if sequence != "Poor Sequence Quality":
                 bitscore,evalue,query_coverage,query_length,percent_identity, accession, seq = self.blast(sequence,False, filetype)
 
