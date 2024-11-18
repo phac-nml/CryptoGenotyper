@@ -1483,7 +1483,7 @@ def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, n
         exit()
     
     pathlist.sort()
-    LOG.info(f"Processing {len(pathlist)} files:\n{"\n".join(pathlist)}")
+    LOG.info(f"Processing {len(pathlist)} files:\n{'\n'.join(pathlist)}")
 
     contig = False
     onlyForwards = False
