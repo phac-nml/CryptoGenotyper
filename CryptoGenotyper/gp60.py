@@ -179,7 +179,7 @@ class analyzingGp60(object):
             hsp = br_alignment.hsps[0]
 
             self.species = br_alignment.hit_id
-            b = hsp.query_start
+            b = hsp.query_start-1
             e = hsp.query_end
             
             if b > (len(self.seq)*0.25):
@@ -214,7 +214,7 @@ class analyzingGp60(object):
                     hsp = br_alignment.hsps[0]
 
                     self.species = br_alignment.hit_id
-                    b = hsp.query_start
+                    b = hsp.query_start-1
                     e = hsp.query_end
 
         #Checking quality of the sequence.  If the avg. phred quality < 20 (99% base
