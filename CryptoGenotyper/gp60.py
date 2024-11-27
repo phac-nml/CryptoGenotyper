@@ -610,16 +610,17 @@ class analyzingGp60(object):
 
     #determineRepeats() finds the number of repeats found in the gp60 sequence
     #   Looks for TCA, TCG, TCT, and R (defined below).  Will need to modify
-    #   this function is different repeat regions are required to be found.
+    #   this function if different repeat regions are required to be found.
     def determineRepeats(self):
+        self.repeatLen = len(self.seq[self.repeatStarts:self.repeatEnds])
         seq = copy.copy(self.seq)
+
 
 
         #Seeing if good enough quality of sequence to determine repeats
         quality_cutOff=15
         goodQuality=False
         self.checkRepeatManually = False
-
         for i in range(self.repeatStarts, self.repeatEnds):
             if i < len(self.a):
                 a= self.a[i]
@@ -683,12 +684,12 @@ class analyzingGp60(object):
             #after repeat region sequence, looking for R
 
             afterRepeat = copy.copy(self.seq[self.repeatEnds:])
-
-            if (afterRepeat.find("ACATCA")==0) :
+            if (afterRepeat.find("ACATCA")==0) : #returns -1 if substring is not found
                 numAcatca = afterRepeat.count("ACATCA")
+                self.repeatLen = self.repeatLen+numAcatca*len("ACATCA")
 
             elif len(self.species.split("|")) >= 2:
-
+                numHomR = 0; numHomR2 = 0
                 if "Ia" in self.species.split("|")[1]:
                     numHomR = afterRepeat.count("AAAACGGTGGTAAGG") + afterRepeat.count("AGAACGGTGGTAAGG") + afterRepeat.count("AAGACGGTGGTAAGG") + afterRepeat.count("AGGACGGTGGTAAGG")
 
@@ -696,15 +697,16 @@ class analyzingGp60(object):
                     #   Reference:
                     if numHomR >= 2:
                         numHomR2 = afterRepeat.count("AAAACGGTGAAGG") + afterRepeat.count("AAGACGGTGAAGG") + afterRepeat.count("AGAACGGTGAAGG") + afterRepeat.count("AGGACGGTGAAGG")
-
                         numHomR += numHomR2
+                    
                 elif "If" in self.species.split("|")[1]:
                     #numHomfR = afterRepeat.count("AAGAAGGCAAAGAAG") + afterRepeat.count("CAGAAGGCAAAGAAG") + afterRepeat.count("AAGAAGGCAAGAGAAG") + afterRepeat.count("AAGAGGGCAAAGAAG") + afterRepeat.count("AAGAGGGCAGTGAAG")
                     numHomfR = afterRepeat.count("AAGAAGGCAAGAGAAG") + afterRepeat.count("CAGAAGGCAAAGAAG")+ afterRepeat.count("AAGAGGGCAAAGAAG") + afterRepeat.count("AAGAGGGCAGTGAAG")
+                self.repeatLen = self.repeatLen+numHomR*len("AAAACGGTGGTAAGG")+numHomR2*len("AAAACGGTGAAGG")    
 
             #repeat region sequence
             seq = copy.copy(self.seq[self.repeatStarts:self.repeatEnds])
-            LOG.info(f"Found repeat {len(seq)} bp sequence in {self.name} of {len(self.seq)} bp with coordinates {self.repeatStarts}-{self.repeatEnds}: {seq}")
+            LOG.info(f"Found repeat {self.repeatLen} bp sequence in {len(self.seq)} bp sample {self.name} with coordinates {self.repeatStarts+1}-{self.repeatStarts+self.repeatLen}: {self.seq[self.repeatStarts:self.repeatStarts+self.repeatLen]}")
 
             numTCA = seq.count("TCA")
             numTCG = seq.count("TCG")
@@ -729,7 +731,7 @@ class analyzingGp60(object):
                     repeat += "T" + str(numTCT)
                 else:
                     goodRepeat = False
-
+            
             if (numAcatca!=0) and family == "IIa":
                 repeat += "R" + str(numAcatca)
 
@@ -743,7 +745,7 @@ class analyzingGp60(object):
                 repeat = ""
 
             self.repeats = repeat
-            LOG.info(f"Final repeat value is {repeat}")
+            LOG.info(f"Final repeat region standard nomenclature encoded value is {self.repeats}")
             return True
 
         else:
@@ -1483,7 +1485,8 @@ def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, n
         exit()
     
     pathlist.sort()
-    LOG.info(f"Processing {len(pathlist)} files:\n{'\n'.join(pathlist)}")
+    pathlistEnumerated = [f"{idx+1}: {i}" for idx, i in enumerate(pathlist)]
+    LOG.info(f"Processing {len(pathlist)} file(s):\n{'\n'.join(pathlistEnumerated)}")
 
     contig = False
     onlyForwards = False
