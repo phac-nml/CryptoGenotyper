@@ -706,7 +706,7 @@ class analyzingGp60(object):
 
             #repeat region sequence
             seq = copy.copy(self.seq[self.repeatStarts:self.repeatEnds])
-            LOG.info(f"Found repeat {self.repeatLen} bp sequence in {len(self.seq)} bp sample {self.name} with coordinates {self.repeatStarts+1}-{self.repeatStarts+self.repeatLen}: {self.seq[self.repeatStarts:self.repeatStarts+self.repeatLen]}")
+            LOG.info(f"Found repeat {self.repeatLen} bp sequence in {len(self.seq)} bp {self.name} with coordinates {self.repeatStarts+1}-{self.repeatStarts+self.repeatLen}: {self.seq[self.repeatStarts:self.repeatStarts+self.repeatLen]}")
 
             numTCA = seq.count("TCA")
             numTCG = seq.count("TCG")
@@ -1336,16 +1336,12 @@ class analyzingGp60(object):
                 self.seq = seq
 
                 self.findRepeatRegion()
-
                 if self.checkRepeatManually and self.doublePeaksinRepeat: #self.repeats == "Could not classify repeat region. Check manually." or (
                     foundRepeat = False
                 elif self.repeatStarts < 3:
                     foundRepeat = False
                 else:
                     foundRepeat = self.determineRepeats()
-
-
-
 
                 if foundRepeat:
                     self.tabfile.write(self.repeats)
@@ -1486,7 +1482,8 @@ def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, n
     
     pathlist.sort()
     pathlistEnumerated = [f"{idx+1}: {i}" for idx, i in enumerate(pathlist)]
-    LOG.info(f"Processing {len(pathlist)} file(s):\n{'\n'.join(pathlistEnumerated)}")
+    list_of_files_str = "\n".join(pathlistEnumerated)
+    LOG.info(f"Processing {len(pathlist)} file(s):\n{list_of_files_str}")
 
     contig = False
     onlyForwards = False
