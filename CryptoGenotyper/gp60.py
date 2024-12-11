@@ -1512,14 +1512,16 @@ def getFileType(path):
         return None
 
 
-def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, noheader, verbose):
+def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdatabsename, noheader, verbose):
     if verbose:
         LOG.setLevel(logging.DEBUG)
 
     fPrimer = fPrimer.replace(' ', '')
     rPrimer = rPrimer.replace(' ', '')
     
-    pathlist = [path for path in pathlist if re.search("|".join(definitions.FILETYPES),path)]
+   
+    pathlist = [path for path in pathlist_unfiltered if re.search("$|".join(definitions.FILETYPES),path)]
+    
 
     if fPrimer and rPrimer:
         pathlist = [path for path in pathlist if re.search(fPrimer, path) or re.search(rPrimer, path)]  # select only files matching the primers
@@ -1531,8 +1533,10 @@ def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, n
     
    
     if pathlist == []:
-        LOG.error(f"No supported input files found in {pathlist}. Supported input filetypes are {definitions.FILETYPES}")
-        raise Exception(f"Not supported input ({definitions.FILETYPES}) in {pathlist} ...")
+        msg=f"Not supported input file(s) found in pathlist {pathlist_unfiltered}. Supported input filetypes are {definitions.FILETYPES}"
+        LOG.error(msg)
+        raise Exception(msg)
+  
     
     pathlist.sort()
     pathlistEnumerated = [f"{idx+1}: {i}" for idx, i in enumerate(pathlist)]

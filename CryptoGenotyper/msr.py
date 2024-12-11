@@ -1,6 +1,7 @@
 import io
 import os
 import re
+import logging
 from CryptoGenotyper import definitions
 from CryptoGenotyper.logging import create_logger
 
@@ -405,7 +406,7 @@ def indelligent(gen1):
 
     temp1 = ""
     temp2 = ""
-    indel="-1"
+    indel = "-1"
 
     indel = "," + indel + ","
     if indel == ",,-1,," :
@@ -2202,7 +2203,7 @@ class MixedSeq(object):
             self.tabfile.write(str(accession2)+"\n")
 
 
-def msr_main(pathlist, forwardP, reverseP, typeSeq, expName, customdatabsename, noheader, verbose):
+def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customdatabsename, noheader, verbose):
     if verbose:
         LOG.setLevel(logging.DEBUG)
     tabfile = io.StringIO()
@@ -2210,8 +2211,7 @@ def msr_main(pathlist, forwardP, reverseP, typeSeq, expName, customdatabsename, 
     forwardP = forwardP.replace(' ', '')
     reverseP= reverseP.replace(' ', '')
 
-    pathlist = [path for path in pathlist if re.search("|".join(definitions.FILETYPES),path)]
-
+    pathlist = [path for path in pathlist_unfiltered if re.search("$|".join(definitions.FILETYPES),path)]
 
     if forwardP and reverseP:
         pathlist = [path for path in pathlist if re.search(forwardP, path) or re.search(reverseP, path)]  # select only files matching the primers
@@ -2220,8 +2220,12 @@ def msr_main(pathlist, forwardP, reverseP, typeSeq, expName, customdatabsename, 
     elif reverseP:
         pathlist = [path for path in pathlist if re.search(reverseP, path)]
 
-    pathlist = [path for path in pathlist if
-                re.search(forwardP,path) or re.search(reverseP,path)]  # select only files matching the primers
+    
+    if pathlist == []:
+        msg = f"Not supported input file(s) found in pathlist {pathlist_unfiltered}. Supported input filetypes are {definitions.FILETYPES}"
+        LOG.error(msg)
+        raise Exception(msg)
+   
     pathlist.sort()
 
 

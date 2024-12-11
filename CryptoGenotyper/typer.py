@@ -8,6 +8,7 @@ from CryptoGenotyper.gp60 import gp60_main
 import argparse
 from CryptoGenotyper.version import  __version__
 from CryptoGenotyper.logging import create_logger
+import CryptoGenotyper.definitions as definitions
 
 LOG = create_logger(__name__,logging.INFO) 
 
@@ -70,6 +71,11 @@ def main():
     seq_dir = args.input[0]
 
     marker = args.marker
+    if marker not in definitions.MARKERS:
+        msg=f"marker value provided {marker} is not supported (supported markers {definitions.MARKERS})"
+        LOG.error(msg)
+        raise ValueError(msg)
+    
     typeSeq = args.seqtype
 
     expName = args.outputprefix
@@ -85,6 +91,12 @@ def main():
                 pathlist.append(os.path.abspath(seq_dir + "/" + file))
     else:
         pathlist.append(os.path.abspath(seq_dir)) #get absolute path of a single file
+
+    #check if files exists actually
+    for path in pathlist:
+        if os.path.exists(path) == False:
+            msg=f"File does not exist {path}"
+            raise Exception(msg)    
 
     fPrimer=""; rPrimer=""
     if args.forwardprimername:
