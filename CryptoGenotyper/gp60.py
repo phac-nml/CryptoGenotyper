@@ -11,7 +11,9 @@
 import io
 import os
 import re
-from CryptoGenotyper import logging, definitions
+import logging
+from CryptoGenotyper.logging import create_logger
+from CryptoGenotyper import definitions
 
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -34,7 +36,7 @@ TESTING = False
 
 
 # setup the application logging
-LOG = logging.create_logger(__name__)
+LOG = create_logger(__name__)
 
 #analyzingGp60 Class Description:
 #   This class keeps all the information of each Cryptosporidium sample's
@@ -97,7 +99,7 @@ class analyzingGp60(object):
         #retrieves the sample file name (removes directory pathway)
         self.name = dataFile.split("/")[len(dataFile.split("/"))-1]
 
-        LOG.debug("\nSequence: ", self.name) #Lets user know which sequence the program is on
+        LOG.debug(f"Sequence: {self.name}") #Lets user know which sequence the program is on
 
         #opens the ab1 file
         if  filetype == "abi":
@@ -271,20 +273,21 @@ class analyzingGp60(object):
     #   on phred_quality (10 bases in a row with 99% base calling accuracy)
     def trimSeq(self, filetype="ab1"):
         if filetype == "fasta" or filetype == "fa":
-            self.seq = "".join(self.seq)
+            self.seq = list(self.seq)
+            self.findRepeatRegion()
             return True
+        
+        LOG.info(f"Trimming sequence {self.name} of filetype {filetype}")
         qual_cutOff = 20 #99% certainty
         foundBegin = False
         foundEnd = False
 
         #obtain non-ambiguous sequence by fixing the N's
         self.fixN()
-
         #finding the repeat region
         self.findRepeatRegion()
 
         goodRepeatFind = True
-
 
         for i in range(self.repeatEnds, len(self.seq)):
             if i == len(self.seq) -1:
@@ -335,7 +338,7 @@ class analyzingGp60(object):
                 averageC += self.c[self.peakLoc[x]]
                 averageT += self.t[self.peakLoc[x]]
                 averageG += self.g[self.peakLoc[x]]
-
+            
             denom = self.repeatEnds - self.repeatStarts
             averageA = (averageA / denom) *0.75
             averageC = (averageC / denom) *0.75
@@ -399,7 +402,6 @@ class analyzingGp60(object):
 
 
         cutSeqLength = self.endSeq - self.beginSeq
-
         self.repeatStarts = self.repeatStarts - self.beginSeq
         self.repeatEnds = self.repeatEnds - self.beginSeq
 
@@ -485,8 +487,7 @@ class analyzingGp60(object):
             forwSeq = ''.join(self.seq)
             temp = Seq(forwSeq, IUPAC.ambiguous_dna)
             self.seq = copy.copy(temp)
-
-
+        
         return goodRepeatFind
 
 
@@ -530,6 +531,7 @@ class analyzingGp60(object):
     #   Looks through entire sequence for the repeat region, always keeping
     #   track of where the longest TC_ (or AG_ for reverse) repeat is
     def findRepeatRegion(self):
+        LOG.info(f"Trying to find repeat region in the sequence {"".join(self.seq)} ...")
         seq = list(self.seq)
 
 
@@ -543,14 +545,43 @@ class analyzingGp60(object):
         repeatRev = ['G', 'A']
 
         index=0
+        
+        #matched_positions = [match for match in re.finditer(r"TC\w{1,1}","".join(self.seq))]
+        
+        #print([match for match in re.finditer(r"TC\w{1,1}",self.seq)])
+        #repeats_dict = {}; inRepeat = False; repeatsCounter=0; 
+        #for match in matched_positions:
+        #    if match.span()[0]+3 in [m.span()[0] for m in matched_positions]:
+        #        if inRepeat == False:
+        #            repeatsCounter += 1
+        #            repeats_dict[repeatsCounter]=[]
+        #        inRepeat = True
+        #        repeats_dict[repeatsCounter].append(match.span()[0])
+        #    else:
+        #        #not in repeat region or repeat region has just finished
+        #        if inRepeat == True:
+        #            repeats_dict[repeatsCounter].append(match.span()[0]+3)    #add the end position of the repeat region running in triplets
+        #        inRepeat=False
+        #print(repeats_dict)        
+        #longest_repeat_codons_pos = repeats_dict[sorted(repeats_dict, key=lambda key: len(repeats_dict[key]),reverse=True)[0]]     
+        #repeatStart = min(longest_repeat_codons_pos)
+        #repeatEnd = max(longest_repeat_codons_pos)
+        #repeatSeq = self.seq[repeatStart:repeatEnd]
+        
+        #LOG.debug(f"Found longest repeat {repeatSeq} of {len(repeatSeq)}bp (positions {repeatStart}-{repeatEnd}) composed of {len(longest_repeat_codons_pos)} triplets")        
+        #LOG.debug(f"Matched positions binned into repeats dictionary {repeats_dict}")
+        #self.repeatStarts = repeatStart
+        #self.repeatEnds = repeatEnd
+        #return  True
+        
 
-
+        # OLD CODE from v1.0.0
         #loops through entire sequence once
         while True:
             #once entire sequence has been looked at, exit loop
             if index >= self.seqLength:
                 #if the last part of the sequence was a repeat region, update stats
-                #  if appropriate
+                #if appropriate
                 if inRepeat and tempCounter > maxCount:
                     maxCount = tempCounter
                     repeatStart = index - (maxCount*3)
@@ -561,14 +592,15 @@ class analyzingGp60(object):
             #if its a TC_ or AG_ part of the sequence (in a potential repeat region)
             if (self.forwardSeq and seq[index:index+2]==repeatForw) or \
                 (not self.forwardSeq and seq[index:index+2]==repeatRev):
-
+                
                 #if found previous consecutive TC_ and AG_, keep adding onto how
-                #  many and go to the next three bases (next maybe repeat)
+                #many there is and go to the next 3 bases (next maybe repeat)
                 if inRepeat:
+                    
                     tempCounter += 1
                     index += 3
 
-                #meaning start of a new potential repeat region
+                #start of a new potential repeat region
                 else:
                     tempCounter = 1
                     index+=3
@@ -589,11 +621,9 @@ class analyzingGp60(object):
             #if not in a repeat region
             else:
                 index+=1
-
-
+        
         self.repeatStarts = repeatStart
         self.repeatEnds = repeatStart + (maxCount*3)
-
 
         #if it's the reverse sequence, want to subtract one since the reverse sequence
         #  reads _GA and looking for the 'GA' portions (meaning you want to start at the
@@ -612,8 +642,11 @@ class analyzingGp60(object):
     #   Looks for TCA, TCG, TCT, and R (defined below).  Will need to modify
     #   this function if different repeat regions are required to be found.
     def determineRepeats(self):
+        LOG.info(f"Trying to determine the repeat region and encode it in standard nomenclature for {self.name}")
+        self.seq = "".join(self.seq)
         self.repeatLen = len(self.seq[self.repeatStarts:self.repeatEnds])
         seq = copy.copy(self.seq)
+        
 
 
 
@@ -632,7 +665,7 @@ class analyzingGp60(object):
                 c=0
                 g=0
                 t=0
-
+            
             maxAmp = max(a,c,g,t)
             lri = 3.1
 
@@ -644,13 +677,11 @@ class analyzingGp60(object):
                     lri = math.log((maxAmp/c),2)
             if t != 0 and t!=maxAmp:
                     lri = math.log((maxAmp/t),2)
-
+            
             if lri <= 2.0:
                 self.doublePeaksinRepeat = True
 
-
-            if self.phred_qual[i] < quality_cutOff:
-
+            if self.phred_qual[i] < quality_cutOff:  
                 self.checkRepeatManually = True
                 for x in range(0, 3):
                     if i+x >= self.repeatEnds:
@@ -674,7 +705,7 @@ class analyzingGp60(object):
 
             if not goodQuality:
                 break
-
+      
         if goodQuality:
             numAcatca = 0   #C. parvum R
             numHomR = 0     #C. hominis R= A(A/G)(A/G)ACGGTGGTAAGG (15bp minisatellite)
@@ -683,7 +714,8 @@ class analyzingGp60(object):
 
             #after repeat region sequence, looking for R
 
-            afterRepeat = copy.copy(self.seq[self.repeatEnds:])
+            afterRepeat = "".join(copy.copy(self.seq[self.repeatEnds:]))
+            
             if (afterRepeat.find("ACATCA")==0) : #returns -1 if substring is not found
                 numAcatca = afterRepeat.count("ACATCA")
                 self.repeatLen = self.repeatLen+numAcatca*len("ACATCA")
@@ -753,7 +785,7 @@ class analyzingGp60(object):
             return False
 
 
-    def determineFamily(self,customdatabsename):
+    def determineFamily(self,customdatabsename=None):
         LOG.info(f"Determine family and species of {self.name} of {len(self.seq)}bp sequence ...")
         # Filename to write
         filename = "query.txt"
@@ -770,7 +802,7 @@ class analyzingGp60(object):
 
         # Close the file
         myfile.close()
-
+        print("customdatabsename = ",customdatabsename)
         if customdatabsename:
             blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn', query="query.txt", dust='yes',
                                                  db="custom_db",
@@ -781,6 +813,8 @@ class analyzingGp60(object):
                                              reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result.xml")
         LOG.info(f"Querying {self.name} against the {os.path.basename(blastn_cline.db)} gp60 database ...")
         stdout, stderr = blastn_cline()
+        LOG.debug(f"BLAST stdout {stdout} and stderr {stderr}...")
+
 
         if (os.stat("gp60result.xml").st_size == 0):
             #self.tabfile.write("Could not determine sequence. Check manually")
@@ -789,8 +823,10 @@ class analyzingGp60(object):
         else:
             result_handle = open("gp60result.xml", 'r')
             blast_records = NCBIXML.parse(result_handle)
-            blast_record = next(blast_records)
-
+            #print([a.hsps[0].bits for r in blast_records for a in r.alignments])
+            blast_record = next(blast_records) #take the top hit only
+            print(blast_record.alignments[0].hit_id)        
+            
             if len(blast_record.alignments) > 0:
                 if len(blast_record.alignments) >= 2:
 
@@ -847,6 +883,7 @@ class analyzingGp60(object):
                 #exit("No BLAST hits found for the input sequence from {}".format(file))
                 self.species="No blast hits."
                 #return
+            #raise Exception()
 
 
     def blast(self, sequence, contig, filetype):
@@ -1121,7 +1158,8 @@ class analyzingGp60(object):
             myfile.close()
 
             blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn',query="query.txt", dust='yes',
-                                                 db=os.path.dirname(__file__)+"/reference_database/gp60_ref.fa", reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result.xml")
+                                                 db=os.path.dirname(__file__)+"/reference_database/gp60_ref.fa", reward=1, penalty=-2,gapopen=5, gapextend=2,
+                                                 evalue=0.00001, outfmt=5, out="gp60result.xml")
 
             stdout, stderr = blastn_cline()
 
@@ -1264,8 +1302,8 @@ class analyzingGp60(object):
     #printFasta() prints the results of the alignment and the repeat
     #   region for each sample. It then prints the fasta sequence for
     #   each sample that can successfully be analyzed
-    def printFasta(self, contig, mode, sampleName, filetype="ab1"):
-        LOG.info(f"Running printFasta() on {self.name} and current {self.species} and repeat encoding {self.repeats} ...")
+    def printFasta(self, contig, mode, sampleName, filetype="ab1", customdatabsename = None):
+        LOG.info(f"Running printFasta() on {self.name} with species '{self.species}' and repeat encoding '{self.repeats}' ...")
         #IF WANTING TO PRINT TO SCREEN INSTEAD
         if TESTING and contig!="":
             print(">Contig: ", end="")
@@ -1311,7 +1349,7 @@ class analyzingGp60(object):
 
         else:
             self.seq = seq
-            self.determineFamily("")
+            self.determineFamily(customdatabsename)
 
 
             #Output Species and Subfamily(ex. C.parvum\tIIa)
@@ -1334,12 +1372,12 @@ class analyzingGp60(object):
             if "ubiquitum" not in speciesName and "felis" not in speciesName:
                 self.forwardSeq = True
                 self.seq = seq
-
+                #again find repeat region
                 self.findRepeatRegion()
                 if self.checkRepeatManually and self.doublePeaksinRepeat: #self.repeats == "Could not classify repeat region. Check manually." or (
                     foundRepeat = False
-                elif self.repeatStarts < 3:
-                    foundRepeat = False
+                #elif self.repeatStarts < 3: #need some sequence before the repeat region to trust it
+                #    foundRepeat = False
                 else:
                     foundRepeat = self.determineRepeats()
 
@@ -1461,10 +1499,13 @@ def getFileType(path):
         return None
 
 
-def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, noheader):
+def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, noheader, verbose):
+    if verbose:
+        LOG.setLevel(logging.DEBUG)
+
     fPrimer = fPrimer.replace(' ', '')
     rPrimer = rPrimer.replace(' ', '')
-
+    
     pathlist = [path for path in pathlist if re.search("|".join(definitions.FILETYPES),path)]
 
     if fPrimer and rPrimer:
@@ -1478,7 +1519,7 @@ def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, n
    
     if pathlist == []:
         LOG.error(f"No supported input files found in {pathlist}. Supported input filetypes are ab1, fasta, fastq")
-        exit()
+        raise Exception("Not supported input")
     
     pathlist.sort()
     pathlistEnumerated = [f"{idx+1}: {i}" for idx, i in enumerate(pathlist)]
@@ -1553,8 +1594,7 @@ def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, n
                     goodTrimR = reverse.trimSeq()
                     #print(dir(forward),dir(reverse),customdatabsename)
                     #print(f"forward seq top hit blast {forward.species} reverse {reverse.species}")
-                    #'a', 'averagePhredQuality', 'b', 'beginSeq', 'blast', 'c', 'checkRepeatManually', 'determineFamily', 'determineRepeats', 'doublePeaksinRepeat', 'e', 'endSeq', 'file', 'findRepeatRegion', 'fixN', 'forwardSeq', 'g', 'name', 'oldseq', 'peakLoc', 'phred_qual', 'printFasta', 'readFiles', 'repeatEnds', 'repeatStarts', 'repeats', 'seq', 'seqLength', 'species', 't', 'tabfile', 'trimSeq'
-
+                    
                     if not goodTrimF and not goodTrimR:
                         forward.repeats="Could not classify repeat region. Check manually."
                         reverse.repeats="Could not classify repeat region. Check manually."
@@ -1584,7 +1624,7 @@ def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, n
 
                         sampleName = forward.name.split(".ab1")[0] + ", " + reverse.name.split(".ab1")[0]
 
-                        forward.printFasta(contig, "contig", sampleName)
+                        forward.printFasta(contig, "contig", sampleName, customdatabsename)
 
                     else:
                         #forward.determineFamily(customdatabsename)
@@ -1601,15 +1641,15 @@ def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, n
                     else:
                         forward.determineFamily(customdatabsename)
 
-                    forward.printFasta("", "forward", forward.name.split(".ab1")[0])
+                    forward.printFasta("", "forward", forward.name.split(".ab1")[0], customdatabsename)
 
 
                     reverse.seq = "Poor Sequence Quality"
-                    reverse.printFasta("", "reverse", reverse.name.split(".ab1")[0])
+                    reverse.printFasta("", "reverse", reverse.name.split(".ab1")[0], customdatabsename)
 
                 elif revSeqbool and not forwSeqbool:
                     forward.seq = "Poor Sequence Quality"
-                    forward.printFasta("", "forward", forward.name.split(".ab1")[0])
+                    forward.printFasta("", "forward", forward.name.split(".ab1")[0], customdatabsename)
 
                     goodTrim = reverse.trimSeq()
 
@@ -1632,6 +1672,7 @@ def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, n
             file.write("\nCannot find all paired forward and reverse files.  Make sure all files are included to produce the contig.")
 
     else:
+        LOG.info("Forward/Reverse read input only mode started ...")
         for path in pathlist:
             filetype = getFileType(path)
             LOG.info(f"Running {path} as {filetype} file type")
@@ -1644,16 +1685,16 @@ def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, n
          
             if read_ok == False:
                 forward.seq = "Poor Sequence Quality"
-                forward.printFasta("", typeSeq, forward.name.split(f".{filetype}")[0])
+                forward.printFasta("", typeSeq, forward.name.split(f".{filetype}")[0], customdatabsename)
             else:
                 goodTrim = forward.trimSeq(filetype)
                 if goodTrim == False:
                     forward.repeats="Could not classify repeat region. Check manually."
                 else:
-                    forward.determineFamily(customdatabsename)
+                    forward.determineFamily(customdatabsename) 
+                    forward.determineRepeats()
 
-
-                forward.printFasta("", typeSeq, forward.name.split(f".{filetype}")[0], filetype)
+                forward.printFasta("", typeSeq, forward.name.split(f".{filetype}")[0], filetype, customdatabsename)
 
         LOG.info(f"Finished analyzing sequence {path} ...")
 
@@ -1661,7 +1702,6 @@ def gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, customdatabsename, n
 
     output_report_file_name = experimentName+'cryptogenotyper_report.fa'
     filename = os.path.join('.', output_report_file_name)
-    
     with open(filename, 'w') as resultFile:
         resultFile.write(file.getvalue())
 

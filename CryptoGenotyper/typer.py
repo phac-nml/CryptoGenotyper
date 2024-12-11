@@ -1,19 +1,19 @@
 #!/usr/bin/env python
 
-import os
+import os, logging
 import textwrap
 
 from CryptoGenotyper.msr import msr_main
 from CryptoGenotyper.gp60 import gp60_main
 import argparse
 from CryptoGenotyper.version import  __version__
-from CryptoGenotyper import logging
+from CryptoGenotyper.logging import create_logger
 
 
 def make_custom_database(input_fasta):
     print("Making custom database from fasta file")
     print(os.getcwd(), print(input_fasta))
-    os.system("makeblastdb  -dbtype nucl -in "+input_fasta+" -out custom_db")
+    os.system("makeblastdb  -dbtype nucl -in "+input_fasta+" -out custom_db -parse_seqids")
 
 
 def parse_cli_arguments():
@@ -49,17 +49,21 @@ def parse_cli_arguments():
                         help="Path to custom database reference FASTA file")
     parser.add_argument('-v', '--version', action='version', version='%(prog)s {}'.format(__version__))
     parser.add_argument('--noheaderline',action='store_true',dest='header',help='Display header on tab-delimited file [False]', required=False)
-
+    
     return parser.parse_args()
 
 #in command line: sequences, marker, contig/f/r, fname, rname, expName
 def main():
     args= parse_cli_arguments()
-    LOG = logging.create_logger(__name__)
+    if args.verbose:
+        LOG = create_logger(__name__,logging.DEBUG)
+    else:
+        LOG = create_logger(__name__,logging.INFO)  
+
     LOG.info("Running cryptogenotyper v{}".format(__version__))
     LOG.info(args)
     if args.databasefile:
-        make_custom_database(input_fasta=args.databasefile)
+        make_custom_database(input_fasta=args.databasefile)  
 
     seq_dir = args.input[0]
 
@@ -88,29 +92,27 @@ def main():
 
     if typeSeq == "contig":
         if marker == "18S":
-            return msr_main(pathlist, fPrimer, rPrimer, typeSeq, expName, args.databasefile, header)
+            return msr_main(pathlist, fPrimer, rPrimer, typeSeq, expName, args.databasefile, header, args.verbose)
 
         elif marker == "gp60":
-            return gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, args.databasefile, header)
+            return gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, args.databasefile, header, args.verbose)
 
     elif typeSeq == "forward":
         #fPrimer = args.forwardprimername
         if marker == "18S":
-            return msr_main(pathlist, fPrimer, rPrimer, typeSeq, expName, args.databasefile, header)
+            return msr_main(pathlist, fPrimer, rPrimer, typeSeq, expName, args.databasefile, header, args.verbose)
 
         elif marker == "gp60":
-            return gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, args.databasefile,header)
+            return gp60_main(pathlist, fPrimer, rPrimer, typeSeq, expName, args.databasefile, header, args.verbose)
 
 
     elif typeSeq == "reverse":
         #rPrimer = args.reverseprimername
-
-
         if marker == "18S":
-            return msr_main(pathlist, '', rPrimer, typeSeq, expName, args.databasefile, header)
+            return msr_main(pathlist, '', rPrimer, typeSeq, expName, args.databasefile, header, args.verbose)
 
         elif marker == "gp60":
-            return gp60_main(pathlist, '', rPrimer, typeSeq, expName, args.databasefile, header)
+            return gp60_main(pathlist, '', rPrimer, typeSeq, expName, args.databasefile, header, args.verbose)
 
 
 

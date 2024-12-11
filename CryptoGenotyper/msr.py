@@ -1,7 +1,8 @@
 import io
 import os
 import re
-from CryptoGenotyper import logging, definitions
+from CryptoGenotyper import definitions
+from CryptoGenotyper.logging import create_logger
 
 from Bio import SeqIO
 from Bio.Align.Applications import ClustalwCommandline
@@ -23,6 +24,8 @@ minAmp = 0
 global TESTING
 TESTING = False
 
+# setup the application logging
+LOG = create_logger(__name__)
 
 ##############################################################################
 # IUPAC Code:
@@ -2199,8 +2202,9 @@ class MixedSeq(object):
             self.tabfile.write(str(accession2)+"\n")
 
 
-def msr_main(pathlist, forwardP, reverseP, typeSeq, expName, customdatabsename, noheader):
-
+def msr_main(pathlist, forwardP, reverseP, typeSeq, expName, customdatabsename, noheader, verbose):
+    if verbose:
+        LOG.setLevel(logging.DEBUG)
     tabfile = io.StringIO()
 
     forwardP = forwardP.replace(' ', '')
