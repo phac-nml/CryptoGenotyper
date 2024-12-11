@@ -537,7 +537,7 @@ class analyzingGp60(object):
     #   Looks through entire sequence for the repeat region, always keeping
     #   track of where the longest TC_ (or AG_ for reverse) repeat is
     def findRepeatRegion(self):
-        LOG.info(f"Trying to find repeat region in the sequence {"".join(self.seq)} ...")
+        LOG.info(f"Trying to find repeat region in the sequence {''.join(self.seq)} ...")
         seq = list(self.seq)
 
 
