@@ -9,10 +9,11 @@ import argparse
 from CryptoGenotyper.version import  __version__
 from CryptoGenotyper.logging import create_logger
 
+LOG = create_logger(__name__,logging.INFO) 
 
 def make_custom_database(input_fasta):
-    print("Making custom database from fasta file")
-    print(os.getcwd(), print(input_fasta))
+    LOG.info("Making custom database from fasta file")
+    LOG.info(f"Working in {os.getcwd()} on {input_fasta}")
     os.system("makeblastdb  -dbtype nucl -in "+input_fasta+" -out custom_db -parse_seqids")
 
 
@@ -56,9 +57,10 @@ def parse_cli_arguments():
 def main():
     args= parse_cli_arguments()
     if args.verbose:
-        LOG = create_logger(__name__,logging.DEBUG)
+        LOG.setLevel(logging.DEBUG)
     else:
-        LOG = create_logger(__name__,logging.INFO)  
+        LOG.setLevel(logging.INFO)
+         
 
     LOG.info("Running cryptogenotyper v{}".format(__version__))
     LOG.info(args)
