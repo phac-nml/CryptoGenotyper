@@ -765,7 +765,8 @@ class analyzingGp60(object):
                 repeat += "G" + str(numTCG)
 
             if (numTCT!=0):
-                if family == "Ib" or family == "Ie" or family == "IV" or family == "VIIa" or family == "XIa" or family == "XIVa":
+                if family == "Ib" or family == "Ie" or family == "IV" or family == "VIIa" \
+                or family == "XIa" or family == "XIVa" or family=="IXIVa":
                     repeat += "T" + str(numTCT)
                 else:
                     goodRepeat = False
@@ -779,11 +780,16 @@ class analyzingGp60(object):
             if (numHomfR != 0) and family == "If":
                 repeat += "R" + str(numHomfR)
 
+            if 'mortiferum' in self.species: 
+                accession_and_subtype = self.species.split('|')[-1]
+                if accession_and_subtype:
+                    repeat += accession_and_subtype[0]
+                   
             if not goodRepeat:
                 repeat = ""
-
+            
             self.repeats = repeat
-            LOG.info(f"Final repeat region standard nomenclature encoded value is {self.repeats}")
+            LOG.info(f"Final repeat region standard nomenclature encoded value is '{self.repeats}'")
             return True
 
         else:
@@ -1346,19 +1352,19 @@ class analyzingGp60(object):
 
             if sequence != "Poor Sequence Quality":
                 LOG.info("Running BLAST on contig of acceptable quality and getting top hit accession ...")
-                bitscore,evalue,query_coverage,query_length,percent_identity, accession, seq = self.blast(sequence, True, customdatabsename)
+                bitscore,evalue,query_coverage,query_length,percent_identity, accession, seq = self.blast(sequence, True, customdatabsename)     
 
         if self.seq == "Poor Sequence Quality":
             self.tabfile.write("\t\t\tPoor Sequence Quality. Check manually.\t" + str(self.averagePhredQuality) + "\t\t\t\t\t\t\n")
             self.file.write(" | Poor Sequence Quality (Average Phred Quality = " + str(self.averagePhredQuality) + "). Check manually.")
+        
+        #elif evalue > 1e-75 or query_coverage < 50:
+        #    self.tabfile.write("\t\t\tCould not determine species from chromatogram. Check manually.\t" + str(self.averagePhredQuality)+ "\t\t\t\t\t\t\n")
+        #    self.file.write("\n;Could not determine species from chromatogram. Check manually. Sequence Phred Quality is "+ str(self.averagePhredQuality))    
 
         elif seq == "" or self.species == "No blast hits.":
             self.tabfile.write("\t\t\tNo blast hits. Check manually.\t" + str(self.averagePhredQuality)+ "\t\t\t\t\t\t\n")
             self.file.write("\n;No blast hits. Check manually. Sequence Phred Quality is " + str(self.averagePhredQuality))
-
-        elif evalue > 1e-75 or query_coverage < 50:
-            self.tabfile.write("\t\t\tCould not determine species from chromatogram. Check manually.\t" + str(self.averagePhredQuality)+ "\t\t\t\t\t\t\n")
-            self.file.write("\n;Could not determine species from chromatogram. Check manually. Sequence Phred Quality is "+ str(self.averagePhredQuality))
 
         else:
             self.seq = seq
@@ -1411,8 +1417,9 @@ class analyzingGp60(object):
 
 
             #Quality check in comments
+       
             if not foundRepeat:
-                self.tabfile.write("\tCould not classify repeat region. Check manually.\t")
+                self.tabfile.write(f"\tCould not classify repeat region. Check manually.\t")
 
             elif len(self.species.split("|")) > 1 and "If" in self.species.split("|")[1]:
                     begin = seq.find("CACCCCAACTC")
@@ -1431,9 +1438,6 @@ class analyzingGp60(object):
                         self.tabfile.write("\t" + "BLAST percent identity less than 99.1%. Check manually in case of new gp60 family.\t")
                     else:
                         self.tabfile.write("\tN/A\t")
-
-
-
             elif self.checkRepeatManually:
                 self.tabfile.write("\t" + "Note: Not all bases in repeat region had phred quality >= 20.\t")
             elif percent_identity < 99.1:
