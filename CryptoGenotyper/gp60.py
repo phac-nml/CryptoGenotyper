@@ -766,7 +766,7 @@ class analyzingGp60(object):
 
             if (numTCT!=0):
                 if family == "Ib" or family == "Ie" or family == "IV" or family == "VIIa" \
-                or family == "XIa" or family == "XIVa" or family=="IXIVa":
+                or family == "XIa" or "XIV" in family:
                     repeat += "T" + str(numTCT)
                 else:
                     goodRepeat = False
@@ -781,9 +781,9 @@ class analyzingGp60(object):
                 repeat += "R" + str(numHomfR)
 
             if 'mortiferum' in self.species: 
-                accession_and_subtype = self.species.split('|')[-1]
+                accession_and_subtype = re.search(r"(\w{1,1})(\(\w+\))", self.species.split('|')[-1])
                 if accession_and_subtype:
-                    repeat += accession_and_subtype[0]
+                    repeat += accession_and_subtype.group(1)
                    
             if not goodRepeat:
                 repeat = ""
@@ -804,25 +804,25 @@ class analyzingGp60(object):
 
         # Open the file with writing permission
         myfile = open(filename, 'w')
-
-        # Write a line to the file
-        if self.repeatEnds != 0:
-            myfile.write(''.join(self.seq[self.repeatEnds:]))
-        else:
-            myfile.write(''.join(self.seq))
+        
+        # Write a line to the file after repeat region or full length
+        #if self.repeatEnds != 0:
+        #    myfile.write(''.join(self.seq[self.repeatEnds:]))
+        #else:
+        myfile.write(''.join(self.seq))
 
 
         # Close the file
         myfile.close()
         
         if customdatabsename:
-            blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn', query="query.txt", dust='yes',
+            blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn', query="query.txt", dust='no',
                                                  db="custom_db",
                                                  reward=1, penalty=-2, gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result.xml")
         else:
             blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn',query="query.txt", dust='yes',
                                              db=os.path.dirname(__file__)+"/reference_database/gp60_ref.fa", 
-                                             reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result.xml")
+                                             reward=1, penalty=-2, gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result.xml")
         
         LOG.info(f"Querying {self.name} against the {os.path.basename(blastn_cline.db)} gp60 database ...")
         stdout, stderr = blastn_cline()
@@ -835,10 +835,16 @@ class analyzingGp60(object):
 
         else:
             result_handle = open("gp60result.xml", 'r')
-            blast_records = NCBIXML.parse(result_handle)
+            blast_records = list(NCBIXML.parse(result_handle))
             #print([a.hsps[0].bits for r in blast_records for a in r.alignments])
-            blast_record = next(blast_records) #take the top hit only
-            print(blast_record.alignments[0].hit_id)        
+            blast_record = blast_records[0] #take the top hit only  
+            top10hits=[f"\n{idx+1} - {a.hit_id}: accession:{a.accession}, length:{a.length}, bitscore:{a.hsps[0].bits}, score:{a.hsps[0].score}, identity: {round(a.hsps[0].identities/a.length,2)*100}, gaps:{a.hsps[0].gaps}, strand:{a.hsps[0].strand}" for r in blast_records for idx,a in enumerate(r.alignments) if idx < 10]
+            LOG.debug("Top 10 hits in species identification:"+"".join(top10hits))
+            top10bitscores = [a.hsps[0].bits for r in blast_records for idx,a in enumerate(r.alignments) if idx <= 10]
+            if len(top10bitscores) != len(set(top10bitscores)):
+                LOG.warning("Hits with identical bitscore are found that might cause ambiguous species results")
+
+            
             
             if len(blast_record.alignments) > 0:
                 if len(blast_record.alignments) >= 2:
