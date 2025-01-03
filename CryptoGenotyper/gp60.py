@@ -780,10 +780,6 @@ class analyzingGp60(object):
             if (numHomfR != 0) and family == "If":
                 repeat += "R" + str(numHomfR)
 
-            if 'mortiferum' in self.species: 
-                accession_and_subtype = re.search(r"(\w{1,1})(\(\w+\))", self.species.split('|')[-1])
-                if accession_and_subtype:
-                    repeat += accession_and_subtype.group(1)
                    
             if not goodRepeat:
                 repeat = ""
@@ -1380,7 +1376,6 @@ class analyzingGp60(object):
             #Output Species and Subfamily(ex. C.parvum\tIIa)
             if len(self.species.split("(")) > 0:
                 speciesName = self.species.split("(")[0]
-
                 if len(speciesName.split("|")) >= 2:
                     self.tabfile.write(speciesName.split("|")[0] + "\t" + speciesName.split("|")[1])
                     self.file.write(" | " + speciesName.split("|")[0] + " " + speciesName.split("|")[1])
@@ -1409,13 +1404,15 @@ class analyzingGp60(object):
                 if foundRepeat:
                     self.tabfile.write(self.repeats)
                     self.file.write(self.repeats)
-
+                
 
 
                 #Still outputting repeats if there's a subfamily
-                if len(speciesName.split("|")) == 3 and foundRepeat:
-                    self.file.write(speciesName.split("|")[2])
-                    self.tabfile.write(speciesName.split("|")[2])
+                if len(speciesName.split("|")) == 3 and foundRepeat == True:
+                    subfamily = speciesName.split("|")[2]
+                    LOG.debug(f"Appending family subtype {subfamily} to {speciesName.split("|")[1]}{self.repeats}")    
+                    self.file.write(subfamily)
+                    self.tabfile.write(subfamily)
 
             #Output sequence
             self.tabfile.write("\t" + seq)
@@ -1720,13 +1717,11 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
                 else:
                     forward.determineFamily(customdatabsename) 
                     forward.determineRepeats()
-
+                  
                 forward.printFasta("", typeSeq, forward.name.split(f".{filetype}")[0], filetype, customdatabsename)
-
         LOG.info(f"Finished analyzing sequence {path} ...")
 
     experimentName = expName + "_"
-
     output_report_file_name = experimentName+'cryptogenotyper_report.fa'
     filename = os.path.join('.', output_report_file_name)
     with open(filename, 'w') as resultFile:
