@@ -35,7 +35,6 @@ jobs:
         else
           pip3 install -e .
         fi
-        ectyper_init
     - name: Test  with pytest
       run: |
         pytest -o log_cli=true --basetemp=tmp-pytest
