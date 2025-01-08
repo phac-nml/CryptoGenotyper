@@ -123,6 +123,9 @@ class analyzingGp60(object):
         elif filetype == "fasta" or filetype == "fa":
             handle=open(dataFile,"r")   
             record=SeqIO.read(handle, filetype)
+            #records=list(SeqIO.parse(handle, filetype))
+            #LOG.info(f"File {handle.name} has {len(records)} sequences {[r.name for r in records]}")
+            #record = records[0]
             raw_seq = list(record.seq)
             self.seq = raw_seq
             self.phred_qual = [60] * len(raw_seq)
@@ -793,7 +796,7 @@ class analyzingGp60(object):
             return False
 
 
-    def determineFamily(self,customdatabsename=None):
+    def determineFamily(self,customdatabasename=None):
         LOG.info(f"Determine family and species of {self.name} of {len(self.seq)}bp sequence ...")
         # Filename to write
         filename = "query.txt"
@@ -811,7 +814,7 @@ class analyzingGp60(object):
         # Close the file
         myfile.close()
         
-        if customdatabsename:
+        if customdatabasename:
             blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn', query="query.txt", dust='no',
                                                  db="custom_db",
                                                  reward=1, penalty=-2, gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result.xml")
@@ -901,7 +904,7 @@ class analyzingGp60(object):
             #raise Exception()
 
 
-    def blast(self, sequence, contig, filetype, customdatabasename):
+    def blast(self, sequence, contig, filetype, customdatabasename=None):
         if customdatabasename:
             blastdbpath="custom_db"
         else:    
@@ -1323,7 +1326,7 @@ class analyzingGp60(object):
     #printFasta() prints the results of the alignment and the repeat
     #   region for each sample. It then prints the fasta sequence for
     #   each sample that can successfully be analyzed
-    def printFasta(self, contig, mode, sampleName, filetype="ab1", customdatabsename = None):
+    def printFasta(self, contig, mode, sampleName, filetype="ab1", customdatabasename = None):
         LOG.info(f"Running printFasta() on {self.name} with species '{self.species}' and repeat encoding '{self.repeats}' ...")
         #IF WANTING TO PRINT TO SCREEN INSTEAD
         if TESTING and contig!="":
@@ -1347,14 +1350,14 @@ class analyzingGp60(object):
         if contig == "":
             sequence=str(self.seq)
             if sequence != "Poor Sequence Quality":
-                bitscore,evalue,query_coverage,query_length,percent_identity, accession, seq = self.blast(sequence,False, filetype, customdatabsename)
+                bitscore,evalue,query_coverage,query_length,percent_identity, accession, seq = self.blast(sequence,False, filetype, customdatabasename)
 
         else:
             sequence = contig
 
             if sequence != "Poor Sequence Quality":
                 LOG.info("Running BLAST on contig of acceptable quality and getting top hit accession ...")
-                bitscore,evalue,query_coverage,query_length,percent_identity, accession, seq = self.blast(sequence, True, customdatabsename)     
+                bitscore,evalue,query_coverage,query_length,percent_identity, accession, seq = self.blast(sequence, True, customdatabasename)     
 
         if self.seq == "Poor Sequence Quality":
             self.tabfile.write("\t\t\tPoor Sequence Quality. Check manually.\t" + str(self.averagePhredQuality) + "\t\t\t\t\t\t\n")
@@ -1370,7 +1373,7 @@ class analyzingGp60(object):
 
         else:
             self.seq = seq
-            self.determineFamily(customdatabsename)
+            self.determineFamily(customdatabasename)
 
 
             #Output Species and Subfamily(ex. C.parvum\tIIa)
@@ -1410,7 +1413,7 @@ class analyzingGp60(object):
                 #Still outputting repeats if there's a subfamily
                 if len(speciesName.split("|")) == 3 and foundRepeat == True:
                     subfamily = speciesName.split("|")[2]
-                    LOG.debug(f"Appending family subtype {subfamily} to {speciesName.split("|")[1]}{self.repeats}")    
+                    LOG.debug(f'Appending family subtype {subfamily} to {speciesName.split("|")[1]}{self.repeats}')    
                     self.file.write(subfamily)
                     self.tabfile.write(subfamily)
 
@@ -1519,7 +1522,7 @@ def getFileType(path):
         return None
 
 
-def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdatabsename, noheader, verbose):
+def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdatabasename, noheader, verbose):
     if verbose:
         LOG.setLevel(logging.DEBUG)
 
@@ -1574,8 +1577,8 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
     #Write output fasta with comments
     file.write("\n;>****************************************************************************")
     file.write("\n;>gp60 SEQUENCE ANALYSIS INPUT PARAMETERS:")
-    if customdatabsename:
-        file.write("\n  ;>Reference File: " + customdatabsename)
+    if customdatabasename:
+        file.write("\n  ;>Reference File: " + customdatabasename)
     else:
         file.write("\n  ;>Reference File: " + "gp60_ref.fa (default)") #debug this might not be always true, actually it is blast_gp60.fa as default
     file.write("\n  ;>Program mode: " + typeSeq)
@@ -1599,11 +1602,12 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
                 reverse = analyzingGp60() #reverse read object
 
 
-                
+                filetypeF = getFileType(path)
+                filetypeR = getFileType(pathlist[idx+1])
                 #for i in range(0, len(fPrimers)):
                 #if fPrimer in path:
-                forwSeqbool = forward.readFiles(path, True, file, tabfile, customdatabsename)
-                revSeqbool = reverse.readFiles(pathlist[idx+1], False, file, tabfile, customdatabsename)
+                forwSeqbool = forward.readFiles(path, True, file, tabfile, filetypeF,customdatabasename)
+                revSeqbool = reverse.readFiles(pathlist[idx+1], False, file, tabfile,filetypeR, customdatabasename)
                 pathlist.remove(pathlist[idx+1])    
 
                 forwardPhred = forward.averagePhredQuality
@@ -1616,7 +1620,7 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
                 if forwSeqbool and revSeqbool:
                     goodTrimF = forward.trimSeq()
                     goodTrimR = reverse.trimSeq()
-                    #print(dir(forward),dir(reverse),customdatabsename)
+                    #print(dir(forward),dir(reverse),customdatabasename)
                     #print(f"forward seq top hit blast {forward.species} reverse {reverse.species}")
                     
                     if not goodTrimF and not goodTrimR:
@@ -1625,9 +1629,9 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
 
                     else:
                         
-                        if customdatabsename:
-                            forward.determineFamily(customdatabsename)
-                            reverse.determineFamily(customdatabsename)
+                        if customdatabasename:
+                            forward.determineFamily(customdatabasename)
+                            reverse.determineFamily(customdatabasename)
 
 
                         if forward.species == reverse.species and forward.species!= "":
@@ -1638,9 +1642,9 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
                     
                     #if the crypto subfamily was found, find repeat region
                     if forward.species == reverse.species and forward.species != "" and forward.repeats == reverse.repeats and forward.repeats != "":
-                        #forward.determineFamily(customdatabsename)
-                        #reverse.determineFamily(customdatabsename)
-                        
+                        #forward.determineFamily(customdatabasename)
+                        #reverse.determineFamily(customdatabasename)
+                        print(customdatabasename)
                         Fbitscore,Fevalue,Fquery_coverage,Fquery_length,Fpercent_identity, Faccession, Fnewseq = forward.blast(str(forward.seq), False, customdatabasename)
                         Rbitscore,Revalue,Rquery_coverage,Rquery_length,Rpercent_identity, Raccession, Rnewseq = reverse.blast(str(reverse.seq), False, customdatabasename)
                         LOG.info(f"Build contig from forward and reverse extracted sequences of {len(Fnewseq)}bp and {len(Rnewseq)}bp")
@@ -1648,11 +1652,11 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
 
                         sampleName = forward.name.split(".ab1")[0] + ", " + reverse.name.split(".ab1")[0]
 
-                        forward.printFasta(contig, "contig", sampleName, customdatabsename)
+                        forward.printFasta(contig, "contig", sampleName, customdatabasename)
 
                     else:
-                        #forward.determineFamily(customdatabsename)
-                        #reverse.determineFamily(customdatabsename)
+                        #forward.determineFamily(customdatabasename)
+                        #reverse.determineFamily(customdatabasename)
                         forward.printFasta("", "forward", forward.name.split(".ab1")[0])
                         reverse.printFasta("", "reverse", reverse.name.split(".ab1")[0])
                     
@@ -1663,17 +1667,17 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
                         forward.repeats="Could not classify repeat region. Check manually."
 
                     else:
-                        forward.determineFamily(customdatabsename)
+                        forward.determineFamily(customdatabasename)
 
-                    forward.printFasta("", "forward", forward.name.split(".ab1")[0], customdatabsename)
+                    forward.printFasta("", "forward", forward.name.split(".ab1")[0], customdatabasename)
 
 
                     reverse.seq = "Poor Sequence Quality"
-                    reverse.printFasta("", "reverse", reverse.name.split(".ab1")[0], customdatabsename)
+                    reverse.printFasta("", "reverse", reverse.name.split(".ab1")[0], customdatabasename)
 
                 elif revSeqbool and not forwSeqbool:
                     forward.seq = "Poor Sequence Quality"
-                    forward.printFasta("", "forward", forward.name.split(".ab1")[0], customdatabsename)
+                    forward.printFasta("", "forward", forward.name.split(".ab1")[0], customdatabasename)
 
                     goodTrim = reverse.trimSeq()
 
@@ -1681,7 +1685,7 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
                         reverse.repeats="Could not classify repeat region. Check manually."
 
                     else:
-                        reverse.determineFamily(customdatabsename)
+                        reverse.determineFamily(customdatabasename)
 
                     reverse.printFasta("", "reverse", reverse.name.split(".ab1")[0])
 
@@ -1696,29 +1700,29 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
             file.write("\nCannot find all paired forward and reverse files.  Make sure all files are included to produce the contig.")
 
     else:
-        LOG.info("Forward/Reverse read input only mode started ...")
+        LOG.info("Forward or Reverse read input only mode started ...")
         for path in pathlist:
             filetype = getFileType(path)
             LOG.info(f"Running {path} as {filetype} file type")
             forward = analyzingGp60()
                 
             if onlyForwards:
-                read_ok = forward.readFiles(path, True, file, tabfile, filetype, customdatabsename)
+                read_ok = forward.readFiles(path, True, file, tabfile, filetype, customdatabasename)
             elif onlyReverse:
-                read_ok = forward.readFiles(path, False, file, tabfile, filetype, customdatabsename)
+                read_ok = forward.readFiles(path, False, file, tabfile, filetype, customdatabasename)
          
             if read_ok == False:
                 forward.seq = "Poor Sequence Quality"
-                forward.printFasta("", typeSeq, forward.name.split(f".{filetype}")[0], customdatabsename)
+                forward.printFasta("", typeSeq, forward.name.split(f".{filetype}")[0], customdatabasename)
             else:
                 goodTrim = forward.trimSeq(filetype)
                 if goodTrim == False:
                     forward.repeats="Could not classify repeat region. Check manually."
                 else:
-                    forward.determineFamily(customdatabsename) 
+                    forward.determineFamily(customdatabasename) 
                     forward.determineRepeats()
                   
-                forward.printFasta("", typeSeq, forward.name.split(f".{filetype}")[0], filetype, customdatabsename)
+                forward.printFasta("", typeSeq, forward.name.split(f".{filetype}")[0], filetype, customdatabasename)
         LOG.info(f"Finished analyzing sequence {path} ...")
 
     experimentName = expName + "_"
