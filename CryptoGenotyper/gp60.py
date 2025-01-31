@@ -1534,8 +1534,8 @@ def writeResults(expName, file, tabfile):
     with open(tab_filename, 'w') as tabFile:
         tabFile.write(tabfile.getvalue())
 
-    print("Fasta report written to " + os.getcwd()+"/"+output_report_file_name + ".")
-    print("Tab-delimited report written to " + os.getcwd() + "/" + output_tabreport_file_name + ".\nThe gp60 run completed successfully")
+    print(">>> Fasta report written to " + os.getcwd()+"/"+output_report_file_name + ".")
+    print(">>> Tab-delimited report written to " + os.getcwd() + "/" + output_tabreport_file_name + ".")
 
 def createTempFastaFiles(experiment_prefix="", record=None):
     temp_dir = os.path.join("./",f"tmp_fasta_files_{experiment_prefix}")
@@ -1547,7 +1547,9 @@ def createTempFastaFiles(experiment_prefix="", record=None):
     return tempFastaFilePath
 
 def cleanTempFastaFilesDir(temp_dir="tmp_fasta_files"):
-    shutil.rmtree(temp_dir, ignore_errors=True)
+    if os.path.exists(temp_dir):
+        LOG.info("Clearning the temporary FASTA files (if any)")
+        shutil.rmtree(temp_dir, ignore_errors=True)
 
 def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdatabasename, noheader, verbose):
     if verbose:
@@ -1766,9 +1768,9 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
                   
                 forward.printFasta("", typeSeq, forward.name.split(f".{filetype}")[0], filetype, customdatabasename)
         writeResults(expName, file, tabfile)    
-        LOG.info(f"Finished analyzing sequence {path} ...")
 
     cleanTempFastaFilesDir()
+    print("The gp60 run completed successfully")
    # os.system("rm gp60result.xml gp60result2.xml")
     #os.system("rm query.txt")
     #os.system("rm align.fa align.dnd align.aln")
