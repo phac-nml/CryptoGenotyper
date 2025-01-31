@@ -87,7 +87,7 @@ def main():
         seq_dir = os.path.abspath(seq_dir) #get directory name
 
         for file in os.listdir(seq_dir):
-            if file.endswith("ab1"):
+            if any([file.endswith(file_ext)for file_ext in definitions.FILETYPES]):
                 pathlist.append(os.path.abspath(seq_dir + "/" + file))
     else:
         pathlist.append(os.path.abspath(seq_dir)) #get absolute path of a single file
@@ -95,7 +95,7 @@ def main():
     #check if files exists actually
     for path in pathlist:
         if os.path.exists(path) == False:
-            msg=f"File does not exist {path}"
+            msg=f"File does not exist {path}. Check path"
             raise Exception(msg)    
 
     fPrimer=""; rPrimer=""

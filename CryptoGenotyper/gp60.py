@@ -29,6 +29,8 @@ import numpy as np
 
 import copy
 import math
+import shutil
+
 
 
 global TESTING
@@ -123,9 +125,6 @@ class analyzingGp60(object):
         elif filetype == "fasta" or filetype == "fa":
             handle=open(dataFile,"r")   
             record=SeqIO.read(handle, filetype)
-            #records=list(SeqIO.parse(handle, filetype))
-            #LOG.info(f"File {handle.name} has {len(records)} sequences {[r.name for r in records]}")
-            #record = records[0]
             raw_seq = list(record.seq)
             self.seq = raw_seq
             self.phred_qual = [60] * len(raw_seq)
@@ -1521,6 +1520,34 @@ def getFileType(path):
     else:
         return None
 
+def writeResults(expName, file, tabfile):
+    LOG.info(f"Writing output files ...")
+    experimentName = expName + "_"
+    output_report_file_name = f"{experimentName}cryptogenotyper_report.fa"
+    filename = os.path.join('.', output_report_file_name)
+    with open(filename, 'w') as resultFile:
+        resultFile.write(file.getvalue())
+
+    output_tabreport_file_name = f"{experimentName}cryptogenotyper_report.txt"
+    tab_filename = os.path.join('.', output_tabreport_file_name)
+
+    with open(tab_filename, 'w') as tabFile:
+        tabFile.write(tabfile.getvalue())
+
+    print("Fasta report written to " + os.getcwd()+"/"+output_report_file_name + ".")
+    print("Tab-delimited report written to " + os.getcwd() + "/" + output_tabreport_file_name + ".\nThe gp60 run completed successfully")
+
+def createTempFastaFiles(experiment_prefix="", record=None):
+    temp_dir = os.path.join("./",f"tmp_fasta_files_{experiment_prefix}")
+    if os.path.exists(temp_dir == False):
+        os.makedirs(temp_dir, exist_ok=True)
+    tempFastaFilePath=os.path.join(temp_dir,record.name+".fasta") 
+    with open(tempFastaFilePath, "w") as fp:   
+        fp.write(record.format("fasta"))    
+    return tempFastaFilePath
+
+def cleanTempFastaFilesDir(temp_dir="tmp_fasta_files"):
+    shutil.rmtree(temp_dir, ignore_errors=True)
 
 def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdatabasename, noheader, verbose):
     if verbose:
@@ -1529,10 +1556,10 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
     fPrimer = fPrimer.replace(' ', '')
     rPrimer = rPrimer.replace(' ', '')
     
-   
-    pathlist = [path for path in pathlist_unfiltered if re.search("$|".join(definitions.FILETYPES),path)]
+    pathlist = [path for path in pathlist_unfiltered if any([True if path.endswith(type) else False for type in definitions.FILETYPES ])]
     
-
+    
+    LOG.info(f"Filtering paths by the primer names (fPrimer:'{fPrimer}' rPrimer:'{rPrimer})'")
     if fPrimer and rPrimer:
         pathlist = [path for path in pathlist if re.search(fPrimer, path) or re.search(rPrimer, path)]  # select only files matching the primers
     elif fPrimer:
@@ -1541,9 +1568,21 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
         pathlist = [path for path in pathlist if re.search(rPrimer, path)]
 
     
-   
+    #if multi-FASTA file is present in the list slice it up into individual files https://www.metagenomics.wiki/tools/fastq/multi-fasta-format
+    
+    fasta_paths = [path for path in pathlist for fasta_extension in definitions.FASTA_FILETYPES if path.endswith(fasta_extension)]
+    for fasta_path in fasta_paths:
+        with open(fasta_path,"r") as handle:
+            records=list(SeqIO.parse(handle, "fasta"))
+            LOG.info(f"File {handle.name} has {len(records)} sequences {[r.name for r in records]}")
+            if len(records) > 1:
+                for fasta_record in records:
+                    tempFastaFilePath = createTempFastaFiles(expName,fasta_record)
+                    pathlist.append(tempFastaFilePath)
+                pathlist.remove(fasta_path)     
+    
     if pathlist == []:
-        msg=f"Not supported input file(s) found in pathlist {pathlist_unfiltered}. Supported input filetypes are {definitions.FILETYPES}"
+        msg=f"No supported input file(s) found in pathlist {pathlist_unfiltered}. Supported input filetypes are {definitions.FILETYPES}"
         LOG.error(msg)
         raise Exception(msg)
   
@@ -1574,7 +1613,7 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
         tabfile.write("Sample Name\tType of Sequences\tSpecies\tSubtype\tSequence\tComments\tAvg. Phred Quality\tBit Score\tQuery Length (bp)\tQuery Coverage\tE-value\tPercent Identity\tAccession Number\n")
 
     file = io.StringIO()
-    #Write output fasta with comments
+    #Write output fasta header with comments
     file.write("\n;>****************************************************************************")
     file.write("\n;>gp60 SEQUENCE ANALYSIS INPUT PARAMETERS:")
     if customdatabasename:
@@ -1597,7 +1636,8 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
     if contig:
         if len(pathlist)%2 == 0:
             for idx, path in enumerate(pathlist):
-                LOG.info(f"Analyzing {os.path.basename(pathlist[idx])} and {os.path.basename(pathlist[idx+1])} in contig mode")
+                filetype = getFileType(path)
+                LOG.info(f"\n\n*** Running sample {os.path.basename(pathlist[idx])} as {filetype} file type in contig mode ***")
                 forward = analyzingGp60() #forward read object
                 reverse = analyzingGp60() #reverse read object
 
@@ -1691,7 +1731,9 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
 
                 else:
                     forward.seq = "Poor Sequence Quality"
-                    forward.printFasta("", "contig", forward.name.split(".ab1")[0] + ", " + reverse.name.split(".ab1")[0])    
+                    forward.printFasta("", "contig", forward.name.split(".ab1")[0] + ", " + reverse.name.split(".ab1")[0])
+
+                writeResults(expName, file, tabfile)        
 
         else:
             print("ERROR: Uneven number of input files ({}). "
@@ -1703,7 +1745,7 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
         LOG.info("Forward or Reverse read input only mode started ...")
         for path in pathlist:
             filetype = getFileType(path)
-            LOG.info(f"Running {path} as {filetype} file type")
+            LOG.info(f"\n\n*** Running sample {os.path.basename(path)} as {filetype} file type ***")
             forward = analyzingGp60()
                 
             if onlyForwards:
@@ -1723,23 +1765,10 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
                     forward.determineRepeats()
                   
                 forward.printFasta("", typeSeq, forward.name.split(f".{filetype}")[0], filetype, customdatabasename)
+        writeResults(expName, file, tabfile)    
         LOG.info(f"Finished analyzing sequence {path} ...")
 
-    experimentName = expName + "_"
-    output_report_file_name = experimentName+'cryptogenotyper_report.fa'
-    filename = os.path.join('.', output_report_file_name)
-    with open(filename, 'w') as resultFile:
-        resultFile.write(file.getvalue())
-
-    output_tabreport_file_name = experimentName+'cryptogenotyper_report.txt'
-    tab_filename = os.path.join('.', output_tabreport_file_name)
-
-    with open(tab_filename, 'w') as tabFile:
-        tabFile.write(tabfile.getvalue())
-
-    print("Fasta report written to " + os.getcwd()+"/"+output_report_file_name + ".")
-    print("Tab-delimited report written to " + os.getcwd() + "/" + output_tabreport_file_name + ".\nThe gp60 run completed successfully")
-
+    cleanTempFastaFilesDir()
    # os.system("rm gp60result.xml gp60result2.xml")
     #os.system("rm query.txt")
     #os.system("rm align.fa align.dnd align.aln")
