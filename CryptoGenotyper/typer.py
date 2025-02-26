@@ -95,7 +95,7 @@ def main():
     #check if files exists actually
     for path in pathlist:
         if os.path.exists(path) == False:
-            msg=f"File does not exist {path}. Check path"
+            msg=f"File does not exist {path}. Check input file path"
             raise Exception(msg)    
 
     fPrimer=""; rPrimer=""

@@ -29,7 +29,7 @@ import numpy as np
 
 import copy
 import math
-import shutil
+import shutil, glob, itertools
 
 
 
@@ -164,7 +164,8 @@ class analyzingGp60(object):
         blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn',query=filename, dust='yes',
                                              db= dbpath,
                                              reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result2.xml")
-        LOG.info(f"Querying {self.name} seq of {len(self.seq)}bp against the {os.path.basename(blastn_cline.db)} gp60 database ...")
+        input_seq_length = len(self.seq)
+        LOG.info(f"Querying {self.name} seq of {input_seq_length}bp against the {os.path.basename(blastn_cline.db)} gp60 database ...")
         stdout, stderr = blastn_cline()
         LOG.debug(f"BLASTN stdout={stdout} and stderr={stderr}")
         
@@ -172,6 +173,9 @@ class analyzingGp60(object):
         if (os.stat("gp60result2.xml").st_size == 0):
             LOG.error(f"Generated an empty gp60 BLAST result for {self.name}")
             return False
+        elif filetype == "fasta":
+            b=0
+            e=self.seqLength
         else:
             result_handle = open("gp60result2.xml", 'r')
             blast_records = NCBIXML.parse(result_handle)
@@ -182,11 +186,12 @@ class analyzingGp60(object):
 
             br_alignment = blast_record.alignments[0]
             hsp = br_alignment.hsps[0]
-
+    
             self.species = br_alignment.hit_id
             b = hsp.query_start-1
             e = hsp.query_end
-            
+
+           
             if b > (len(self.seq)*0.25):
                 dbpath = os.path.join(os.path.dirname(__file__),"reference_database/gp60_ref.fa")
                 LOG.info(f"Querying {self.name} against the {dbpath} gp60 database ...")
@@ -551,6 +556,7 @@ class analyzingGp60(object):
 
         repeatForw = ['T','C']
         repeatRev = ['G', 'A']
+        ACA_case_inCparvum = ['A','C','A']+ ['T','C','A']*2 #see section 2.3 The r repeat designation in IIa of "Deciphering a cryptic minefield: a guide to Cryptosporidium gp60 subtyping"
 
         index=0
         
@@ -593,18 +599,16 @@ class analyzingGp60(object):
                 if inRepeat and tempCounter > maxCount:
                     maxCount = tempCounter
                     repeatStart = index - (maxCount*3)
-
                 break
 
 
             #if its a TC_ or AG_ part of the sequence (in a potential repeat region)
             if (self.forwardSeq and seq[index:index+2]==repeatForw) or \
-                (not self.forwardSeq and seq[index:index+2]==repeatRev):
-                
+                (not self.forwardSeq and seq[index:index+2]==repeatRev) or ("C.parvum" in self.species and seq[index:index+9] == ACA_case_inCparvum):
+                #print(f"if {index+1} and inRepeat {inRepeat} trying to find repeat and next 2 codons {seq[index+3:index+9]}")
                 #if found previous consecutive TC_ and AG_, keep adding onto how
                 #many there is and go to the next 3 bases (next maybe repeat)
                 if inRepeat:
-                    
                     tempCounter += 1
                     index += 3
 
@@ -614,8 +618,10 @@ class analyzingGp60(object):
                     index+=3
                     inRepeat=True
 
-            #if it's the end of the repeat region
+                
+            #if it's the end of the repeat region        
             elif inRepeat:
+                #print(f"elif {index+1} inRepeat {inRepeat} and next 2 codons {seq[index+3:index+9]}")
                 inRepeat = False
 
                 #if that was the longest region found, keep track of where it was
@@ -650,13 +656,12 @@ class analyzingGp60(object):
     #   Looks for TCA, TCG, TCT, and R (defined below).  Will need to modify
     #   this function if different repeat regions are required to be found.
     def determineRepeats(self):
-        LOG.info(f"Trying to determine the repeat region and encode it in standard nomenclature for {self.name}")
+        LOG.info(f"Trying to determine the repeat region ({self.repeatStarts}-{self.repeatEnds}) and encode it in the gp60 standard nomenclature for {self.name}")
         self.seq = "".join(self.seq)
+
         self.repeatLen = len(self.seq[self.repeatStarts:self.repeatEnds])
         seq = copy.copy(self.seq)
         
-
-
 
         #Seeing if good enough quality of sequence to determine repeats
         quality_cutOff=15
@@ -713,18 +718,17 @@ class analyzingGp60(object):
 
             if not goodQuality:
                 break
-      
+               
         if goodQuality:
             numAcatca = 0   #C. parvum R
             numHomR = 0     #C. hominis R= A(A/G)(A/G)ACGGTGGTAAGG (15bp minisatellite)
             numHomR2 = 0    #C. hominis R=A(A/G)(A/G)ACGGTGAAGG (13bp minisatellite)
             numHomfR = 0    #C. hominis If R=AAGAAGGCAAAGAAG
-
+            LOG.info(f"Determining the R repeat after position {self.repeatEnds} ...")
             #after repeat region sequence, looking for R
-
             afterRepeat = "".join(copy.copy(self.seq[self.repeatEnds:]))
             
-            if (afterRepeat.find("ACATCA")==0) : #returns -1 if substring is not found
+            if (afterRepeat.find("ACATCA")!= -1) : #returns -1 if substring is not found
                 numAcatca = afterRepeat.count("ACATCA")
                 self.repeatLen = self.repeatLen+numAcatca*len("ACATCA")
 
@@ -744,36 +748,39 @@ class analyzingGp60(object):
                     numHomfR = afterRepeat.count("AAGAAGGCAAGAGAAG") + afterRepeat.count("CAGAAGGCAAAGAAG")+ afterRepeat.count("AAGAGGGCAAAGAAG") + afterRepeat.count("AAGAGGGCAGTGAAG")
                 self.repeatLen = self.repeatLen+numHomR*len("AAAACGGTGGTAAGG")+numHomR2*len("AAAACGGTGAAGG")    
 
+            LOG.info(f"Found {numAcatca} ACATCA repeats")
             #repeat region sequence
             seq = copy.copy(self.seq[self.repeatStarts:self.repeatEnds])
             LOG.info(f"Found repeat {self.repeatLen} bp sequence in {len(self.seq)} bp {self.name} with coordinates {self.repeatStarts+1}-{self.repeatStarts+self.repeatLen}: {self.seq[self.repeatStarts:self.repeatStarts+self.repeatLen]}")
-
+            
             numTCA = seq.count("TCA")
             numTCG = seq.count("TCG")
             numTCT = seq.count("TCT")
-
+            
+            LOG.info(f"In repeat region found {numTCA} TCA  {numTCG} TCG  {numTCT} TCT ...")
+            
             repeat=""
             family = ""
             goodRepeat = True
             if len(self.species.split("|")) >= 2:
                 family=self.species.split("|")[1].split("(")[0]
-
+            
             #piecing together the number of repeats and writing in standard format
             #  Format: A#G#T#R#
             if (numTCA!=0):
                 repeat += "A" + str(numTCA)
-
+            
             if (numTCG!=0):
                 repeat += "G" + str(numTCG)
-
+          
             if (numTCT!=0):
-                if family == "Ib" or family == "Ie" or family == "IV" or family == "VIIa" \
+                if family == "Ib" or family == "Ie" or re.match(r"IV[a-z]{1,1}",family) or family == "VIIa" \
                 or family == "XIa" or "XIV" in family:
                     repeat += "T" + str(numTCT)
                 else:
                     goodRepeat = False
-            
-            if (numAcatca!=0) and family == "IIa":
+           
+            if (numAcatca!=0) and family == "IIa" or "XIII" in family:
                 repeat += "R" + str(numAcatca)
 
             if (numHomR != 0) and family =="Ia":
@@ -782,12 +789,12 @@ class analyzingGp60(object):
             if (numHomfR != 0) and family == "If":
                 repeat += "R" + str(numHomfR)
 
-                   
-            if not goodRepeat:
+            if not goodRepeat or re.match(r"XXI[a-z]{1,1}|XXIII[a-z]{1,1}|XXVI[a-z]{1,1}",family):
                 repeat = ""
             
             self.repeats = repeat
             LOG.info(f"Final repeat region standard nomenclature encoded value is '{self.repeats}'")
+           
             return True
 
         else:
@@ -897,12 +904,9 @@ class analyzingGp60(object):
                 LOG.info(f"Species identified {self.species} from {os.path.basename(blastn_cline.db)} gp60 database")        
 
             else:
-                #exit("No BLAST hits found for the input sequence from {}".format(file))
+                LOG.warning("No blast hits.")
                 self.species="No blast hits."
-                #return
-            #raise Exception()
-
-
+            
     def blast(self, sequence, contig, filetype, customdatabasename=None):
         if customdatabasename:
             blastdbpath="custom_db"
@@ -926,43 +930,45 @@ class analyzingGp60(object):
                                              db=os.path.dirname(__file__)+"/reference_database/blast_gp60.fasta", 
                                              reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result.xml")
         
-        LOG.info(f"Running BLASTN on {len(sequence)}bp sequence from {self.name} on {os.path.basename(blastn_cline.db)} and contig value is {contig}")
+        LOG.info(f"Running BLAST on {len(sequence)}bp sequence from {self.name} on {os.path.basename(blastn_cline.db)} and contig value is {contig}")
         stdout, stderr = blastn_cline()
 
         if (os.stat("gp60result.xml").st_size == 0):
+            LOG.warning("No BLAST hits found! Check database blast_gp60.fasta or input")
             return "","","","","","",""
 
         elif not contig:
             result_handle = open("gp60result.xml", 'r')
             blast_records = NCBIXML.parse(result_handle)
             blast_record = next(blast_records)
-
+       
             if len(blast_record.alignments) == 0:
-                return "","","","","","",""
+                LOG.warning("No BLAST hits found! Check database blast_gp60.fasta or inputs")
+                #return "","","","","","",""
+            else:    
+                br_alignment = blast_record.alignments[0]
+                hsp = br_alignment.hsps[0]
 
-            br_alignment = blast_record.alignments[0]
-            hsp = br_alignment.hsps[0]
 
+                subjectSeq = hsp.sbjct
 
-            subjectSeq = hsp.sbjct
+                file = open("align.fa", 'w')
+                file.write("\n>Seq1\n")
+                file.write(sequence)
+                file.write("\n>Seq2\n")
+                file.write(subjectSeq)
+                file.close()
 
-            file = open("align.fa", 'w')
-            file.write("\n>Seq1\n")
-            file.write(sequence)
-            file.write("\n>Seq2\n")
-            file.write(subjectSeq)
-            file.close()
+                clustalw_cline = ClustalwCommandline("clustalw", infile="align.fa")
+                stdout, stderr = clustalw_cline()
 
-            clustalw_cline = ClustalwCommandline("clustalw", infile="align.fa")
-            stdout, stderr = clustalw_cline()
+                align = AlignIO.read("align.aln", "clustal")
 
-            align = AlignIO.read("align.aln", "clustal")
-
-            for record in align:
-                if record.id == "Seq1":
-                    query = record.seq
-                else:
-                    subject = record.seq
+                for record in align:
+                    if record.id == "Seq1":
+                        query = record.seq
+                    else:
+                        subject = record.seq
 
             
 
@@ -1186,6 +1192,7 @@ class analyzingGp60(object):
             stdout, stderr = blastn_cline()
 
             if (os.stat("gp60result.xml").st_size == 0):
+                LOG.warning(f"BLAST result file is empty (zero size)! Check database {blastdbpath} or inputs!")
                 return "","","","","","",""
 
             else:
@@ -1194,6 +1201,7 @@ class analyzingGp60(object):
                 blast_record = next(blast_records)
 
                 if len(blast_record.alignments) == 0:
+                    LOG.warning(f"No BLAST hits found! Check database {blastdbpath} or inputs")
                     return "","","","","","",""
 
                 br_alignment = blast_record.alignments[0]
@@ -1335,7 +1343,7 @@ class analyzingGp60(object):
             print(" ", self.repeats, end="")
             print()
             print(contig)
-
+        
         self.file.write("\n>" + sampleName)
 
         #Output sample name
@@ -1349,8 +1357,8 @@ class analyzingGp60(object):
         if contig == "":
             sequence=str(self.seq)
             if sequence != "Poor Sequence Quality":
+                LOG.info(f"Running BLAST on {len(sequence)}bp sequence of acceptable quality and getting top hit accession ...")
                 bitscore,evalue,query_coverage,query_length,percent_identity, accession, seq = self.blast(sequence,False, filetype, customdatabasename)
-
         else:
             sequence = contig
 
@@ -1365,9 +1373,9 @@ class analyzingGp60(object):
         #elif evalue > 1e-75 or query_coverage < 50:
         #    self.tabfile.write("\t\t\tCould not determine species from chromatogram. Check manually.\t" + str(self.averagePhredQuality)+ "\t\t\t\t\t\t\n")
         #    self.file.write("\n;Could not determine species from chromatogram. Check manually. Sequence Phred Quality is "+ str(self.averagePhredQuality))    
-
+        
         elif seq == "" or self.species == "No blast hits.":
-            self.tabfile.write("\t\t\tNo blast hits. Check manually.\t" + str(self.averagePhredQuality)+ "\t\t\t\t\t\t\n")
+            self.tabfile.write("\t\t\tNo blast hits. Check manually. Average PHRED score \t" + str(self.averagePhredQuality)+ "\t\t\t\t\t\t\n")
             self.file.write("\n;No blast hits. Check manually. Sequence Phred Quality is " + str(self.averagePhredQuality))
 
         else:
@@ -1396,6 +1404,7 @@ class analyzingGp60(object):
                 self.seq = seq
                 #again find repeat region
                 self.findRepeatRegion()
+                
                 if self.checkRepeatManually and self.doublePeaksinRepeat: #self.repeats == "Could not classify repeat region. Check manually." or (
                     foundRepeat = False
                 #elif self.repeatStarts < 3: #need some sequence before the repeat region to trust it
@@ -1531,11 +1540,21 @@ def writeResults(expName, file, tabfile):
     output_tabreport_file_name = f"{experimentName}cryptogenotyper_report.txt"
     tab_filename = os.path.join('.', output_tabreport_file_name)
 
+    
+    reportdata2write = ""
     with open(tab_filename, 'w') as tabFile:
-        tabFile.write(tabfile.getvalue())
+        reportdata2write = tabfile.getvalue()
+        tabFile.write(reportdata2write)
+    
+    print("\n>>>GP60 RESULTS  REPORT (only first 10 lines are printed)")
+    for idx, line in enumerate(reportdata2write.split("\n")):
+        print(line)
+        if idx == 10:
+            LOG.warning(f"Please check the {output_tabreport_file_name} for the completed output ...")
+            break
 
-    print(">>> Fasta report written to " + os.getcwd()+"/"+output_report_file_name + ".")
-    print(">>> Tab-delimited report written to " + os.getcwd() + "/" + output_tabreport_file_name + ".")
+    print(">>> Fasta report written to " + os.getcwd()+"/"+output_report_file_name + "")
+    print(">>> Tab-delimited report written to " + os.getcwd() + "/" + output_tabreport_file_name + "")
 
 def createTempFastaFiles(experiment_prefix="", record=None):
     temp_dir = os.path.join("./",f"tmp_fasta_files_{experiment_prefix}")
@@ -1547,9 +1566,15 @@ def createTempFastaFiles(experiment_prefix="", record=None):
     return tempFastaFilePath
 
 def cleanTempFastaFilesDir(temp_dir="tmp_fasta_files"):
+    LOG.info("Cleaning the temporary FASTA and BLAST database files (if any)")
     if os.path.exists(temp_dir):
-        LOG.info("Clearning the temporary FASTA files (if any)")
         shutil.rmtree(temp_dir, ignore_errors=True)
+    tmpfiles2remove = list(itertools.chain.from_iterable([glob.glob(e) for e in ["align.*","custom_db.*"]]))
+    for file in tmpfiles2remove:
+        try:
+            os.remove(file)
+        except FileNotFoundError:
+            pass       
 
 def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdatabasename, noheader, verbose):
     if verbose:
@@ -1744,7 +1769,7 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
             file.write("\nCannot find all paired forward and reverse files.  Make sure all files are included to produce the contig.")
 
     else:
-        LOG.info("Forward or Reverse read input only mode started ...")
+        LOG.info("Forward or Reverse only read input only mode started ...")
         for path in pathlist:
             filetype = getFileType(path)
             LOG.info(f"\n\n*** Running sample {os.path.basename(path)} as {filetype} file type ***")
@@ -1754,17 +1779,19 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
                 read_ok = forward.readFiles(path, True, file, tabfile, filetype, customdatabasename)
             elif onlyReverse:
                 read_ok = forward.readFiles(path, False, file, tabfile, filetype, customdatabasename)
-         
+            
             if read_ok == False:
                 forward.seq = "Poor Sequence Quality"
                 forward.printFasta("", typeSeq, forward.name.split(f".{filetype}")[0], customdatabasename)
             else:
                 goodTrim = forward.trimSeq(filetype)
+
                 if goodTrim == False:
                     forward.repeats="Could not classify repeat region. Check manually."
                 else:
                     forward.determineFamily(customdatabasename) 
                     forward.determineRepeats()
+                    
                   
                 forward.printFasta("", typeSeq, forward.name.split(f".{filetype}")[0], filetype, customdatabasename)
         writeResults(expName, file, tabfile)    
