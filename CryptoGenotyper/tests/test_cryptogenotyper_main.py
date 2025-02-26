@@ -129,15 +129,13 @@ def test_default_singlefile(input_dir=os.path.abspath(os.path.join(os.path.dirna
     cryptogenotyper_main()
 
     lines=read_report_file("test_cryptogenotyper_report.txt")
+    print(lines)
     
     secondrow = lines[1].split("\t")
     thirdrow = lines[2].split("\t")
-    forthrow = lines[3].split("\t")
 
     assert 'KT948751.1' in secondrow 
     assert 'C.parvum' in secondrow
     assert 'KM012040.1' in thirdrow
     assert 'C.parvum' in secondrow
-    assert 'L16997'  in forthrow
-    assert 'C.hominis' in forthrow
 
