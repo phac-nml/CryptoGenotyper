@@ -553,8 +553,6 @@ class analyzingGp60(object):
 
         tempCounter = 0
         inRepeat = False
-
-        print("species",self.species);
         
         repeatForw = ['T','C']
         repeatRev = ['G', 'A']
