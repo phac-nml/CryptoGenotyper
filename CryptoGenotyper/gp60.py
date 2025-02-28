@@ -175,7 +175,7 @@ class analyzingGp60(object):
             return False
         elif filetype == "fasta":
             b=0
-            e=self.seqLength
+            e=self.seqLength-1
         else:
             result_handle = open("gp60result2.xml", 'r')
             blast_records = NCBIXML.parse(result_handle)
@@ -549,11 +549,13 @@ class analyzingGp60(object):
 
 
         repeatStart = 0
-        maxCount = 0
+        maxCount = 0 #length of the repeat region
 
         tempCounter = 0
         inRepeat = False
 
+        print("species",self.species);
+        
         repeatForw = ['T','C']
         repeatRev = ['G', 'A']
         ACA_case_inCparvum = ['A','C','A']+ ['T','C','A']*2 #see section 2.3 The r repeat designation in IIa of "Deciphering a cryptic minefield: a guide to Cryptosporidium gp60 subtyping"
@@ -621,14 +623,25 @@ class analyzingGp60(object):
                 
             #if it's the end of the repeat region        
             elif inRepeat:
-                #print(f"elif {index+1} inRepeat {inRepeat} and next 2 codons {seq[index+3:index+9]}")
                 inRepeat = False
+               
+                candidate_repeat = "".join(seq[index - (tempCounter*3):index - (tempCounter*3) + (tempCounter*3)])
+                before_repeat_2codons = "".join(seq[index - (tempCounter*3)-6:index - (tempCounter*3)])
+                 
+                #C.viatorum family XVa has GAAAGC sequence before repeat region
+                if re.match(r"C.viatorum\|XV[a-z]{1,1}",self.species) and before_repeat_2codons == "GAAAGC":
+                    maxCount = tempCounter
+                    repeatStart  = index - (maxCount*3)
+                    break  
 
-                #if that was the longest region found, keep track of where it was
+                #if that was the longest region found, keep track of where it was and report it
                 if tempCounter > maxCount:
                     maxCount = tempCounter
                     repeatStart  = index - (maxCount*3)
-
+                    
+                   
+                LOG.debug(f"Repeat detection algorithm i={index} inRepeat={inRepeat} maxCount={maxCount} candidate_repeat {candidate_repeat} and {before_repeat_2codons}")
+                
 
                 index+=1
 
@@ -721,9 +734,11 @@ class analyzingGp60(object):
                
         if goodQuality:
             numAcatca = 0   #C. parvum R
+            numACA = 0 # for C. cuniculus Vb that has ACA repeats
             numHomR = 0     #C. hominis R= A(A/G)(A/G)ACGGTGGTAAGG (15bp minisatellite)
             numHomR2 = 0    #C. hominis R=A(A/G)(A/G)ACGGTGAAGG (13bp minisatellite)
             numHomfR = 0    #C. hominis If R=AAGAAGGCAAAGAAG
+
             LOG.info(f"Determining the R repeat after position {self.repeatEnds} ...")
             #after repeat region sequence, looking for R
             afterRepeat = "".join(copy.copy(self.seq[self.repeatEnds:]))
@@ -732,7 +747,10 @@ class analyzingGp60(object):
                 numAcatca = afterRepeat.count("ACATCA")
                 self.repeatLen = self.repeatLen+numAcatca*len("ACATCA")
 
-            elif len(self.species.split("|")) >= 2:
+            if re.search(r"(ACA){1,}",afterRepeat):
+                numACA = re.search(r"(ACA){1,}",afterRepeat).group(0).count('ACA')    
+
+            if len(self.species.split("|")) >= 2:
                 numHomR = 0; numHomR2 = 0
                 if "Ia" in self.species.split("|")[1]:
                     numHomR = afterRepeat.count("AAAACGGTGGTAAGG") + afterRepeat.count("AGAACGGTGGTAAGG") + afterRepeat.count("AAGACGGTGGTAAGG") + afterRepeat.count("AGGACGGTGGTAAGG")
@@ -745,9 +763,14 @@ class analyzingGp60(object):
                     
                 elif "If" in self.species.split("|")[1]:
                     #numHomfR = afterRepeat.count("AAGAAGGCAAAGAAG") + afterRepeat.count("CAGAAGGCAAAGAAG") + afterRepeat.count("AAGAAGGCAAGAGAAG") + afterRepeat.count("AAGAGGGCAAAGAAG") + afterRepeat.count("AAGAGGGCAGTGAAG")
-                    numHomfR = afterRepeat.count("AAGAAGGCAAGAGAAG") + afterRepeat.count("CAGAAGGCAAAGAAG")+ afterRepeat.count("AAGAGGGCAAAGAAG") + afterRepeat.count("AAGAGGGCAGTGAAG")
-                self.repeatLen = self.repeatLen+numHomR*len("AAAACGGTGGTAAGG")+numHomR2*len("AAAACGGTGAAGG")    
+                    #numHomfR = afterRepeat.count("AAGAAGGCAAGAGAAG") + afterRepeat.count("CAGAAGGCAAAGAAG")+ afterRepeat.count("AAGAGGGCAAAGAAG") + afterRepeat.count("AAGAGGGCAGTGAAG")
+                    numHomfR = len(re.findall(r"AAGAAGGCAAGAGAAG",afterRepeat))
+                    numHomfR += len(re.findall(r"\w{1,1}AGA\w{1,1}GGCA\w{1,1}\w{1,1}GAAG",afterRepeat))
+                elif "Apodemus" in self.species:
+                    numHomApodemusR = len(re.findall(r"GGTGTTACCACTGCTCCTGTGGCA",afterRepeat))
 
+                self.repeatLen = self.repeatLen+numHomR*len("AAAACGGTGGTAAGG")+numHomR2*len("AAAACGGTGAAGG")    
+            
             LOG.info(f"Found {numAcatca} ACATCA repeats")
             #repeat region sequence
             seq = copy.copy(self.seq[self.repeatStarts:self.repeatEnds])
@@ -777,24 +800,47 @@ class analyzingGp60(object):
                 if family == "Ib" or family == "Ie" or re.match(r"IV[a-z]{1,1}",family) or family == "VIIa" \
                 or family == "XIa" or "XIV" in family:
                     repeat += "T" + str(numTCT)
+                elif family == "XVIIa" and re.search(r"GGTGTTACCACTGCTCCTGTGGCA", afterRepeat):
+                    repeat += "R1"    
                 else:
                     goodRepeat = False
-           
-            if (numAcatca!=0) and family == "IIa" or "XIII" in family:
+            
+            if re.match(r"XXV[a-z]{1,1}",family):
+                repeat = ""        
+            
+            if 'Apodemus' in self.species:
+                numRepeatApodemus = len(re.findall(r"GGTGTTACCACTGCTCCTGTGGCA",afterRepeat))
+                if numRepeatApodemus:
+                    repeat = "R"+str(numRepeatApodemus)
+                else:
+                    repeat = ""           
+            
+            if re.match(r"XXV[a-z]{1,1}",family):
+                RepeatsSuis = re.findall(r"GGTG\w{1,1}TCAAG\w{1,1}GAATGC\w{1,1}CAG",self.seq)
+                numRepeatsSuis = len(RepeatsSuis)
+                if RepeatsSuis:
+                    repeat = "R"+ str(numRepeatsSuis)
+
+            if family == "Vb":
+                repeat += "R"+ str(numACA)
+
+            if (numAcatca!=0) and re.match(r"II[l,a,t]{1,1}|XIII[a-z]{1,1}",family):
                 repeat += "R" + str(numAcatca)
 
             if (numHomR != 0) and family =="Ia":
                 repeat += "R" + str(numHomR)
 
+            
             if (numHomfR != 0) and family == "If":
                 repeat += "R" + str(numHomfR)
 
-            if not goodRepeat or re.match(r"XXI[a-z]{1,1}|XXIII[a-z]{1,1}|XXVI[a-z]{1,1}",family):
+
+            if not goodRepeat or re.match(r"XX[a-z]{1,1}|XXI[a-z]{1,1}|XXII[a-z]{1,1}|XXIII[a-z]{1,1}|XXVI[a-z]{1,1}",family):
                 repeat = ""
             
             self.repeats = repeat
             LOG.info(f"Final repeat region standard nomenclature encoded value is '{self.repeats}'")
-           
+            
             return True
 
         else:
