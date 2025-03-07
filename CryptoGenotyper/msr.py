@@ -2002,7 +2002,7 @@ class MixedSeq(object):
                     LOG.debug(f"{idx+1}: ID={alignment.hit_id}\tScore={alignment.hsps[0].score}\tIdentity={round(hsp.identities/hsp.align_length,3)*100}%\tCoverage={round(hsp.align_length/blast_record.query_length)*100}%\tGaps={hsp.gaps}\tAlignmentLen={hsp.align_length}bp")
 
             if len(identicalAlignHits) >= 2:    
-                LOG.warning(f"!!! Found {len(identicalAlignHits)} identical candidate BLAST hits in reference database ({", ".join([a.hit_id for a in identicalAlignHits])}). Trying to pick one with min # of gaps !!!") 
+                LOG.warning(f"!!! Found {len(identicalAlignHits)} identical candidate BLAST hits in reference database ({', '.join([a.hit_id for a in identicalAlignHits])}). Trying to pick one with min # of gaps !!!") 
                 min_gaps = min([align.hsps[0].gaps for align in identicalAlignHits])
                 br_alignment = [align for align in identicalAlignHits if align.hsps[0].gaps == min_gaps]    
                 hsp = br_alignment.hsps[0]
