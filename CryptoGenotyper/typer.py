@@ -13,7 +13,7 @@ import CryptoGenotyper.definitions as definitions
 LOG = create_logger(__name__,logging.INFO) 
 
 def make_custom_database(input_fasta):
-    LOG.info("Making custom database from fasta file")
+    LOG.info("Making custom database from FASTA file")
     LOG.info(f"Working in {os.getcwd()} on {input_fasta}")
     os.system("makeblastdb  -dbtype nucl -in "+input_fasta+" -out custom_db -parse_seqids")
 
@@ -36,7 +36,7 @@ def parse_cli_arguments():
                         Use -f and/or -r to filter inputs''')
     parser.add_argument('-m', '--marker', type=str, required=True,
                         help="Name of the marker. Currently gp60 and 18S markers are supported")
-    parser.add_argument('-t', '--seqtype', type=str, required=True,
+    parser.add_argument('-t', '--seqtype', type=str, required=False, default="forward",
                         help="Input sequences type. Select one option out of these three:\n"
                              "contig - both F and R sequences provided\n "
                              "forward - forward only sequence provided\n"
@@ -47,7 +47,7 @@ def parse_cli_arguments():
                         help="Name of the reverse primer to identify forward read (e.g. gp60R, SSUR)")
     parser.add_argument('-o', '--outputprefix', type=str, required=False, default="cryptorun",
                         help="Output name prefix for the results (e.g. test results in test_report.fa)")
-    parser.add_argument('-d', '--databasefile',type=str, required=False,
+    parser.add_argument('-d', '--databasefile',type=str, required=False, default=None,
                         help="Path to custom database reference FASTA file")
     parser.add_argument('-v', '--version', action='version', version='%(prog)s {}'.format(__version__))
     parser.add_argument('--noheaderline',action='store_true',dest='header',help='Display header on tab-delimited file [False]', required=False)
@@ -90,7 +90,10 @@ def main():
             if any([file.endswith(file_ext)for file_ext in definitions.FILETYPES]):
                 pathlist.append(os.path.abspath(seq_dir + "/" + file))
     else:
-        pathlist.append(os.path.abspath(seq_dir)) #get absolute path of a single file
+        #get absolute path of a single file
+        if any([seq_dir.endswith(file_ext) for file_ext in definitions.FILETYPES]):
+            pathlist.append(os.path.abspath(seq_dir)) 
+    
 
     #check if files exists actually
     for path in pathlist:

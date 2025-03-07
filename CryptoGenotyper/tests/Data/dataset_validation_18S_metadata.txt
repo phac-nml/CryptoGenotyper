@@ -1,0 +1,5 @@
+ID	Species
+DQ002918.1	C.meleagridis
+DQ010950.1	C.parvum
+JX547008.1	C.hominis
+JX547010.1	C.hominis

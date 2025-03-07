@@ -13,7 +13,7 @@ import os
 import re
 import logging
 from CryptoGenotyper.logging import create_logger
-from CryptoGenotyper import definitions
+from CryptoGenotyper import definitions, utilities
 
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -104,7 +104,7 @@ class analyzingGp60(object):
         LOG.debug(f"Sequence: {self.name}") #Lets user know which sequence the program is on
 
         #opens the ab1 file
-        if  filetype == "abi":
+        if  filetype == "abi" or filetype == "ab1":
             handle=open(dataFile,"rb")
             record=SeqIO.read(handle, filetype)
             #retrieving base amplitude data
@@ -163,11 +163,13 @@ class analyzingGp60(object):
         dbpath = os.path.join(os.path.dirname(__file__),"reference_database/blast_gp60.fasta")
         blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn',query=filename, dust='yes',
                                              db= dbpath,
-                                             reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result2.xml")
+                                             reward=1, penalty=-2,gapopen=5, gapextend=2, 
+                                             evalue=0.00001, outfmt=5, out="gp60result2.xml")
         input_seq_length = len(self.seq)
         LOG.info(f"Querying {self.name} seq of {input_seq_length}bp against the {os.path.basename(blastn_cline.db)} gp60 database ...")
         stdout, stderr = blastn_cline()
         LOG.debug(f"BLASTN stdout={stdout} and stderr={stderr}")
+      
         
 
         if (os.stat("gp60result2.xml").st_size == 0):
@@ -764,8 +766,6 @@ class analyzingGp60(object):
                     #numHomfR = afterRepeat.count("AAGAAGGCAAGAGAAG") + afterRepeat.count("CAGAAGGCAAAGAAG")+ afterRepeat.count("AAGAGGGCAAAGAAG") + afterRepeat.count("AAGAGGGCAGTGAAG")
                     numHomfR = len(re.findall(r"AAGAAGGCAAGAGAAG",afterRepeat))
                     numHomfR += len(re.findall(r"\w{1,1}AGA\w{1,1}GGCA\w{1,1}\w{1,1}GAAG",afterRepeat))
-                elif "Apodemus" in self.species:
-                    numHomApodemusR = len(re.findall(r"GGTGTTACCACTGCTCCTGTGGCA",afterRepeat))
 
                 self.repeatLen = self.repeatLen+numHomR*len("AAAACGGTGGTAAGG")+numHomR2*len("AAAACGGTGAAGG")    
             
@@ -803,7 +803,7 @@ class analyzingGp60(object):
                 else:
                     goodRepeat = False
             
-            if re.match(r"XXV[a-z]{1,1}",family):
+            if re.match(r"XXV[a-z]{1,1}|XXIV[a-z]{1,1}",family):
                 repeat = ""        
             
             if 'Apodemus' in self.species:
@@ -992,8 +992,9 @@ class analyzingGp60(object):
             else:    
                 br_alignment = blast_record.alignments[0]
                 hsp = br_alignment.hsps[0]
-
-
+                
+                
+        
                 subjectSeq = hsp.sbjct
 
                 file = open("align.fa", 'w')
@@ -1251,6 +1252,13 @@ class analyzingGp60(object):
                 br_alignment = blast_record.alignments[0]
                 hsp = br_alignment.hsps[0]
 
+                LOG.info(f"Top hit strand orientation (query={self.name}, target={br_alignment.accession}) is {hsp.strand}")
+
+                if hsp.strand == ("Plus", "Minus"):
+                    LOG.warning("The reverse complement query is being submitted (3'->5'). Performing reverse complement of the sequence (5'->3')")
+                    sequence = str(Seq(sequence).reverse_complement())
+                    self.seq=sequence
+
                 percent_identity = round(hsp.identities/hsp.align_length,3)*100
                 evalue = hsp.expect
                 bitscore = hsp.score
@@ -1355,6 +1363,7 @@ class analyzingGp60(object):
 
             br_alignment = blast_record.alignments[0]
             hsp = br_alignment.hsps[0]
+            
 
             percent_identity = round(hsp.identities/hsp.align_length,3)*100
             evalue = hsp.expect
@@ -1464,10 +1473,15 @@ class analyzingGp60(object):
 
                 #Still outputting repeats if there's a subfamily
                 if len(speciesName.split("|")) == 3 and foundRepeat == True:
-                    subfamily = speciesName.split("|")[2]
+                    if len(self.repeats):
+                        subfamily = speciesName.split("|")[2]
+                    else:
+                        subfamily = "|"+speciesName.split("|")[2]    
+                    
                     LOG.debug(f'Appending family subtype {subfamily} to {speciesName.split("|")[1]}{self.repeats}')    
                     self.file.write(subfamily)
                     self.tabfile.write(subfamily)
+                
 
             #Output sequence
             self.tabfile.write("\t" + seq)
@@ -1561,17 +1575,7 @@ def buildContig(s1, s2):
 
         return contig
 
-def getFileType(path):
-    #pathtypes = [filetype  for path in pathlist for filetype in FILETYPES if path.endswith(filetype)]
-    #print(pathtypes)
-    filetype = [filetype for filetype in definitions.FILETYPES if path.endswith(filetype) ]
-    if filetype and len(filetype) == 1:
-        filetype = filetype[0]
-        if 'ab1' == filetype:
-            filetype = "abi"
-        return filetype 
-    else:
-        return None
+
 
 def writeResults(expName, file, tabfile):
     LOG.info(f"Writing output files ...")
@@ -1597,17 +1601,10 @@ def writeResults(expName, file, tabfile):
             LOG.warning(f"Please check the {output_tabreport_file_name} for the completed output ...")
             break
 
-    print(">>> Fasta report written to " + os.getcwd()+"/"+output_report_file_name + "")
+    print(">>> FASTA report written to " + os.getcwd()+"/"+output_report_file_name + "")
     print(">>> Tab-delimited report written to " + os.getcwd() + "/" + output_tabreport_file_name + "")
 
-def createTempFastaFiles(experiment_prefix="", record=None):
-    temp_dir = os.path.join("./",f"tmp_fasta_files_{experiment_prefix}")
-    if os.path.exists(temp_dir == False):
-        os.makedirs(temp_dir, exist_ok=True)
-    tempFastaFilePath=os.path.join(temp_dir,record.name+".fasta") 
-    with open(tempFastaFilePath, "w") as fp:   
-        fp.write(record.format("fasta"))    
-    return tempFastaFilePath
+
 
 def cleanTempFastaFilesDir(temp_dir="tmp_fasta_files"):
     LOG.info("Cleaning the temporary FASTA and BLAST database files (if any)")
@@ -1639,8 +1636,7 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
         pathlist = [path for path in pathlist if re.search(rPrimer, path)]
 
     
-    #if multi-FASTA file is present in the list slice it up into individual files https://www.metagenomics.wiki/tools/fastq/multi-fasta-format
-    
+    #if multi-FASTA file is present in the list slice it up into individual files https://www.metagenomics.wiki/tools/fastq/multi-fasta-format 
     fasta_paths = [path for path in pathlist for fasta_extension in definitions.FASTA_FILETYPES if path.endswith(fasta_extension)]
     for fasta_path in fasta_paths:
         with open(fasta_path,"r") as handle:
@@ -1648,7 +1644,7 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
             LOG.info(f"File {handle.name} has {len(records)} sequences {[r.name for r in records]}")
             if len(records) > 1:
                 for fasta_record in records:
-                    tempFastaFilePath = createTempFastaFiles(expName,fasta_record)
+                    tempFastaFilePath = utilities.createTempFastaFiles(expName,fasta_record)
                     pathlist.append(tempFastaFilePath)
                 pathlist.remove(fasta_path)     
     
@@ -1707,14 +1703,14 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
     if contig:
         if len(pathlist)%2 == 0:
             for idx, path in enumerate(pathlist):
-                filetype = getFileType(path)
-                LOG.info(f"\n\n*** Running sample {os.path.basename(pathlist[idx])} as {filetype} file type in contig mode ***")
+                filetype = utilities.getFileType(path)
+                LOG.info(f"\n\n*** {idx+1}: Running sample {os.path.basename(pathlist[idx])} as {filetype} file type in contig mode ***")
                 forward = analyzingGp60() #forward read object
                 reverse = analyzingGp60() #reverse read object
 
 
-                filetypeF = getFileType(path)
-                filetypeR = getFileType(pathlist[idx+1])
+                filetypeF = utilities.getFileType(path)
+                filetypeR = utilities.getFileType(pathlist[idx+1])
                 #for i in range(0, len(fPrimers)):
                 #if fPrimer in path:
                 forwSeqbool = forward.readFiles(path, True, file, tabfile, filetypeF,customdatabasename)
@@ -1755,7 +1751,6 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
                     if forward.species == reverse.species and forward.species != "" and forward.repeats == reverse.repeats and forward.repeats != "":
                         #forward.determineFamily(customdatabasename)
                         #reverse.determineFamily(customdatabasename)
-                        print(customdatabasename)
                         Fbitscore,Fevalue,Fquery_coverage,Fquery_length,Fpercent_identity, Faccession, Fnewseq = forward.blast(str(forward.seq), False, customdatabasename)
                         Rbitscore,Revalue,Rquery_coverage,Rquery_length,Rpercent_identity, Raccession, Rnewseq = reverse.blast(str(reverse.seq), False, customdatabasename)
                         LOG.info(f"Build contig from forward and reverse extracted sequences of {len(Fnewseq)}bp and {len(Rnewseq)}bp")
@@ -1814,9 +1809,9 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
 
     else:
         LOG.info("Forward or Reverse only read input only mode started ...")
-        for path in pathlist:
-            filetype = getFileType(path)
-            LOG.info(f"\n\n*** Running sample {os.path.basename(path)} as {filetype} file type ***")
+        for idx, path in enumerate(pathlist):
+            filetype = utilities.getFileType(path)
+            LOG.info(f"\n\n*** {idx+1}: Running sample {os.path.basename(path)} as {filetype} file type ***")
             forward = analyzingGp60()
                 
             if onlyForwards:
@@ -1839,8 +1834,9 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
                   
                 forward.printFasta("", typeSeq, forward.name.split(f".{filetype}")[0], filetype, customdatabasename)
         writeResults(expName, file, tabfile)    
-
-    cleanTempFastaFilesDir()
+    
+    LOG.info("Cleaning the temporary FASTA and BLAST database files (if any)")
+    utilities.cleanTempFastaFilesDir()
     print("The gp60 run completed successfully")
    # os.system("rm gp60result.xml gp60result2.xml")
     #os.system("rm query.txt")

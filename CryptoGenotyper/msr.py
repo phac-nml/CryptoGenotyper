@@ -2,7 +2,7 @@ import io
 import os
 import re
 import logging
-from CryptoGenotyper import definitions
+from CryptoGenotyper import definitions, utilities
 from CryptoGenotyper.logging import create_logger
 
 from Bio import SeqIO
@@ -830,7 +830,7 @@ class MixedSeq(object):
 
 
 
-    def readFiles(self, dataFile, forw):
+    def readFiles(self, dataFile, forw, filetype="abi"):
         #setting whether the sequence is the forward or reverse strand
         #(used later on know whether the reverse complement is needed)
         #print("Datafile:",dataFile)
@@ -851,8 +851,18 @@ class MixedSeq(object):
             print("\nSequence: ", self.name) #Lets user know which sequence the program is on
 
         #opens the ab1 file
-        handle=open(dataFile,"rb")
-        record=SeqIO.read(handle, "abi")
+        if filetype == "abi" or filetype == "ab1":
+            handle=open(dataFile,"rb")
+            record=SeqIO.read(handle, "abi")
+
+        elif filetype == "fasta" or filetype == "fa":
+            handle=open(dataFile,"r")   
+            record=SeqIO.read(handle, filetype)
+            raw_seq = list(record.seq)
+            self.seq = raw_seq
+            self.phred_qual = [60] * len(raw_seq)
+            return True
+
 
         #retrieving base amplitude data
         self.g=np.array(record.annotations['abif_raw']['DATA9'])
@@ -872,7 +882,7 @@ class MixedSeq(object):
         self.seqLength = len(self.seq)
         self.origLength = len(self.seq)
 
-        #in case the class is of a binary nature)
+        #in case the class is of a binary nature
         if any([isinstance(element,str) == False for element in self.seq]):
             self.seq = list(record.annotations['abif_raw']['PBAS2'].decode('UTF-8'))
             self.oldseq = list(record.annotations['abif_raw']['PBAS2'].decode('UTF-8'))
@@ -1318,6 +1328,9 @@ class MixedSeq(object):
     def determineAllTypes(self, customdatabsename):
         reverse1 = False
         reverse2 = False
+
+        #get file type information
+        filetype = utilities.getFileType(self.name)
         # Filename to write
         filename_seq1 = "query1.txt"
         filename_seq2 = "query2.txt"
@@ -1327,17 +1340,15 @@ class MixedSeq(object):
 
         seq = ''.join(self.seq)
 
-
+       
         seq1, seq2 = indelligent(seq)
 
-        #print(''.join(seq1))
-        #print(''.join(seq2))
 
         l1 = len(seq1)
         l2 = len(seq2)
-
-
-        if self.counter < int(len(self.seq)*0.2):
+        
+       
+        if self.counter < int(len(self.seq)*0.2) and filetype == "abi":
             s1=""
             s2=""
 
@@ -1357,9 +1368,9 @@ class MixedSeq(object):
             seq1 = s1
             seq2 = s2
 
-
         self.species1Seq=seq1
         self.species2Seq=seq2
+        #print(self.species1Seq, self.species2Seq)
 
 
         # Write a line to the file
@@ -1467,7 +1478,6 @@ class MixedSeq(object):
             else:
                 blastn_cline = NcbiblastnCommandline(
                                                  query="query2.txt",
-
                                                  db=os.path.dirname(__file__)+"/reference_database/msr_ref.fa",
                                                   outfmt=5, out="result2.xml")
             blastn_cline
@@ -1937,8 +1947,8 @@ class MixedSeq(object):
             self.species2Seq = newseq2
 
 
-    #blast() performs a blast search and returns the results
-    def blast(self, sequence, contig):
+    #blast() performs a blast search and returns the results against the msr_ref.fa reference database
+    def blast(self, sequence, customdatabsename):
         # Filename to write
         filename = "query.txt"
 
@@ -1952,8 +1962,14 @@ class MixedSeq(object):
 
         # Close the file
         myfile.close()
-
-        blastn_cline = NcbiblastnCommandline(cmd='blastn',query="query.txt", dust='yes',
+        
+        if customdatabsename:
+            LOG.info(f"Running BLAST on {len(sequence)}bp query from {self.name} on {customdatabsename}")
+            blastn_cline = NcbiblastnCommandline(cmd='blastn',query="query.txt", dust='yes',
+                                             db="custom_db", reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="SSUresult.xml")
+        else:
+            LOG.info(f"Running BLAST on {len(sequence)}bp query from {self.name} on {os.path.dirname(__file__)+"/reference_database/msr_ref.fa"}")    
+            blastn_cline = NcbiblastnCommandline(cmd='blastn',query="query.txt", dust='yes',
                                              db=os.path.dirname(__file__)+"/reference_database/msr_ref.fa", reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="SSUresult.xml")
 
         stdout, stderr = blastn_cline()
@@ -1970,16 +1986,40 @@ class MixedSeq(object):
             if len(blast_record.alignments) == 0:
                 return "","",0,"",0,"","",""
 
-            br_alignment = blast_record.alignments[0]
-            hsp = br_alignment.hsps[0]
+            
 
+            
+
+            LOG.debug("Top 5 BLAST hits ...")
+            maxBitScore = 0; identicalAlignHits = [] #BLAST hits that have identical top score (if any). Usually only single hit with unique top score
+            for idx, alignment in enumerate(blast_record.alignments):
+                hsp = alignment.hsps[0]
+                if idx == 0:
+                   maxBitScore =  alignment.hsps[0].score
+                if maxBitScore == alignment.hsps[0].score: #
+                    identicalAlignHits.append(alignment)
+                if idx < 5:
+                    LOG.debug(f"{idx+1}: ID={alignment.hit_id}\tScore={alignment.hsps[0].score}\tIdentity={round(hsp.identities/hsp.align_length,3)*100}%\tCoverage={round(hsp.align_length/blast_record.query_length)*100}%\tGaps={hsp.gaps}\tAlignmentLen={hsp.align_length}bp")
+
+            if len(identicalAlignHits) >= 2:    
+                LOG.warning(f"!!! Found {len(identicalAlignHits)} identical candidate BLAST hits in reference database ({", ".join([a.hit_id for a in identicalAlignHits])}). Trying to pick one with min # of gaps !!!") 
+                min_gaps = min([align.hsps[0].gaps for align in identicalAlignHits])
+                br_alignment = [align for align in identicalAlignHits if align.hsps[0].gaps == min_gaps]    
+                hsp = br_alignment.hsps[0]
+            else:
+                br_alignment = blast_record.alignments[0]
+                hsp = br_alignment.hsps[0]    
+           
+        
             percent_identity = round(hsp.identities/hsp.align_length,3)*100
             evalue = hsp.expect
             bitscore = hsp.score
             query_coverage = round(hsp.align_length/blast_record.query_length)*100
             query_length = blast_record.query_length
+            species = br_alignment.hit_id
+            
 
-
+            LOG.debug(f"TOP hit species={species} query_length={query_length} originalLength={self.origLength} percent_identity={percent_identity} evalue {evalue}")
             if query_length < int(0.6*self.origLength) or percent_identity < 85 or evalue > 1e-200:
                 return "","",0,"",0,"","",""
 
@@ -1987,7 +2027,6 @@ class MixedSeq(object):
 
             if "|" in accession:
                 accession = accession.split("|")[1]
-
 
             filename = "query.txt"
 
@@ -2001,43 +2040,50 @@ class MixedSeq(object):
             # Close the file
             myfile.close()
 
-            blastn_cline = NcbiblastnCommandline(cmd='blastn',query="query.txt", dust='yes',
-                                                 db=os.path.dirname(__file__)+"/reference_database/msr_ref.fa", reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="SSUresult.xml")
+            #blastn_cline = NcbiblastnCommandline(cmd='blastn',query="query.txt", dust='yes',
+            #                                     db=os.path.dirname(__file__)+"/reference_database/msr_ref.fa", reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="SSUresult.xml")
 
-            stdout, stderr = blastn_cline()
+            #stdout, stderr = blastn_cline()
 
-            if (os.stat("SSUresult.xml").st_size == 0):
-                return "","",0,"",0,"","",""
+            #if (os.stat("SSUresult.xml").st_size == 0):
+            #    return "","",0,"",0,"","",""
 
-            result_handle = open("SSUresult.xml", 'r')
-            blast_records = NCBIXML.parse(result_handle)
-            blast_record = next(blast_records)
+            #result_handle = open("SSUresult.xml", 'r')
+            #blast_records = NCBIXML.parse(result_handle)
+            #blast_record = next(blast_records)
 
-            if len(blast_record.alignments) == 0:
-                return "","",0,"",0,"","",""
+            #if len(blast_record.alignments) == 0:
+            #    return "","",0,"",0,"","",""
 
-            species = blast_record.alignments[0].hit_id
+            #species = blast_record.alignments[0].hit_id
+            
 
             return bitscore,evalue,query_coverage,query_length,percent_identity, accession, species,sequence
 
 
     #outputResults() outputs the results in .txt and .fa file formats
-    def outputResults(self, contig, customdatabsename, mode):
-        #print(self.avgPhredQuality)
+    def outputResults(self, contig, customdatabsename, mode, filetype="abi"):
         #print(self.avgLRI)
-        self.file.write("\n>Sequence: " + self.name.split(".ab1")[0] + " | ")
-        self.tabfile.write(self.name.split(".ab1")[0] + "\t" + mode + "\t")
-
+       
+        self.file.write("\n>Sequence: " + self.name.split(f".{filetype}")[0] + " | ")
+        self.tabfile.write(self.name.split(f".{filetype}")[0] + "\t" + mode + "\t")
+        
         if (self.species1 == ";>No blast hits." and self.species2 == ";>No blast hits."):
             if self.avgPhredQuality < 10:
                 self.tabfile.write("\t\t\t" + "Could not analyze chromatogram. Please check manually." + "\t\t\t\t\t\t\t\n")
             else:
                 self.tabfile.write("\t\t\t" + "No blast hits." + "\t\t\t\t\t\t\t\n")
             return
-
-
-        bitscore,evalue,query_coverage,query_length,percent_identity, accession, species, seq = self.blast(self.species1Seq,False)
-        bitscore2,evalue2,query_coverage2,query_length2,percent_identity2, accession2, species2, seq2 = self.blast(self.species2Seq,False)
+       
+        if filetype == "abi" or filetype == "ab1":
+            bitscore,evalue,query_coverage,query_length,percent_identity, accession, species, seq = self.blast(self.species1Seq,False)
+            bitscore2,evalue2,query_coverage2,query_length2,percent_identity2, accession2, species2, seq2 = self.blast(self.species2Seq,False)
+        elif filetype == "fasta" or filetype == "fna"  or filetype == "fa":
+            self.avgPhredQuality = 60
+            bitscore,evalue,query_coverage,query_length,percent_identity, accession, species, seq = self.blast("".join(self.seq), customdatabsename)
+            query_coverage2=query_coverage; species2 = species; percent_identity2 = percent_identity;
+        else:
+            raise TypeError(f"Unsupported filetype '{filetype}' for {self.name}. Aborting")
 
         if self.avgPhred >= 20 and query_coverage < 50 and query_coverage2 < 50:
             bitscore,evalue,query_coverage,query_length,percent_identity, accession, species, seq = self.blast(''.join(self.fixedSeq),False)
@@ -2220,6 +2266,19 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
     elif reverseP:
         pathlist = [path for path in pathlist if re.search(reverseP, path)]
 
+    #if multi-FASTA file is present in the list slice it up into individual files https://www.metagenomics.wiki/tools/fastq/multi-fasta-format 
+    fasta_paths = [path for path in pathlist for fasta_extension in definitions.FASTA_FILETYPES if path.endswith(fasta_extension)]
+    for fasta_path in fasta_paths:
+        with open(fasta_path,"r") as handle:
+            records=list(SeqIO.parse(handle, "fasta"))
+            LOG.info(f"File {handle.name} has {len(records)} sequences {[r.name for r in records]}")
+            if len(records) > 1:
+                for fasta_record in records:
+                    tempFastaFilePath = utilities.createTempFastaFiles(expName,fasta_record)
+                    pathlist.append(tempFastaFilePath)
+                pathlist.remove(fasta_path)     
+    
+    
     
     if pathlist == []:
         msg = f"Not supported input file(s) found in pathlist {pathlist_unfiltered}. Supported input filetypes are {definitions.FILETYPES}"
@@ -2436,15 +2495,19 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
 
     elif typeSeq=="forward":
         for idx, path in enumerate(pathlist):
-            forward=MixedSeq(file, tabfile, 'forward')
-            goodSeq = forward.readFiles(pathlist[idx], True)
-            forward.fixN()
-
-            if goodSeq:
+            filetype = utilities.getFileType(path)
+            forward = MixedSeq(file, tabfile, 'forward')
+            goodSeq = forward.readFiles(pathlist[idx], True, filetype)
+            
+            if goodSeq and filetype == "abi":
+                forward.fixN()
                 forward.findHeteroBases(2.0)
                 forward.determineAllTypes(customdatabsename)
                 forward.outputResults("", customdatabsename, typeSeq)
-
+            elif filetype == "fasta" or filetype == "fna"  or filetype == "fa":
+                forward.origLength = len(forward.seq)
+                forward.outputResults("", customdatabsename, typeSeq, filetype)
+            
     elif typeSeq=="reverse":
         for idx in range(0, len(pathlist)):
             reverse=MixedSeq(file,tabfile, 'reverse')
@@ -2468,19 +2531,23 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
 
     with open(tabfilename, 'w') as resultFile:
         resultFile.write (tabfile.getvalue())
+    
+    print("\n>>>18S RESULTS  REPORT (only first 10 lines are printed)")
+    tabfile.seek(0)
+    for idx, line in enumerate(tabfile.read().split("\n")):
+        print(line)
+        if idx == 10:
+            LOG.warning(f"Please check the {output_tabreport_file_name} for the completed output ...")
+            break    
 
-    print("Fasta report written to " + os.getcwd()+"/"+output_report_file_name)
-    print("Tab-delimited report written to " + os.getcwd() + "/" + output_tabreport_file_name + "\nThe 18S run completed successfully")
+    print(">>> FASTA report written to " + os.getcwd()+"/"+output_report_file_name)
+    print(">>> Tab-delimited report written to " + os.getcwd() + "/" + output_tabreport_file_name + "\nThe 18S run completed successfully")
 
+    
     #remove files that were made during the analysis
-    os.system("rm align.dnd")
-    os.system("rm align.aln")
-    os.system("rm align.fa")
-    os.system("rm query1.txt")
-    os.system("rm query2.txt")
-    os.system("rm refseq.fa")
-    os.system("rm result1.xml result2.xml SSUresult.xml query.txt")
-
+    LOG.info("Cleaning the temporary FASTA and BLAST database files (if any)")
+    utilities.cleanTempFastaFilesDir()
+  
 
 if __name__ == "__main__":
     msr_main()

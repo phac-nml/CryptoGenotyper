@@ -1,6 +1,8 @@
 import os,sys
 from CryptoGenotyper.typer import main as cryptogenotyper_main
 
+TEST_DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__),"Data"))
+
 def read_report_file(report_file_path):
      with open(report_file_path) as outfp:
          lines = [line.rstrip() for line in outfp.readlines()]
@@ -139,3 +141,69 @@ def test_default_singlefile(input_dir=os.path.abspath(os.path.join(os.path.dirna
     assert 'KM012040.1' in thirdrow
     assert 'C.parvum' in secondrow
 
+def test_gp60_fasta_single_sequence(input_dir = os.path.join(TEST_DATA_DIR) ):
+    args = [
+        "-i", os.path.join(input_dir,"P17705_gp60-Crypt16-1F-20170927_gp60F_G08_052.fasta"),
+        "-m", "gp60",
+        "-o", "P17705_gp60_fasta"
+
+    ]
+
+    sys.argv[1:] = args
+
+    cryptogenotyper_main()
+
+    lines=read_report_file("P17705_gp60_fasta_cryptogenotyper_report.txt")  
+    secondrow = lines[1].split("\t")
+
+    assert "C.parvum" in secondrow
+    assert "IIaA15G2R1" in secondrow
+
+
+def test_18S_fasta_single_sequence(input_dir = os.path.join(TEST_DATA_DIR) ):
+    args = [
+        "-i", os.path.join(input_dir,"P17705_Crypto16-20170927_SSUR.fasta"),
+        "-m", "18S",
+        "-o", "P17705_Crypto16_18S_fasta"
+    ]        
+
+    sys.argv[1:] = args
+
+    cryptogenotyper_main()
+    lines=read_report_file("P17705_Crypto16_18S_fasta_cryptogenotyper_report.txt")  
+    secondrow = lines[1].split("\t")
+
+    assert "C.parvum" in secondrow
+
+
+def test_18S_fasta_single_sequence_сustom_database(input_dir = os.path.join(TEST_DATA_DIR) ):
+    args = [
+        "-i", os.path.join(input_dir,"P17705_Crypto16-20170927_SSUR.fasta"),
+        "-m", "18S",
+        "-d", os.path.abspath(os.path.join(os.path.dirname(__file__),"..","reference_database","msr_ref.fa")),
+        "-o", "P17705_Crypto16_18S_fasta"
+    ]        
+
+    sys.argv[1:] = args
+    print(os.getcwd())
+    cryptogenotyper_main()
+    lines=read_report_file("P17705_Crypto16_18S_fasta_cryptogenotyper_report.txt")  
+    secondrow = lines[1].split("\t")
+
+    assert "C.parvum" in secondrow
+
+def test_18S_fasta_multi_sequence(input_dir = os.path.join(TEST_DATA_DIR) ):
+    args = [
+        "-i", os.path.join(input_dir,"18S_multifasta.fasta"),
+        "-m", "18S",
+        "-d", os.path.abspath(os.path.join(os.path.dirname(__file__),"..","reference_database","msr_ref.fa")),
+        "-o", "18S_multifasta"
+    ]        
+
+    sys.argv[1:] = args
+    print(os.getcwd())
+    cryptogenotyper_main()
+    lines=read_report_file("18S_multifasta_cryptogenotyper_report.txt")   
+
+    assert "C.parvum" in lines[1].split("\t")
+    assert "C.hominis" in lines[2].split("\t")  
