@@ -1968,7 +1968,7 @@ class MixedSeq(object):
             blastn_cline = NcbiblastnCommandline(cmd='blastn',query="query.txt", dust='yes',
                                              db="custom_db", reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="SSUresult.xml")
         else:
-            LOG.info(f"Running BLAST on {len(sequence)}bp query from {self.name} on {os.path.dirname(__file__)+"/reference_database/msr_ref.fa"}")    
+            LOG.info(f"Running BLAST on {len(sequence)}bp query from {self.name} on {os.path.dirname(__file__)+'/reference_database/msr_ref.fa'}")    
             blastn_cline = NcbiblastnCommandline(cmd='blastn',query="query.txt", dust='yes',
                                              db=os.path.dirname(__file__)+"/reference_database/msr_ref.fa", reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="SSUresult.xml")
 
