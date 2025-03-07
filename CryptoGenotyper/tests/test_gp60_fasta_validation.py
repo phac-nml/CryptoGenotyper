@@ -44,7 +44,7 @@ def test_validation_gp60_dataset(input_fasta_file=os.path.join(TEST_DATA_DIR,"da
         line_list = line.split("\t")
         results_dict[line_list[sampleid_idx]]["predicted_species"] = line_list[species_idx]
         results_dict[line_list[sampleid_idx]]["predicted_subtype"] = line_list[subtype_idx]
-        ])
+        
     
     
     with open('test_validation_gp60_dataset_results_dict.json', 'w') as fp:
