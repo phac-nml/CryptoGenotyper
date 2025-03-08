@@ -59,7 +59,7 @@ def test_validation_gp60_dataset(input_fasta_file=os.path.join(TEST_DATA_DIR,"da
         for sample_id in mismatch_sampleid_list:
             print(sample_id, results_dict[sample_id])
     
-    print(f"Matched {len(results_dict) - len(mismatch_sampleid_list)} out of {len(results_dict) }")             
+    print(f"Matched {len(results_dict) - len(mismatch_sampleid_list)} out of {len(results_dict) } gp60 marker samples in FASTA inputs mode")             
     
     assert len(mismatch_sampleid_list) == 0
         

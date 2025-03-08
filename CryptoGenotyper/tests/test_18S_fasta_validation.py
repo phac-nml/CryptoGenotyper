@@ -28,7 +28,7 @@ def test_validation_18S_dataset(input_fasta_file=os.path.join(TEST_DATA_DIR,"dat
     for ln, line in enumerate(lines[1:]):
         line_list = line.split("\t")
         if len(line_list) != 2:
-            print(f"Line {ln} did not have 2 fields but {len(line_list)}")
+            raise Exception(f"Line {ln} did not have 2 fields but {len(line_list)}")
         results_dict[line_list[0]]={"predicted_species":"",
                                     "expected_species":line_list[1]}    
 
@@ -38,10 +38,22 @@ def test_validation_18S_dataset(input_fasta_file=os.path.join(TEST_DATA_DIR,"dat
     species_idx = [idx for idx, field in enumerate(header_fields_list) if field=="Species"][0]
 
     
-    #add CryptoGentoyper 18S results to dictionary
+    #add CryptoGentoyper 18S results to dictionary and find how many matched and how many did not (if any)
+    mismatch_sampleid_list = []
     for line in lines[1:]:
         line_list = line.split("\t")
+        sample_id = line_list[sampleid_idx]
         #print(f"CGT predicted: {line_list[sampleid_idx]}\t{line_list[species_idx]}\t{line_list[subtype_idx]}")
-        results_dict[line_list[sampleid_idx]]["predicted_species"] = line_list[species_idx]
+        results_dict[sample_id]["predicted_species"] = line_list[species_idx]
         #print(results_dict[line_list[sampleid_idx]])
-    print(results_dict)
+        if results_dict[sample_id]["predicted_species"] != results_dict[sample_id]["expected_species"]:
+            mismatch_sampleid_list.append(sample_id)
+    
+    print(f"Overall results of 18S marker testing on {len(results_dict)} samples:\n{results_dict}\n")
+
+    if len(mismatch_sampleid_list) != 0:
+        print(f"Found {len(mismatch_sampleid_list)} samples that did not match expected gp60 subtype values")
+        for sample_id in mismatch_sampleid_list:
+            print(sample_id, results_dict[sample_id])
+    
+    print(f"Matched {len(results_dict) - len(mismatch_sampleid_list)} out of {len(results_dict) } 18S marker samples in FASTA inputs mode") 

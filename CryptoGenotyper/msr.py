@@ -765,12 +765,16 @@ def indelligent(gen1):
 #Function to build the contig of forward and reverse sequences
 def buildContig(s1, s2):
     substring = s2[0:10]
+    
     p = s1.find(substring)
     contig = ""
-
+    
+    LOG.info(f"Trying to build contig from forward {len(s1)}bp and reverse {len(s2)}bp sequence based on first reverse {len(substring)}bp overlap ({substring}) ...")
     if p != -1:
         contig += s1[:p]
         contig += s2
+    else:
+        LOG.warning(f"Could not form conting as was not able to find overlap based on {substring} substring")    
 
     return contig
 
@@ -1999,12 +2003,17 @@ class MixedSeq(object):
                 if maxBitScore == alignment.hsps[0].score: #
                     identicalAlignHits.append(alignment)
                 if idx < 5:
-                    LOG.debug(f"{idx+1}: ID={alignment.hit_id}\tScore={alignment.hsps[0].score}\tIdentity={round(hsp.identities/hsp.align_length,3)*100}%\tCoverage={round(hsp.align_length/blast_record.query_length)*100}%\tGaps={hsp.gaps}\tAlignmentLen={hsp.align_length}bp")
+                    LOG.debug(f"{idx+1}: ID={alignment.hit_id}\tScore={alignment.hsps[0].score}\tIdentity={round(hsp.identities/hsp.align_length,3)*100}%\tCoverage={round(hsp.align_length/blast_record.query_length,3)*100}%\tGaps={hsp.gaps}\tQueryLen={blast_record.query_length}bp\tAlignmentLen={hsp.align_length}bp")
 
             if len(identicalAlignHits) >= 2:    
-                LOG.warning(f"!!! Found {len(identicalAlignHits)} identical candidate BLAST hits in reference database ({', '.join([a.hit_id for a in identicalAlignHits])}). Trying to pick one with min # of gaps !!!") 
+                LOG.warning(f"!!! Found {len(identicalAlignHits)} identically scored candidate BLAST hits in reference database:\n{'\n'.join([a.hit_id for a in identicalAlignHits])}.\nTrying to pick one with min # of gaps and resolve the tie!!!") 
                 min_gaps = min([align.hsps[0].gaps for align in identicalAlignHits])
-                br_alignment = [align for align in identicalAlignHits if align.hsps[0].gaps == min_gaps]    
+                min_gaps_alignments = [align for align in identicalAlignHits if align.hsps[0].gaps == min_gaps]
+                if len(min_gaps_alignments) > 1:
+                    LOG.warning(f"Could not resolve candidate BLAST top hits based on min gaps. Will pick the first top hit ({min_gaps_alignments[0].hit_id})")
+                else:
+                    LOG.info(f"Successfully resolved the tie and picked {min_gaps_alignments[0].hit_id} hit")
+                br_alignment = min_gaps_alignments[0]
                 hsp = br_alignment.hsps[0]
             else:
                 br_alignment = blast_record.alignments[0]
@@ -2014,7 +2023,7 @@ class MixedSeq(object):
             percent_identity = round(hsp.identities/hsp.align_length,3)*100
             evalue = hsp.expect
             bitscore = hsp.score
-            query_coverage = round(hsp.align_length/blast_record.query_length)*100
+            query_coverage = round(hsp.align_length/blast_record.query_length,3)*100
             query_length = blast_record.query_length
             species = br_alignment.hit_id
             
@@ -2150,9 +2159,10 @@ class MixedSeq(object):
             self.tabfile.write(str(accession)+"\n")
 
         elif species == species2 or ("C.hominis" in species and "C.hominis" in species2):
-            if query_coverage < 50 and query_coverage2 < 50:
-                self.tabfile.write("\t\t\t" + "Could not analyze chromatogram. Please check manually." + "\t\t\t\t\t\t\t\n")
-                return
+            #if query_coverage < 50 and query_coverage2 < 50:
+            #    exit("Hi")
+            #    self.tabfile.write("\t\t\t" + "Could not analyze chromatogram. Please check manually." + "\t\t\t\t\t\t\t\n")
+            #    return
             self.file.write(species.split("|")[0])
             self.tabfile.write("No\t")
             self.tabfile.write(species.split("|")[0] + "\t")
@@ -2325,6 +2335,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
         tabfile.write("Error: Need to include both forward and reverse sequences of ALL samples to produce contig.\t\t\t\t\t\t\t\t\t\t\t\n")
 
     elif typeSeq == "contig":
+        LOG.info(f"Processing {len(pathlist)} file(s):\n{pathlist}")
         for idx in range(0,len(pathlist),2):
             forward = MixedSeq(file, tabfile, 'contig')
             reverse = MixedSeq(file, tabfile, 'contig')
@@ -2339,7 +2350,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
             r_bitscore,r_evalue,r_query_coverage,r_query_length,r_percent_identity, r_accession, r_species, r_seq = reverse.blast(str(''.join(reverse.oldseq)),False)
 
             if f_goodSeq and r_goodSeq:
-
+                
                 if f_species == "" and r_species == "":
                     forward.species1=";>No blast hits."
                     forward.species2=";>No blast hits."
@@ -2395,7 +2406,9 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                         r_species = "|."
                         r_species2 = "|."
 
+                    
                     if (r_species == r_species2 and f_species==f_species2 and f_species==r_species) or ("C.hominis" in r_species and "C.hominis" in r_species2 and "C.hominis" in f_species and "C.hominis" in f_species2):
+                        
                         if "C.hominis|GQ183513.11" in f_species and "C.hominis|GQ183513.8" in f_species2:
                             forwardseq = forward.species1Seq
                         elif "C.hominis|GQ183513.11" in f_species2 and "C.hominis|GQ183513.8" in f_species:
@@ -2415,11 +2428,13 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                         else:
                             reverseseq = reverse.species2Seq
 
+                        
                         reverseseq = revcomp(reverseseq)
+                        
 
 
                         contig = buildContig(forwardseq, reverseseq)
-
+                        
                         if contig != "":
                             forward.species1Seq = contig
                             forward.species2Seq = contig
@@ -2494,6 +2509,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
 
 
     elif typeSeq=="forward":
+        LOG.info(f"Processing {len(pathlist)} file(s):\n{pathlist}")
         for idx, path in enumerate(pathlist):
             filetype = utilities.getFileType(path)
             forward = MixedSeq(file, tabfile, 'forward')

@@ -891,7 +891,7 @@ class analyzingGp60(object):
             LOG.debug("Top 10 hits in species identification:"+"".join(top10hits))
             top10bitscores = [a.hsps[0].bits for r in blast_records for idx,a in enumerate(r.alignments) if idx <= 10]
             if len(top10bitscores) != len(set(top10bitscores)):
-                LOG.warning("Hits with identical bitscore are found that might cause ambiguous species results")
+                LOG.warning("Hits with identical bitscore are found that might cause ambiguous species results. Check database and inputs")
 
             
             

@@ -10,7 +10,9 @@ The `CryptoGenotyper` is a fast and reproducible tool that can be used to classi
 
 *Cryptosporidium* is a protozoan parasite that causes the enteric disease, cryptosporidiosis. It is transmitted to both humans and animals through zoonotic or anthroponotic means, and these dynamics can be studied through the analysis of SSU rRNA or *gp60* gene locus. Although due to the nature of these gene targets, manual analysis can be repetitive and difficult, allowing for the potential of inaccurate or incomplete results to be reported. 
 
-CryptoGenotyper is able to analyze both well-defined and poorly-resolved peaks to ultimately output the corresponding sequence along with the *Cryptosporidium* genotype in standard nomenclature.
+CryptoGenotyper is able to analyze both well-defined and poorly-resolved peaks from SANGER sequencing files to ultimately output the corresponding sequence along with the *Cryptosporidium* genotype in standard nomenclature.
+
+Since v1.5.0 CryptoGenotyper now accepts sequences in popular FASTA format both for *18S* and *gp60* markers. Importantly the gp60 marker module now incorporates the most recent typing nomenclature available in gp60 subtyping table [here](https://cryptodb.org/cryptodb/app/static-content/gp60.html)
 
 ## Requirements
 * `biopython >= 1.70,<1.78`
