@@ -2005,8 +2005,9 @@ class MixedSeq(object):
                 if idx < 5:
                     LOG.debug(f"{idx+1}: ID={alignment.hit_id}\tScore={alignment.hsps[0].score}\tIdentity={round(hsp.identities/hsp.align_length,3)*100}%\tCoverage={round(hsp.align_length/blast_record.query_length,3)*100}%\tGaps={hsp.gaps}\tQueryLen={blast_record.query_length}bp\tAlignmentLen={hsp.align_length}bp")
 
-            if len(identicalAlignHits) >= 2:    
-                LOG.warning(f"!!! Found {len(identicalAlignHits)} identically scored candidate BLAST hits in reference database:\n{'\n'.join([a.hit_id for a in identicalAlignHits])}.\nTrying to pick one with min # of gaps and resolve the tie!!!") 
+            if len(identicalAlignHits) >= 2:   
+                identical_score_hits_ids_str = '\n'.join([a.hit_id for a in identicalAlignHits]) 
+                LOG.warning(f"!!! Found {len(identicalAlignHits)} identically scored candidate BLAST hits in reference database:\n{identical_score_hits_ids_str}.\nTrying to pick one with min # of gaps and resolve the tie!!!") 
                 min_gaps = min([align.hsps[0].gaps for align in identicalAlignHits])
                 min_gaps_alignments = [align for align in identicalAlignHits if align.hsps[0].gaps == min_gaps]
                 if len(min_gaps_alignments) > 1:
