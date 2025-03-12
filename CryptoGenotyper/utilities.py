@@ -1,4 +1,4 @@
-import os, shutil, glob, itertools
+import os, shutil, glob, itertools, subprocess
 from CryptoGenotyper import definitions
 
 
@@ -32,4 +32,19 @@ def cleanTempFastaFilesDir(temp_dir="tmp_fasta_files"):
             os.remove(file)
         except FileNotFoundError:
             pass       
-    
+
+def init_blast_databases():
+    DATABASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__),"reference_database"))
+    files_list = os.listdir(DATABASE_DIR)
+    fasta_files = [file for file in files_list if file.endswith(tuple(definitions.FASTA_FILETYPES))]
+    tmpfiles2remove = [file for file in files_list if file.endswith((".ndb",".nhr",".nin",".nog",".nos",".not",".nsq",".ntf",".nto"))]
+
+    for file in tmpfiles2remove:
+        try:
+            os.remove(file)
+        except FileNotFoundError:
+            pass       
+
+
+    for fasta in fasta_files:
+        subprocess.run(f"cd {DATABASE_DIR} && makeblastdb -dbtype nucl -in {fasta}  -out {fasta}  -parse_seqids", shell=True)

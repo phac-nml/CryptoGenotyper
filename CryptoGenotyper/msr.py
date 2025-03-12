@@ -765,18 +765,17 @@ def indelligent(gen1):
 #Function to build the contig of forward and reverse sequences
 #forewardseq = forward sequence in 5'->3'; reverseseq = reverse sequence in 5'->3'
 def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None): 
-    
-    
-    print(forwardObj.avgPhred)
+
     if forwardObj and reverseObj:
         start_pos = re.search(forwardseq[0:10], "".join(forwardObj.seq)).start() #use 10bp of to find original seq position
         phred_scores_forewardseq = forwardObj.phred_qual[start_pos:len(forwardseq)]
         phred_scores_forewardseq_avg = sum(phred_scores_forewardseq)/len(phred_scores_forewardseq)
+        forwardObj.avgPhredQuality = phred_scores_forewardseq_avg
         
         start_pos = re.search(revcomp(reverseseq[-10:]), "".join(reverseObj.seq)).start()
         phred_scores_reverseseq = reverseObj.phred_qual[start_pos:len(reverseseq)][::-1] #reverse order
         phred_scores_reverseseq_avg = sum(phred_scores_reverseseq)/len(phred_scores_reverseseq)
-        print(phred_scores_forewardseq_avg,phred_scores_reverseseq_avg)
+        reverseObj.avgPhredQuality = phred_scores_reverseseq_avg
 
         with open("forwardseq_tmp.fasta", "w") as fp:
             fp.write(forwardseq)
@@ -789,7 +788,6 @@ def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None):
         for record in NCBIXML.parse(open("blastn_contig_results.xml")):
             if record.alignments:
                 hsp = record.alignments[0].hsps[0]
-                
                 if phred_scores_forewardseq_avg > phred_scores_reverseseq_avg:
                     #use forward aligned overlap sequence instead of reverse (forward+forward_overlap_alignment(blast)+reverse)
                     contig = forwardseq[0:hsp.query_end]+reverseseq[hsp.sbjct_end:]
@@ -2026,13 +2024,14 @@ class MixedSeq(object):
             blast_record = next(blast_records)
 
             if len(blast_record.alignments) == 0:
+                LOG.error("No BLAST hits were found! No species will be identified!")
                 return "","",0,"",0,"","",""
 
             
 
             
 
-            LOG.debug("Top 5 BLAST hits ...")
+            LOG.debug("Top 10 BLAST hits ...")
             maxBitScore = 0; identicalAlignHits = [] #BLAST hits that have identical top score (if any). Usually only single hit with unique top score
             for idx, alignment in enumerate(blast_record.alignments):
                 hsp = alignment.hsps[0]
@@ -2040,8 +2039,10 @@ class MixedSeq(object):
                    maxBitScore =  alignment.hsps[0].score
                 if maxBitScore == alignment.hsps[0].score: #
                     identicalAlignHits.append(alignment)
-                if idx < 5:
+                if idx < 10:
                     LOG.debug(f"{idx+1}: ID={alignment.hit_id}\tScore={alignment.hsps[0].score}\tIdentity={round(hsp.identities/hsp.align_length,3)*100}%\tCoverage={round(hsp.align_length/blast_record.query_length,3)*100}%\tGaps={hsp.gaps}\tQueryLen={blast_record.query_length}bp\tAlignmentLen={hsp.align_length}bp")
+                if idx == 10:
+                    break
 
             if len(identicalAlignHits) >= 2:   
                 identical_score_hits_ids_str = '\n'.join([a.hit_id for a in identicalAlignHits]) 
@@ -2068,8 +2069,9 @@ class MixedSeq(object):
             
 
             LOG.debug(f"TOP hit species={species} query_length={query_length} originalLength={self.origLength} percent_identity={percent_identity} evalue {evalue}")
-            if query_length < int(0.6*self.origLength) or percent_identity < 85 or evalue > 1e-200:
-                return "","",0,"",0,"","",""
+            #if query_length < int(0.6*self.origLength) or percent_identity < 85 or evalue > 1e-200:
+            #    LOG.warning(f"Query length is less than {self.origLength}  {0.6*self.origLength} {percent_identity} {evalue}")
+            #    return "","",0,"",0,"","",""
 
             accession = blast_record.alignments[0].hit_id
 
@@ -2118,7 +2120,7 @@ class MixedSeq(object):
         
         if (self.species1 == ";>No blast hits." and self.species2 == ";>No blast hits."):
             if self.avgPhredQuality < 10:
-                self.tabfile.write("\t\t\t" + "Could not analyze chromatogram. Please check manually." + "\t\t\t\t\t\t\t\n")
+                self.tabfile.write("\t\t\t" + "Could not analyze input file. Please check manually." + "\t\t\t\t\t\t\t\n")
             else:
                 self.tabfile.write("\t\t\t" + "No blast hits." + "\t\t\t\t\t\t\t\n")
             return
@@ -2129,7 +2131,7 @@ class MixedSeq(object):
         elif filetype == "fasta" or filetype == "fna"  or filetype == "fa":
             self.avgPhredQuality = 60
             bitscore,evalue,query_coverage,query_length,percent_identity, accession, species, seq = self.blast("".join(self.seq), customdatabsename)
-            query_coverage2=query_coverage; species2 = species; percent_identity2 = percent_identity;
+            query_coverage2=query_coverage; species2 = species; percent_identity2 = percent_identity
         else:
             raise TypeError(f"Unsupported filetype '{filetype}' for {self.name}. Aborting")
 
@@ -2140,9 +2142,9 @@ class MixedSeq(object):
         if mode == 'reverse':
             seq = revcomp(seq)
             seq2 = revcomp(seq2)
-
+        
         if (species == "" and species2 == ""): #or (query_coverage < 50 and query_coverage2 < 50):
-            self.tabfile.write("\t\t\t" + "Could not analyze chromatogram. Please check manually." + "\t\t\t\t\t\t\t\n")
+            self.tabfile.write("\t\t\t" + "Could not analyze input file. Please check manually." + "\t\t\t\t\t\t\t\n")
 
 
 
@@ -2158,8 +2160,8 @@ class MixedSeq(object):
                 self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
 
             elif self.mixed:
-                self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
-                self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
+                self.tabfile.write("Could be other potential mixed seqs. Check manually.\t")
+                self.file.write("  (Note: Could be other potential mixed seqs. Check manually.)")
             else:
                 self.tabfile.write(" \t")
 
@@ -2183,8 +2185,8 @@ class MixedSeq(object):
                 self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
                 self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
             elif self.mixed:
-                self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
-                self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
+                self.tabfile.write("Could be other potential mixed seqs. Check manually.\t")
+                self.file.write("  (Note: Could be other potential mixed seqs. Check manually.)")
             else:
                 self.tabfile.write(" \t")
 
@@ -2200,7 +2202,7 @@ class MixedSeq(object):
         elif species == species2 or ("C.hominis" in species and "C.hominis" in species2):
             #if query_coverage < 50 and query_coverage2 < 50:
             #    exit("Hi")
-            #    self.tabfile.write("\t\t\t" + "Could not analyze chromatogram. Please check manually." + "\t\t\t\t\t\t\t\n")
+            #    self.tabfile.write("\t\t\t" + "Could not analyze input file. Please check manually." + "\t\t\t\t\t\t\t\n")
             #    return
             self.file.write(species.split("|")[0])
             self.tabfile.write("No\t")
@@ -2208,13 +2210,13 @@ class MixedSeq(object):
 
             if percent_identity >= percent_identity2:
                 self.tabfile.write(seq + "\t")
-
+             
                 if self.avgPhredQuality < 10 and "C.hominis" not in species:
                     self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
                     self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
                 elif self.mixed:
-                    self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
-                    self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
+                    self.tabfile.write("Could be other potential mixed seqs. Check manually.\t")
+                    self.file.write("  (Note: Could be other potential mixed seqs. Check manually.)")
                 else:
                     self.tabfile.write(" \t")
 
@@ -2468,57 +2470,10 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                             reverseseq = reverse.species2Seq
 
                         
-                        print("reverse")
-                        if re.search(reverseseq[0:20], "".join(reverse.seq)):
-                            start_pos = re.search(reverseseq[0:20], "".join(reverse.seq)).start()
-                            phred_scores_reverseseq = reverse.phred_qual[start_pos:len(reverseseq)][::-1] #reverse order
-                            print(reverse.phred_qual[start_pos:len(reverseseq)])
-                            print(f"reverse_comp_revseq: {revcomp(reverseseq)} {len(reverseseq)}")
-                            print(phred_scores_reverseseq, sum(phred_scores_reverseseq)/len(phred_scores_reverseseq))
                         
                         reverseseq = revcomp(reverseseq)
                         
-
-                        print("forward")
-                        if re.search(forwardseq[0:10], "".join(forward.seq)):
-                            print(re.search(forwardseq[0:10], "".join(forward.seq)).start())
-                            start_pos = re.search(forwardseq[0:10], "".join(forward.seq)).start()
-                            phred_scores_forewardseq = forward.phred_qual[start_pos:len(forwardseq)]
-                            print(forwardseq, len(forwardseq))
-                            print(phred_scores_forewardseq, sum(phred_scores_forewardseq)/len(phred_scores_forewardseq))
-                        
-                        print(re.search(reverseseq[0:10], forwardseq).start())
-                        for i in range(72,len(forwardseq)):
-                            if forwardseq[i] == reverseseq[i-72]:
-                                print(forwardseq[i])
-                            else:
-                                print(f"mismatch {i}: {forwardseq[i]}({phred_scores_forewardseq[i]}) != {reverseseq[i-72]}({phred_scores_reverseseq[i-72]})")    
-                        with open("forwardseq_tmp.fasta", "w") as fp:
-                            fp.write(forwardseq)
-                        with open("reverseseq_tmp.fasta", "w") as fp:
-                            fp.write(reverseseq)   
-                        blastn_cline = NcbiblastnCommandline(query="forwardseq_tmp.fasta", subject="reverseseq_tmp.fasta",
-                                                             reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5,
-                                                             out="blastn_results.xml")  
-                        blastn_cline() 
-                        for record in NCBIXML.parse(open("blastn_results.xml")):
-                            if record.alignments:
-                                hsp = record.alignments[0].hsps[0]
-                                print(dir(record.alignments[0].hsps[0]))
-                                print(hsp.query_start, hsp.query_end, hsp.sbjct_start,hsp.sbjct_end)
-                                print(forwardseq[hsp.query_start-1:hsp.query_end], len(forwardseq))
-                                print(reverseseq[hsp.sbjct_start-1:hsp.sbjct_end], len(reverseseq))
-                                print("forwerdseq",forwardseq)
-                                print("reverseseq",reverseseq)
-                                contig_fwd = forwardseq[0:hsp.query_end]+reverseseq[hsp.sbjct_end:]
-                                contig_rev = forwardseq[0:hsp.query_start]+reverseseq[hsp.sbjct_start-1:]
-                                print("contig_fwd", contig_fwd)
-                                print("contig_rev",contig_rev)
-                        
                         contig = buildContig(forwardseq, reverseseq, forward, reverse)
-                        print(len(contig),len(contig_fwd),len(contig_rev))
-                        print(contig)
-                        exit(blastn_cline)
                         
                         if contig != "":
                             forward.species1Seq = contig

@@ -39,6 +39,7 @@ setup(
    ],
 
    entry_points={
-      'console_scripts': ['cryptogenotyper=CryptoGenotyper.typer:main'],
+      'console_scripts': ['cryptogenotyper=CryptoGenotyper.typer:main',
+                          'cryptogenotyper_init=CryptoGenotyper.utilities:init_blast_databases'],
    },
 )
