@@ -763,18 +763,56 @@ def indelligent(gen1):
     return temp1, temp2
 
 #Function to build the contig of forward and reverse sequences
-def buildContig(s1, s2):
-    substring = s2[0:10]
+#forewardseq = forward sequence in 5'->3'; reverseseq = reverse sequence in 5'->3'
+def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None): 
     
-    p = s1.find(substring)
-    contig = ""
     
-    LOG.info(f"Trying to build contig from forward {len(s1)}bp and reverse {len(s2)}bp sequence based on first reverse {len(substring)}bp overlap ({substring}) ...")
-    if p != -1:
-        contig += s1[:p]
-        contig += s2
+    print(forwardObj.avgPhred)
+    if forwardObj and reverseObj:
+        start_pos = re.search(forwardseq[0:10], "".join(forwardObj.seq)).start() #use 10bp of to find original seq position
+        phred_scores_forewardseq = forwardObj.phred_qual[start_pos:len(forwardseq)]
+        phred_scores_forewardseq_avg = sum(phred_scores_forewardseq)/len(phred_scores_forewardseq)
+        
+        start_pos = re.search(revcomp(reverseseq[-10:]), "".join(reverseObj.seq)).start()
+        phred_scores_reverseseq = reverseObj.phred_qual[start_pos:len(reverseseq)][::-1] #reverse order
+        phred_scores_reverseseq_avg = sum(phred_scores_reverseseq)/len(phred_scores_reverseseq)
+        print(phred_scores_forewardseq_avg,phred_scores_reverseseq_avg)
+
+        with open("forwardseq_tmp.fasta", "w") as fp:
+            fp.write(forwardseq)
+        with open("reverseseq_tmp.fasta", "w") as fp:
+            fp.write(reverseseq)   
+        blastn_cline = NcbiblastnCommandline(query="forwardseq_tmp.fasta", subject="reverseseq_tmp.fasta",
+                                            reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5,
+                                            out="blastn_contig_results.xml")  
+        blastn_cline() 
+        for record in NCBIXML.parse(open("blastn_contig_results.xml")):
+            if record.alignments:
+                hsp = record.alignments[0].hsps[0]
+                
+                if phred_scores_forewardseq_avg > phred_scores_reverseseq_avg:
+                    #use forward aligned overlap sequence instead of reverse (forward+forward_overlap_alignment(blast)+reverse)
+                    contig = forwardseq[0:hsp.query_end]+reverseseq[hsp.sbjct_end:]
+                else:
+                    #use reverse aligned overlap sequence instead of reverse  (forward+reverse_overlap_alignment(blast)+reverse)
+                    contig = forwardseq[0:hsp.query_start]+reverseseq[hsp.sbjct_start-1:]
     else:
-        LOG.warning(f"Could not form conting as was not able to find overlap based on {substring} substring")    
+        substring = reverseseq[0:10]
+    
+        p = forwardseq.find(substring)
+        contig = ""
+    
+        LOG.info(f"Trying to build contig from forward {len(forwardseq)}bp and reverse {len(reverseseq)}bp sequence based on first reverse {len(substring)}bp overlap ({substring}) ...")
+        if p != -1: #if 10bp overlap is found in forward sequence
+            contig += forwardseq[:p]
+            contig += reverseseq
+        else:
+            LOG.warning(f"Could not form contig as was not able to find overlap based on {substring} substring")
+    
+
+
+
+                                
 
     return contig
 
@@ -2430,11 +2468,57 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                             reverseseq = reverse.species2Seq
 
                         
+                        print("reverse")
+                        if re.search(reverseseq[0:20], "".join(reverse.seq)):
+                            start_pos = re.search(reverseseq[0:20], "".join(reverse.seq)).start()
+                            phred_scores_reverseseq = reverse.phred_qual[start_pos:len(reverseseq)][::-1] #reverse order
+                            print(reverse.phred_qual[start_pos:len(reverseseq)])
+                            print(f"reverse_comp_revseq: {revcomp(reverseseq)} {len(reverseseq)}")
+                            print(phred_scores_reverseseq, sum(phred_scores_reverseseq)/len(phred_scores_reverseseq))
+                        
                         reverseseq = revcomp(reverseseq)
                         
 
-
-                        contig = buildContig(forwardseq, reverseseq)
+                        print("forward")
+                        if re.search(forwardseq[0:10], "".join(forward.seq)):
+                            print(re.search(forwardseq[0:10], "".join(forward.seq)).start())
+                            start_pos = re.search(forwardseq[0:10], "".join(forward.seq)).start()
+                            phred_scores_forewardseq = forward.phred_qual[start_pos:len(forwardseq)]
+                            print(forwardseq, len(forwardseq))
+                            print(phred_scores_forewardseq, sum(phred_scores_forewardseq)/len(phred_scores_forewardseq))
+                        
+                        print(re.search(reverseseq[0:10], forwardseq).start())
+                        for i in range(72,len(forwardseq)):
+                            if forwardseq[i] == reverseseq[i-72]:
+                                print(forwardseq[i])
+                            else:
+                                print(f"mismatch {i}: {forwardseq[i]}({phred_scores_forewardseq[i]}) != {reverseseq[i-72]}({phred_scores_reverseseq[i-72]})")    
+                        with open("forwardseq_tmp.fasta", "w") as fp:
+                            fp.write(forwardseq)
+                        with open("reverseseq_tmp.fasta", "w") as fp:
+                            fp.write(reverseseq)   
+                        blastn_cline = NcbiblastnCommandline(query="forwardseq_tmp.fasta", subject="reverseseq_tmp.fasta",
+                                                             reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5,
+                                                             out="blastn_results.xml")  
+                        blastn_cline() 
+                        for record in NCBIXML.parse(open("blastn_results.xml")):
+                            if record.alignments:
+                                hsp = record.alignments[0].hsps[0]
+                                print(dir(record.alignments[0].hsps[0]))
+                                print(hsp.query_start, hsp.query_end, hsp.sbjct_start,hsp.sbjct_end)
+                                print(forwardseq[hsp.query_start-1:hsp.query_end], len(forwardseq))
+                                print(reverseseq[hsp.sbjct_start-1:hsp.sbjct_end], len(reverseseq))
+                                print("forwerdseq",forwardseq)
+                                print("reverseseq",reverseseq)
+                                contig_fwd = forwardseq[0:hsp.query_end]+reverseseq[hsp.sbjct_end:]
+                                contig_rev = forwardseq[0:hsp.query_start]+reverseseq[hsp.sbjct_start-1:]
+                                print("contig_fwd", contig_fwd)
+                                print("contig_rev",contig_rev)
+                        
+                        contig = buildContig(forwardseq, reverseseq, forward, reverse)
+                        print(len(contig),len(contig_fwd),len(contig_rev))
+                        print(contig)
+                        exit(blastn_cline)
                         
                         if contig != "":
                             forward.species1Seq = contig
