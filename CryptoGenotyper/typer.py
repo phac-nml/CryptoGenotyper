@@ -68,10 +68,9 @@ def main():
     LOG.info(args)
 
     if utilities.is_databases_initialized() == False:
-        LOG.info("Initializing databases ...")    
         utilities.init_blast_databases()
     else:
-        LOG.info("Databases already initialized previously and in good health.")    
+        LOG.info("Databases already initialized and in good health. Continue on")    
 
     if args.databasefile:
         make_custom_database(input_fasta=args.databasefile)  

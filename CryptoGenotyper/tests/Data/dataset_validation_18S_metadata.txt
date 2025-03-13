@@ -4,3 +4,9 @@ DQ010950.1	C.parvum
 JX547008.1	C.hominis
 JX547010.1	C.hominis
 AF093490.1	C.parvum
+GQ259141.1	C.erinacei
+GU816071.1	C.galli
+HM750255.1	C.avium
+JQ894736.1	C.parvum
+KJ584578.1	C.sp.rat(genotypeII)
+KJ816870.1	C.sp.chipmunk(genotypeII_TypeB)

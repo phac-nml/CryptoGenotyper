@@ -1,9 +1,15 @@
 import os, shutil, glob, itertools, subprocess, datetime
 from CryptoGenotyper import definitions
+from CryptoGenotyper.logging import create_logger
+
+# setup the application logging
+LOG = create_logger(__name__)
+
 
 DATABASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__),"reference_database"))
 
 def createTempFastaFiles(experiment_prefix="", record=None):
+    LOG.info("Creating temporary FASTA files from multi-FASTA file ...")
     temp_dir = os.path.join("./",f"tmp_fasta_files_{experiment_prefix}")
     if os.path.exists(temp_dir == False):
         os.makedirs(temp_dir, exist_ok=True)
@@ -23,7 +29,7 @@ def getFileType(path):
         return None
     
 def cleanTempFastaFilesDir(temp_dir="tmp_fasta_files"):
-    
+    LOG.info("Cleaning temporary files after the run")
     if os.path.exists(temp_dir):
         shutil.rmtree(temp_dir, ignore_errors=True)
     tmpfiles2remove = list(itertools.chain.from_iterable([glob.glob(e) for e in 
@@ -34,7 +40,8 @@ def cleanTempFastaFilesDir(temp_dir="tmp_fasta_files"):
         except FileNotFoundError:
             pass       
 
-def init_blast_databases(): 
+def init_blast_databases():
+    LOG.info("Initializing databases ...") 
     files_list = os.listdir(DATABASE_DIR)
     fasta_files = [file for file in files_list if file.endswith(tuple(definitions.FASTA_FILETYPES))]
     tmpfiles2remove = [file for file in files_list if file.endswith((".ndb",".nhr",".nin",".nog",".nos",".not",".nsq",".ntf",".nto"))]
@@ -51,11 +58,12 @@ def init_blast_databases():
     with open(os.path.join(DATABASE_DIR,"db_status.txt"),"w") as fp:
         data_and_time_str = datetime.datetime.today().strftime('%Y-%m-%d')
         fp.write(f"Databases initialized on {data_and_time_str}")
+        LOG.info("Databases initialized successfully")
 
 
 def is_databases_initialized():
      db_status_filepath = os.path.join(DATABASE_DIR,"db_status.txt")
-     if os.path.exists(db_status_filepath) and os.stat(db_status_filepath).st_size == 0:
+     if os.path.exists(db_status_filepath) and os.stat(db_status_filepath).st_size != 0:
         return True
      else:
         return False 
