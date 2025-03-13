@@ -9,6 +9,7 @@ import argparse
 from CryptoGenotyper.version import  __version__
 from CryptoGenotyper.logging import create_logger
 import CryptoGenotyper.definitions as definitions
+from CryptoGenotyper import utilities
 
 LOG = create_logger(__name__,logging.INFO) 
 
@@ -65,6 +66,13 @@ def main():
 
     LOG.info("Running cryptogenotyper v{}".format(__version__))
     LOG.info(args)
+
+    if utilities.is_databases_initialized() == False:
+        LOG.info("Initializing databases ...")    
+        utilities.init_blast_databases()
+    else:
+        LOG.info("Databases already initialized previously and in good health.")    
+
     if args.databasefile:
         make_custom_database(input_fasta=args.databasefile)  
 
