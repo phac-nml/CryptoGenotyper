@@ -546,7 +546,7 @@ class analyzingGp60(object):
     #   Looks through entire sequence for the repeat region, always keeping
     #   track of where the longest TC_ (or AG_ for reverse) repeat is
     def findRepeatRegion(self):
-        LOG.info(f"Trying to find repeat region in the sequence {''.join(self.seq)} ...")
+        LOG.info(f"Trying to find repeat region in the sequence ...")
         seq = list(self.seq)
 
 
@@ -887,7 +887,7 @@ class analyzingGp60(object):
             blast_records = list(NCBIXML.parse(result_handle))
             #print([a.hsps[0].bits for r in blast_records for a in r.alignments])
             blast_record = blast_records[0] #take the top hit only  
-            top10hits=[f"\n{idx+1} - {a.hit_id}: accession:{a.accession}, length:{a.length}, bitscore:{a.hsps[0].bits}, score:{a.hsps[0].score}, identity: {round(a.hsps[0].identities/a.length,2)*100}, gaps:{a.hsps[0].gaps}, strand:{a.hsps[0].strand}" for r in blast_records for idx,a in enumerate(r.alignments) if idx < 10]
+            top10hits=[f"\n{idx+1} - {a.hit_id}: accession:{a.accession}, length:{a.length}, bitscore:{a.hsps[0].bits}, score:{a.hsps[0].score}, identity: {round(a.hsps[0].identities/a.length,2)*100}, gaps:{a.hsps[0].gaps}, strand:{a.hsps[0].strand}, query match coordinates (start-end):{a.hsps[0].query_start}-{a.hsps[0].query_end}" for r in blast_records for idx,a in enumerate(r.alignments) if idx < 10]
             LOG.debug("Top 10 hits in species identification:"+"".join(top10hits))
             top10bitscores = [a.hsps[0].bits for r in blast_records for idx,a in enumerate(r.alignments) if idx <= 10]
             if len(top10bitscores) != len(set(top10bitscores)):
@@ -1004,16 +1004,21 @@ class analyzingGp60(object):
                 file.write(subjectSeq)
                 file.close()
 
-                clustalw_cline = ClustalwCommandline("clustalw", infile="align.fa")
-                stdout, stderr = clustalw_cline()
+                if len(sequence) < 10000: #do not run more than 10000bp on ClustalW as it will be slow
+                    clustalw_cline = ClustalwCommandline("clustalw", infile="align.fa")
+                    stdout, stderr = clustalw_cline()
 
-                align = AlignIO.read("align.aln", "clustal")
+                    align = AlignIO.read("align.aln", "clustal")
 
-                for record in align:
-                    if record.id == "Seq1":
-                        query = record.seq
-                    else:
-                        subject = record.seq
+                    for record in align:
+                        if record.id == "Seq1":
+                            query = record.seq
+                        else:
+                            subject = record.seq
+                else:
+                    query = sequence
+                    subject = subjectSeq    
+
 
             
 
@@ -1835,8 +1840,9 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
                 forward.printFasta("", typeSeq, forward.name.split(f".{filetype}")[0], filetype, customdatabasename)
         writeResults(expName, file, tabfile)    
     
-    LOG.info("Cleaning the temporary FASTA and BLAST database files (if any)")
-    utilities.cleanTempFastaFilesDir()
+    if verbose:
+        LOG.info("Cleaning the temporary FASTA and BLAST database files (if any)")
+        utilities.cleanTempFastaFilesDir()
     print("The gp60 run completed successfully")
    # os.system("rm gp60result.xml gp60result2.xml")
     #os.system("rm query.txt")

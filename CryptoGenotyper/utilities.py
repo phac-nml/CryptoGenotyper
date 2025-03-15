@@ -33,7 +33,8 @@ def cleanTempFastaFilesDir(temp_dir="tmp_fasta_files"):
     if os.path.exists(temp_dir):
         shutil.rmtree(temp_dir, ignore_errors=True)
     tmpfiles2remove = list(itertools.chain.from_iterable([glob.glob(e) for e in 
-                                                          ["align.*","custom_db.*", "query*.txt", "result*.txt", "SSUresult*"]]))
+                                                          ["align.*","custom_db.*", "query*.txt", "result*.txt", "SSUresult*",
+                                                          "result*.xml", "refseq.fa","blast*.xml", "*_tmp.fasta", "*_tmp.xml"]]))
     for file in tmpfiles2remove:
         try:
             os.remove(file)

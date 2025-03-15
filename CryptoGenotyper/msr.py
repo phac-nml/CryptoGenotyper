@@ -2069,8 +2069,8 @@ class MixedSeq(object):
             
 
             LOG.debug(f"TOP hit species={species} query_length={query_length} originalLength={self.origLength} percent_identity={percent_identity} evalue {evalue}")
-            #if query_length < int(0.6*self.origLength) or percent_identity < 85 or evalue > 1e-200:
-            #    LOG.warning(f"Query length is less than {self.origLength}  {0.6*self.origLength} {percent_identity} {evalue}")
+            if query_length < int(0.6*self.origLength) or percent_identity < 85 or evalue > 1e-200:
+                LOG.warning(f"Query length is less than {self.origLength}  {0.6*self.origLength} {percent_identity} {evalue}")
             #    return "","",0,"",0,"","",""
 
             accession = blast_record.alignments[0].hit_id
@@ -2201,7 +2201,6 @@ class MixedSeq(object):
 
         elif species == species2 or ("C.hominis" in species and "C.hominis" in species2):
             #if query_coverage < 50 and query_coverage2 < 50:
-            #    exit("Hi")
             #    self.tabfile.write("\t\t\t" + "Could not analyze input file. Please check manually." + "\t\t\t\t\t\t\t\n")
             #    return
             self.file.write(species.split("|")[0])
@@ -2601,9 +2600,11 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
 
     
     #remove files that were made during the analysis
-    LOG.info("Cleaning the temporary FASTA and BLAST database files (if any)")
-    utilities.cleanTempFastaFilesDir()
-  
+    
+    if verbose == False:
+        LOG.info("Cleaning the temporary FASTA and BLAST database files (if any)")
+        utilities.cleanTempFastaFilesDir()
+    print("The 18S run completed successfully")
 
 if __name__ == "__main__":
     msr_main()

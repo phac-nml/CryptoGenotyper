@@ -63,6 +63,43 @@ def test_validation_gp60_dataset(input_fasta_file=os.path.join(TEST_DATA_DIR,"da
     
     assert len(mismatch_sampleid_list) == 0
         
+#test short truncated gp60 sequence of only 86bp
+def test_short_gp60_sequence(input_fasta_file=os.path.join(TEST_DATA_DIR,"OP925781.1_gp60_short.fasta")):
+    args = [
+        "-i", input_fasta_file ,
+        "-m", "gp60",
+        "-o", "short_sequence_validation_gp60"
 
+    ]
 
-    #assert 'AY262034' in secondrow
+    sys.argv[1:] = args
+    cryptogenotyper_main()
+
+    lines=read_report_file("short_sequence_validation_gp60_cryptogenotyper_report.txt")
+  
+    
+    secondrow = lines[1].split("\t")
+
+    assert 'C.ryanae' in secondrow 
+    assert 'XXIj' in secondrow
+
+#test long 2863bp gp60 sequence 3x longer than normal size to make sure results are generated and QC warnings do not prevent results generation   
+def test_long_gp60_sequence(input_fasta_file=os.path.join(TEST_DATA_DIR,"CM098023.1_gp60_long.fasta")):
+    args = [
+        "-i", input_fasta_file ,
+        "-m", "gp60",
+        "-o", "long_sequence_validation_gp60"
+
+    ]
+
+    sys.argv[1:] = args
+    cryptogenotyper_main()
+
+    lines=read_report_file("long_sequence_validation_gp60_cryptogenotyper_report.txt")
+  
+    
+    secondrow = lines[1].split("\t")
+
+    assert 'C.hominis' in secondrow 
+    assert 'IbA12G3' in secondrow
+    assert '35%' in secondrow
