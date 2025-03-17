@@ -1426,7 +1426,7 @@ class analyzingGp60(object):
 
         if self.seq == "Poor Sequence Quality":
             self.tabfile.write("\t\t\tPoor Sequence Quality. Check manually.\t" + str(self.averagePhredQuality) + "\t\t\t\t\t\t\n")
-            self.file.write(" | Poor Sequence Quality (Average Phred Quality = " + str(self.averagePhredQuality) + "). Check manually.")
+            self.file.write(" | Poor Sequence Quality (Average PHRED Quality = " + str(self.averagePhredQuality) + "). Check manually.")
         
         #elif evalue > 1e-75 or query_coverage < 50:
         #    self.tabfile.write("\t\t\tCould not determine species from chromatogram. Check manually.\t" + str(self.averagePhredQuality)+ "\t\t\t\t\t\t\n")
@@ -1434,7 +1434,7 @@ class analyzingGp60(object):
         
         elif seq == "" or self.species == "No blast hits.":
             self.tabfile.write("\t\t\tNo blast hits. Check manually. Average PHRED score \t" + str(self.averagePhredQuality)+ "\t\t\t\t\t\t\n")
-            self.file.write("\n;No blast hits. Check manually. Sequence Phred Quality is " + str(self.averagePhredQuality))
+            self.file.write("\n;No blast hits. Check manually. Sequence PHRED Quality is " + str(self.averagePhredQuality))
 
         else:
             self.seq = seq

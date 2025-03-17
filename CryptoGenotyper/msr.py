@@ -2066,14 +2066,18 @@ class MixedSeq(object):
             query_coverage = round(hsp.align_length/blast_record.query_length,3)*100
             query_length = blast_record.query_length
             species = br_alignment.hit_id
+            accession = blast_record.alignments[0].hit_id
             
 
             LOG.debug(f"TOP hit species={species} query_length={query_length} originalLength={self.origLength} percent_identity={percent_identity} evalue {evalue}")
             if query_length < int(0.6*self.origLength) or percent_identity < 85 or evalue > 1e-200:
-                LOG.warning(f"Query length is less than {self.origLength}  {0.6*self.origLength} {percent_identity} {evalue}")
+                LOG.warning(f"Query length is less than {self.origLength}  {0.6*self.origLength} and only {percent_identity}% identity and e-value {evalue}")
             #    return "","",0,"",0,"","",""
+            if percent_identity < 95:
+                LOG.warning(f"The %identity of the top hit ({accession}) is less than 95% ({percent_identity}%) which may lead to incorrect species identification. Check reference database and input.")
+                return "","",0,"",0,"","",""
 
-            accession = blast_record.alignments[0].hit_id
+            
 
             if "|" in accession:
                 accession = accession.split("|")[1]
