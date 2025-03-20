@@ -898,7 +898,7 @@ class MixedSeq(object):
         elif filetype == "fasta" or filetype == "fa":
             handle=open(dataFile,"r")   
             record=SeqIO.read(handle, filetype)
-            raw_seq = list(record.seq)
+            raw_seq = list(record.seq.upper()) #making sure all bases converted to upper case so matching works
             self.seq = raw_seq
             self.phred_qual = [60] * len(raw_seq)
             return True
