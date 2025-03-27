@@ -887,8 +887,8 @@ class analyzingGp60(object):
             blast_records = list(NCBIXML.parse(result_handle))
             #print([a.hsps[0].bits for r in blast_records for a in r.alignments])
             blast_record = blast_records[0] #take the top hit only  
-            top10hits=[f"\n{idx+1} - {a.hit_id}: accession:{a.accession}, length:{a.length}, bitscore:{a.hsps[0].bits}, score:{a.hsps[0].score}, identity: {round(a.hsps[0].identities/a.length,2)*100}, gaps:{a.hsps[0].gaps}, strand:{a.hsps[0].strand}, query match coordinates (start-end):{a.hsps[0].query_start}-{a.hsps[0].query_end}" for r in blast_records for idx,a in enumerate(r.alignments) if idx < 10]
-            LOG.debug("Top 10 hits in species identification:"+"".join(top10hits))
+            top10hits=[f"\n{idx+1} - {a.hit_id}: accession:{a.accession}, length:{a.length}, bitscore:{a.hsps[0].bits}, score:{a.hsps[0].score}, identity:{round((a.hsps[0].identities/a.hsps[0].align_length)*100,1)}%, query_coverage: {int((a.hsps[0].align_length/blast_record.query_length)*100)}%, gaps:{a.hsps[0].gaps}, strand:{a.hsps[0].strand}, query match coordinates (start-end):{a.hsps[0].query_start}-{a.hsps[0].query_end}" for r in blast_records for idx,a in enumerate(r.alignments) if idx < 10]
+            LOG.debug("Top 10 hits in species and determine family identification:"+"".join(top10hits))
             top10bitscores = [a.hsps[0].bits for r in blast_records for idx,a in enumerate(r.alignments) if idx <= 10]
             if len(top10bitscores) != len(set(top10bitscores)):
                 LOG.warning("Hits with identical bitscore are found that might cause ambiguous species results. Check database and inputs")
@@ -897,7 +897,6 @@ class analyzingGp60(object):
             
             if len(blast_record.alignments) > 0:
                 if len(blast_record.alignments) >= 2:
-
                     br_alignment1 = blast_record.alignments[0]
                     hsp1 = br_alignment1.hsps[0]
 
@@ -1247,8 +1246,9 @@ class analyzingGp60(object):
 
             else:
                 result_handle = open("gp60result.xml", 'r')
-                blast_records = NCBIXML.parse(result_handle)
-                blast_record = next(blast_records)
+                blast_records = list(NCBIXML.parse(result_handle))
+                #blast_record = next(blast_records)
+                blast_record = blast_records[0]
 
                 if len(blast_record.alignments) == 0:
                     LOG.warning(f"No BLAST hits found! Check database {blastdbpath} or inputs")
@@ -1256,6 +1256,10 @@ class analyzingGp60(object):
 
                 br_alignment = blast_record.alignments[0]
                 hsp = br_alignment.hsps[0]
+                
+                top10hits=[f"\n{idx+1} - {a.hit_id}: accession:{a.accession}, length:{a.length}, bitscore:{a.hsps[0].bits}, score:{a.hsps[0].score}, identity: {round((a.hsps[0].identities/a.hsps[0].align_length)*100,1)}%, query_coverage: {round((a.hsps[0].align_length/blast_record.query_length)*100)}%,  gaps:{a.hsps[0].gaps}, strand:{a.hsps[0].strand}, query match coordinates (start-end):{a.hsps[0].query_start}-{a.hsps[0].query_end}" for r in blast_records for idx,a in enumerate(r.alignments) if idx < 10]            
+                LOG.debug("Top 10 BLAST hits:"+"".join(top10hits))
+            
 
                 LOG.info(f"Top hit strand orientation (query={self.name}, target={br_alignment.accession}) is {hsp.strand}")
 
@@ -1264,12 +1268,13 @@ class analyzingGp60(object):
                     sequence = str(Seq(sequence).reverse_complement())
                     self.seq=sequence
 
-                percent_identity = round(hsp.identities/hsp.align_length,3)*100
+                percent_identity = round((hsp.identities/hsp.align_length)*100, 1)
                 evalue = hsp.expect
                 bitscore = hsp.score
 
                 if hsp.align_length <= blast_record.query_length :
-                    query_coverage = round(hsp.align_length/blast_record.query_length*100)
+                    query_coverage = round(hsp.align_length/blast_record.query_length*100, 1)
+                    # query_coverage = round( ((hsp.query_end - hsp.query_start) + 1)/blast_record.query_length * 100,1)
                 else:
                     query_coverage = 100
                 query_length = blast_record.query_length
@@ -1368,7 +1373,6 @@ class analyzingGp60(object):
 
             br_alignment = blast_record.alignments[0]
             hsp = br_alignment.hsps[0]
-            
 
             percent_identity = round(hsp.identities/hsp.align_length,3)*100
             evalue = hsp.expect
@@ -1840,7 +1844,7 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
                 forward.printFasta("", typeSeq, forward.name.split(f".{filetype}")[0], filetype, customdatabasename)
         writeResults(expName, file, tabfile)    
     
-    if verbose:
+    if verbose == False:
         LOG.info("Cleaning the temporary FASTA and BLAST database files (if any)")
         utilities.cleanTempFastaFilesDir()
     print("The gp60 run completed successfully")
