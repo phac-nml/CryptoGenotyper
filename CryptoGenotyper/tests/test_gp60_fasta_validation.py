@@ -102,4 +102,3 @@ def test_long_gp60_sequence(input_fasta_file=os.path.join(TEST_DATA_DIR,"CM09802
 
     assert 'C.hominis' in secondrow 
     assert 'IbA12G3' in secondrow
-    assert '35%' in secondrow

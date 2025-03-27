@@ -1847,7 +1847,7 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
     if verbose == False:
         LOG.info("Cleaning the temporary FASTA and BLAST database files (if any)")
         utilities.cleanTempFastaFilesDir()
-    print("The gp60 run completed successfully")
+    LOG.info("The gp60 run completed successfully")
    # os.system("rm gp60result.xml gp60result2.xml")
     #os.system("rm query.txt")
     #os.system("rm align.fa align.dnd align.aln")
