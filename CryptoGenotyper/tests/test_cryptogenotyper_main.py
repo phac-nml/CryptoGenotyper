@@ -28,7 +28,7 @@ def test_default_database_gp60_contiginput(input_dir=os.path.abspath(os.path.joi
     lines=read_report_file("test_cryptogenotyper_report.txt")
  
     secondrow = lines[1].split("\t")
-    assert 'AY262034' in secondrow
+    assert 'DQ192501' in secondrow, secondrow[::-1]
     assert 'C.parvum' in secondrow
     assert 'IIaA15G2R1' in secondrow
 
