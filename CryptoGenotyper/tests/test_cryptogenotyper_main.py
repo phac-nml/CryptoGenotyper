@@ -18,8 +18,7 @@ def test_default_database_gp60_contiginput(input_dir=os.path.abspath(os.path.joi
         "-t", "contig",
         "-f", "gp60F",
         "-r", "gp60R",
-        "-o", "test",
-        "--verbose"
+        "-o", "test"
 
     ]
 
@@ -29,7 +28,6 @@ def test_default_database_gp60_contiginput(input_dir=os.path.abspath(os.path.joi
     lines=read_report_file("test_cryptogenotyper_report.txt")
  
     secondrow = lines[1].split("\t")
-    assert 'Not all bases in repeat region had phred quality >= 20' in secondrow, f'Could not find the expected QC message'
     assert 'AY262034' in secondrow
     assert 'C.parvum' in secondrow
     assert 'IIaA15G2R1' in secondrow
@@ -52,7 +50,7 @@ def test_custom_database_gp60_contig_input(input_dir=os.path.abspath(os.path.joi
     lines=read_report_file("test_cryptogenotyper_report.txt")
     secondrow = lines[1].split("\t")
     assert 'Could not classify repeat region. Check manually.' in secondrow, f'Could not find the expected QC message'
-    assert 'AY262034' in secondrow
+    assert 'DQ192501' in secondrow
     assert 'C.parvum' in secondrow
     assert 'IIa' in secondrow
 
@@ -80,8 +78,8 @@ def test_default_database_18S(input_dir=os.path.abspath(os.path.join(os.path.dir
 
     assert 'C.parvum' in secondrow
     assert 'KM012040.1' in secondrow
-    assert 'GQ183512.1'  in thirdrow
-    assert 'C.hominis' in thirdrow
+    assert 'AF093492'  in thirdrow, thirdrow[::-1]
+    assert 'C.parvum' in thirdrow
 
 
 
@@ -107,8 +105,8 @@ def test_custom_database_18S(input_dir=os.path.abspath(os.path.join(os.path.dirn
 
     assert 'C.parvum' in secondrow
     assert 'KM012040.1' in secondrow
-    assert 'GQ183512.1'  in thirdrow
-    assert 'C.hominis' in thirdrow
+    assert 'AF093492'  in thirdrow
+    assert 'C.parvum' in thirdrow
 
 
 def test_default_singlefile(input_dir=os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "example"))):

@@ -16,7 +16,8 @@ def test_validation_gp60_dataset(input_fasta_file=os.path.join(TEST_DATA_DIR,"da
     args = [
         "-i", input_fasta_file ,
         "-m", "gp60",
-        "-o", "test_validation_gp60"
+        "-o", "test_validation_gp60",
+        "--verbose"
 
     ]
 

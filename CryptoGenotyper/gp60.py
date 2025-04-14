@@ -898,7 +898,7 @@ class analyzingGp60(object):
                 LOG.debug("Top 10 hits in species and determine family identification:"+"".join(top10hits))
                 top10bitscores = [a.hsps[0].bits for r in blast_records for idx,a in enumerate(r.alignments) if idx <= 10]
                 #find hits with identical bitscore and warn user
-                print(top10bitscores)
+                
                 if len(top10bitscores) != len(set(top10bitscores)):
                     LOG.warning("Hits with identical bitscore are found. The list of duplicated bitscores: " \
                         f"{[item for item, count in collections.Counter(top10bitscores).items() if count > 1]}")
@@ -1267,7 +1267,10 @@ class analyzingGp60(object):
                 br_alignment = blast_record.alignments[0]
                 hsp = br_alignment.hsps[0]
                 
-                top10hits=[f"\n{idx+1} - {a.hit_id}: accession:{a.accession}, length:{a.length}, bitscore:{a.hsps[0].bits}, score:{a.hsps[0].score}, identity: {round((a.hsps[0].identities/a.hsps[0].align_length)*100,1)}%, query_coverage: {round((a.hsps[0].align_length/blast_record.query_length)*100)}%,  gaps:{a.hsps[0].gaps}, strand:{a.hsps[0].strand}, query match coordinates (start-end):{a.hsps[0].query_start}-{a.hsps[0].query_end}" for r in blast_records for idx,a in enumerate(r.alignments) if idx < 10]            
+                top10hits=[f"\n{idx+1} - {a.hit_id}: accession:{a.accession}, length:{a.length}, bitscore:{a.hsps[0].bits}, score:{a.hsps[0].score},"\
+                            f"identity: {round((a.hsps[0].identities/a.hsps[0].align_length)*100,1)}%, query_coverage: {round((a.hsps[0].align_length/blast_record.query_length)*100)}%," \
+                            f"ref_allele_coverage: {round(a.hsps[0].align_length/a.length*100,2)}% ,"\
+                            f"gaps:{a.hsps[0].gaps}, strand:{a.hsps[0].strand}, query match coordinates (start-end):{a.hsps[0].query_start}-{a.hsps[0].query_end}" for r in blast_records for idx,a in enumerate(r.alignments) if idx < 10]            
                 LOG.debug("Top 10 BLAST hits:"+"".join(top10hits))
             
 
@@ -1639,7 +1642,8 @@ def cleanTempFastaFilesDir(temp_dir="tmp_fasta_files"):
 def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdatabasename, noheader, verbose):
     if verbose:
         LOG.setLevel(logging.DEBUG)
-
+    else:
+        LOG.setLevel(logging.CRITICAL)
     fPrimer = fPrimer.replace(' ', '')
     rPrimer = rPrimer.replace(' ', '')
     

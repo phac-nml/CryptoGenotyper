@@ -1,10 +1,10 @@
-import os, shutil, glob, itertools, subprocess, datetime
+import os, shutil, glob, itertools, subprocess, datetime, logging
 from CryptoGenotyper import definitions
 from CryptoGenotyper.logging import create_logger
 
 # setup the application logging
 LOG = create_logger(__name__)
-
+LOG.setLevel(logging.getLogger().level)
 
 DATABASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__),"reference_database"))
 
@@ -68,11 +68,13 @@ def is_databases_initialized():
         return True
      else:
         return False 
-#sort BLAST hits based on %identity first and if a tie, then by the bitscore (default BLAST only sorts by the bitscore)     
+#sort BLAST hits based on %identity first and if a tie, 
+#then by the bitscore (default BLAST only sorts by the bitscore) and reference query coverage     
 def sort_blast_hits_by_id_and_bitscore(blast_record):
     alignments = sorted([a for a in blast_record.alignments], 
                                              key=lambda a: (-a.hsps[0].identities/a.hsps[0].align_length, -a.hsps[0].bits,
-                                                            -a.length )
+                                                            -a.hsps[0].align_length/a.length
+                                                             )
                                               )
     return alignments
             

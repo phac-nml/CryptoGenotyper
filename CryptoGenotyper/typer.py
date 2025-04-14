@@ -61,7 +61,7 @@ def main():
     if args.verbose:
         LOG.setLevel(logging.DEBUG)
     else:
-        LOG.setLevel(logging.INFO)
+        LOG.setLevel(logging.CRITICAL)
          
 
     LOG.info("Running cryptogenotyper v{}".format(__version__))
