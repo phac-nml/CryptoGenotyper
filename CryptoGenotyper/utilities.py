@@ -68,3 +68,12 @@ def is_databases_initialized():
         return True
      else:
         return False 
+#sort BLAST hits based on %identity first and if a tie, then by the bitscore (default BLAST only sorts by the bitscore)     
+def sort_blast_hits_by_id_and_bitscore(blast_record):
+    alignments = sorted([a for a in blast_record.alignments], 
+                                             key=lambda a: (-a.hsps[0].identities/a.hsps[0].align_length, -a.hsps[0].bits,
+                                                            -a.length )
+                                              )
+    return alignments
+            
+

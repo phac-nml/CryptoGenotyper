@@ -29,7 +29,7 @@ import numpy as np
 
 import copy
 import math
-import shutil, glob, itertools
+import shutil, glob, itertools, collections
 
 
 
@@ -186,6 +186,7 @@ class analyzingGp60(object):
             if len(blast_record.alignments) == 0:
                 return False
 
+            blast_record.alignments = utilities.sort_blast_hits_by_id_and_bitscore(blast_record) 
             br_alignment = blast_record.alignments[0]
             hsp = br_alignment.hsps[0]
     
@@ -837,7 +838,8 @@ class analyzingGp60(object):
                 repeat = ""
             
             self.repeats = repeat
-            LOG.info(f"Final repeat region standard nomenclature encoded value is '{self.repeats}'")
+            if repeat:
+                LOG.info(f"Final repeat region standard nomenclature encoded value is '{self.repeats}'")
             
             return True
 
@@ -884,18 +886,23 @@ class analyzingGp60(object):
 
         else:
             result_handle = open("gp60result.xml", 'r')
-            blast_records = list(NCBIXML.parse(result_handle))
-            #print([a.hsps[0].bits for r in blast_records for a in r.alignments])
-            blast_record = blast_records[0] #take the top hit only  
-            top10hits=[f"\n{idx+1} - {a.hit_id}: accession:{a.accession}, length:{a.length}, bitscore:{a.hsps[0].bits}, score:{a.hsps[0].score}, identity:{round((a.hsps[0].identities/a.hsps[0].align_length)*100,1)}%, query_coverage: {int((a.hsps[0].align_length/blast_record.query_length)*100)}%, gaps:{a.hsps[0].gaps}, strand:{a.hsps[0].strand}, query match coordinates (start-end):{a.hsps[0].query_start}-{a.hsps[0].query_end}" for r in blast_records for idx,a in enumerate(r.alignments) if idx < 10]
-            LOG.debug("Top 10 hits in species and determine family identification:"+"".join(top10hits))
-            top10bitscores = [a.hsps[0].bits for r in blast_records for idx,a in enumerate(r.alignments) if idx <= 10]
-            if len(top10bitscores) != len(set(top10bitscores)):
-                LOG.warning("Hits with identical bitscore are found that might cause ambiguous species results. Check database and inputs")
-
+            blast_records = list(NCBIXML.parse(result_handle)) #blast records are sorted by bitscore by default
             
+            blast_record = blast_records[0] #take the first record only 
+            #print([(a.hsps[0].identities/a.hsps[0].align_length, a.hsps[0].bits) for a in blast_record.alignments])
             
             if len(blast_record.alignments) > 0:
+                #sort BLAST hists based on IDENTITY and if ties then by BITSCORE as this works better for reference alleles of diff length
+                blast_record.alignments = utilities.sort_blast_hits_by_id_and_bitscore(blast_record)
+                top10hits=[f"\n{idx+1} - {a.hit_id}: accession:{a.accession}, ref_length:{a.length}, bitscore:{a.hsps[0].bits}, score:{a.hsps[0].score}, identity:{round((a.hsps[0].identities/a.hsps[0].align_length)*100,1)}%, query_coverage: {int((a.hsps[0].align_length/blast_record.query_length)*100)}%, gaps:{a.hsps[0].gaps}, strand:{a.hsps[0].strand}, query match coordinates (start-end):{a.hsps[0].query_start}-{a.hsps[0].query_end}" for r in blast_records for idx,a in enumerate(r.alignments) if idx < 10]
+                LOG.debug("Top 10 hits in species and determine family identification:"+"".join(top10hits))
+                top10bitscores = [a.hsps[0].bits for r in blast_records for idx,a in enumerate(r.alignments) if idx <= 10]
+                #find hits with identical bitscore and warn user
+                print(top10bitscores)
+                if len(top10bitscores) != len(set(top10bitscores)):
+                    LOG.warning("Hits with identical bitscore are found. The list of duplicated bitscores: " \
+                        f"{[item for item, count in collections.Counter(top10bitscores).items() if count > 1]}")
+            
                 if len(blast_record.alignments) >= 2:
                     br_alignment1 = blast_record.alignments[0]
                     hsp1 = br_alignment1.hsps[0]
@@ -984,11 +991,13 @@ class analyzingGp60(object):
             result_handle = open("gp60result.xml", 'r')
             blast_records = NCBIXML.parse(result_handle)
             blast_record = next(blast_records)
+
        
             if len(blast_record.alignments) == 0:
                 LOG.warning("No BLAST hits found! Check database blast_gp60.fasta or inputs")
                 #return "","","","","","",""
-            else:    
+            else:
+                blast_record.alignments = utilities.sort_blast_hits_by_id_and_bitscore(blast_record)    
                 br_alignment = blast_record.alignments[0]
                 hsp = br_alignment.hsps[0]
                 
@@ -1249,6 +1258,7 @@ class analyzingGp60(object):
                 blast_records = list(NCBIXML.parse(result_handle))
                 #blast_record = next(blast_records)
                 blast_record = blast_records[0]
+                blast_record.alignments = utilities.sort_blast_hits_by_id_and_bitscore(blast_record)
 
                 if len(blast_record.alignments) == 0:
                     LOG.warning(f"No BLAST hits found! Check database {blastdbpath} or inputs")

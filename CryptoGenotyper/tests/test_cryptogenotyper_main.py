@@ -18,7 +18,8 @@ def test_default_database_gp60_contiginput(input_dir=os.path.abspath(os.path.joi
         "-t", "contig",
         "-f", "gp60F",
         "-r", "gp60R",
-        "-o", "test"
+        "-o", "test",
+        "--verbose"
 
     ]
 
@@ -26,11 +27,12 @@ def test_default_database_gp60_contiginput(input_dir=os.path.abspath(os.path.joi
     cryptogenotyper_main()
 
     lines=read_report_file("test_cryptogenotyper_report.txt")
+ 
     secondrow = lines[1].split("\t")
-    assert 'Could not classify repeat region. Check manually.' in secondrow, f'Could not find the expected QC message'
+    assert 'Not all bases in repeat region had phred quality >= 20' in secondrow, f'Could not find the expected QC message'
     assert 'AY262034' in secondrow
     assert 'C.parvum' in secondrow
-    assert 'IIa' in secondrow
+    assert 'IIaA15G2R1' in secondrow
 
 def test_custom_database_gp60_contig_input(input_dir=os.path.abspath(os.path.join(os.path.dirname(__file__),"..","example"))):
     args = [
@@ -62,6 +64,7 @@ def test_default_database_18S(input_dir=os.path.abspath(os.path.join(os.path.dir
         "-f", "P17705_Crypto16-2F",
         "-r", "P17705_Crypto16-2R",
         "-o", "test"
+      
 
     ]
 
@@ -69,17 +72,16 @@ def test_default_database_18S(input_dir=os.path.abspath(os.path.join(os.path.dir
     cryptogenotyper_main()
 
     lines=read_report_file("test_cryptogenotyper_report.txt")
-    
+    print(lines)
     secondrow = lines[1].split("\t")
     thirdrow = lines[2].split("\t")
-    forthrow = lines[3].split("\t")
+    
 
-    assert 'KT948751.1' in secondrow 
+
     assert 'C.parvum' in secondrow
-    assert 'KM012040.1' in thirdrow
-    assert 'C.parvum' in secondrow
-    assert 'L16997'  in forthrow
-    assert 'C.hominis' in forthrow
+    assert 'KM012040.1' in secondrow
+    assert 'GQ183512.1'  in thirdrow
+    assert 'C.hominis' in thirdrow
 
 
 
@@ -102,15 +104,11 @@ def test_custom_database_18S(input_dir=os.path.abspath(os.path.join(os.path.dirn
     
     secondrow = lines[1].split("\t")
     thirdrow = lines[2].split("\t")
-    forthrow = lines[3].split("\t")
 
-    assert 'KT948751.1' in secondrow 
     assert 'C.parvum' in secondrow
-    assert 'KM012040.1' in thirdrow
-    assert 'C.parvum' in secondrow
-    assert 'L16997'  in forthrow
-    assert 'C.hominis' in forthrow
-
+    assert 'KM012040.1' in secondrow
+    assert 'GQ183512.1'  in thirdrow
+    assert 'C.hominis' in thirdrow
 
 
 def test_default_singlefile(input_dir=os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "example"))):

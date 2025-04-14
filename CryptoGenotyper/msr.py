@@ -1444,6 +1444,8 @@ class MixedSeq(object):
             blast_records = NCBIXML.parse(result_handle)
             blast_record = next(blast_records)
 
+            blast_record.alignments = utilities.sort_blast_hits_by_id_and_bitscore(blast_record)
+
 
             if len(blast_record.alignments) > 0:
                 hit = blast_record.alignments[0].hit_id
@@ -1488,6 +1490,7 @@ class MixedSeq(object):
             result_handle = open("result2.xml")
             blast_records = NCBIXML.parse(result_handle)
             blast_record = next(blast_records)
+            blast_record.alignments = utilities.sort_blast_hits_by_id_and_bitscore(blast_record)
 
             if len(blast_record.alignments) > 0:
                 hit = blast_record.alignments[0].hit_id
@@ -1536,6 +1539,7 @@ class MixedSeq(object):
                 result_handle = open("result2.xml")
                 blast_records = NCBIXML.parse(result_handle)
                 blast_record = next(blast_records)
+                blast_record.alignments = utilities.sort_blast_hits_by_id_and_bitscore(blast_record)
 
                 if len(blast_record.alignments) > 0:
                     hit = blast_record.alignments[0].hit_id
@@ -2027,7 +2031,7 @@ class MixedSeq(object):
                 LOG.error("No BLAST hits were found! No species will be identified!")
                 return "","",0,"",0,"","",""
 
-            
+            blast_record.alignments = utilities.sort_blast_hits_by_id_and_bitscore(blast_record)
 
             
 
@@ -2045,8 +2049,8 @@ class MixedSeq(object):
                     break
 
             if len(identicalAlignHits) >= 2:   
-                identical_score_hits_ids_str = '\n'.join([a.hit_id for a in identicalAlignHits]) 
-                LOG.warning(f"!!! Found {len(identicalAlignHits)} identically scored candidate BLAST hits in reference database:\n{identical_score_hits_ids_str}.\nTrying to pick one with min # of gaps and resolve the tie!!!") 
+                identical_score_hits_ids_str = '\n'.join([f"{a.hit_id}\t{a.hsps[0].score}" for a in identicalAlignHits]) 
+                LOG.warning(f"!!! Found {len(identicalAlignHits)} identically scored candidate BLAST hits in reference database with bitscores:\n{identical_score_hits_ids_str}.\nTrying to pick one with min # of gaps and resolve the tie!!!") 
                 min_gaps = min([align.hsps[0].gaps for align in identicalAlignHits])
                 min_gaps_alignments = [align for align in identicalAlignHits if align.hsps[0].gaps == min_gaps]
                 if len(min_gaps_alignments) > 1:
