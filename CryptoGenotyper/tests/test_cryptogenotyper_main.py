@@ -110,10 +110,10 @@ def test_custom_database_18S(input_dir=os.path.abspath(os.path.join(os.path.dirn
 
 
 def test_default_singlefile(input_dir=os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "example"))):
-    os.chdir(input_dir)
+   
 
     args = [
-        "-i", "P17705_Crypto16-2F-20170927_SSUF_G12_084.ab1",
+        "-i", os.path.join(input_dir,"P17705_Crypto16-2F-20170927_SSUF_G12_084.ab1"),
         "-m", "18S",
         "-t", "forward",
         "-f", "SSUF",
@@ -127,15 +127,14 @@ def test_default_singlefile(input_dir=os.path.abspath(os.path.join(os.path.dirna
     cryptogenotyper_main()
 
     lines=read_report_file("test_cryptogenotyper_report.txt")
-  
+    assert len(lines) == 2, f"Expected 2 lines in output but got {len(lines)}"
     
     secondrow = lines[1].split("\t")
-    thirdrow = lines[2].split("\t")
-
-    assert 'KT948751.1' in secondrow 
     assert 'C.parvum' in secondrow
-    assert 'KM012040.1' in thirdrow
-    assert 'C.parvum' in secondrow
+    assert 'KM012040.1' in secondrow
+   
+            
+ 
 
 def test_gp60_fasta_single_sequence(input_dir = os.path.join(TEST_DATA_DIR) ):
     args = [

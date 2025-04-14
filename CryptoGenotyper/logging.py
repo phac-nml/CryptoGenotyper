@@ -17,4 +17,8 @@ def create_logger(name, level=logging.INFO):
     log.addHandler(console)
     log.setLevel(level)
 
+    # Create a file handler for log messages in the output directory for the root thread
+    fh = logging.FileHandler("cryptogenotyper.log", 'w', 'utf-8')
+    log.addHandler(fh)  
+
     return log

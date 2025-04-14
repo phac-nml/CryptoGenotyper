@@ -13,6 +13,8 @@ from CryptoGenotyper import utilities
 
 LOG = create_logger(__name__,logging.INFO) 
 
+
+
 def make_custom_database(input_fasta):
     LOG.info("Making custom database from FASTA file")
     LOG.info(f"Working in {os.getcwd()} on {input_fasta}")
@@ -61,8 +63,10 @@ def main():
     if args.verbose:
         LOG.setLevel(logging.DEBUG)
     else:
-        LOG.setLevel(logging.CRITICAL)
-         
+        LOG.setLevel(logging.INFO)
+    
+       
+ 
 
     LOG.info("Running cryptogenotyper v{}".format(__version__))
     LOG.info(args)

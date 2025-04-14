@@ -2310,8 +2310,7 @@ class MixedSeq(object):
 def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customdatabsename, noheader, verbose):
     if verbose:
         LOG.setLevel(logging.DEBUG)
-    else:
-        LOG.setLevel(logging.CRITICAL)    
+    
     tabfile = io.StringIO()
 
     forwardP = forwardP.replace(' ', '')
