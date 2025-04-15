@@ -767,12 +767,12 @@ def indelligent(gen1):
 def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None): 
     
     if forwardObj and reverseObj:
-        with open("forwardseq_tmp.fasta", "w") as fp:
-            fp.write(forwardseq)
+        with open("reverseseq_original_tmp.fasta", "w") as fp:
+            fp.write("".join(reverseObj.seq))
         with open("reverseseq_tmp.fasta", "w") as fp:
             fp.write(reverseseq)
 
-        blastn_cline = NcbiblastnCommandline(query="forwardseq_tmp.fasta", subject="reverseseq_tmp.fasta",
+        blastn_cline = NcbiblastnCommandline(query="forwardseq_tmp.fasta", subject="reverseseq_original_tmp.fasta",
                                             reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5,
                                             out="blastn_contig_results.xml")  
         blastn_cline()   
@@ -785,13 +785,22 @@ def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None):
         
         #start_pos = re.search(revcomp(reverseseq[-6:]), "".join(reverseObj.seq)).start()
         #find start position in the reverse sequence via  BLAST as it is more reliable when IUPAC bases  are used (YCCTAM)
-        start_pos = [a.hsps[0].sbjct_start for a in blast_records[0].alignments][0] 
+        start_pos = min([(a.hsps[0].sbjct_end, a.hsps[0].sbjct_start) for a in blast_records[0].alignments][0])-1 
         phred_scores_reverseseq = reverseObj.phred_qual[start_pos:len(reverseseq)][::-1] #reverse order
         phred_scores_reverseseq_avg = sum(phred_scores_reverseseq)/len(phred_scores_reverseseq)
         reverseObj.avgPhredQuality = phred_scores_reverseseq_avg
 
            
-         
+        with open("forwardseq_tmp.fasta", "w") as fp:
+            fp.write(forwardseq)
+        with open("reverseseq_tmp.fasta", "w") as fp:
+            fp.write(reverseseq)
+
+        blastn_cline = NcbiblastnCommandline(query="forwardseq_tmp.fasta", subject="reverseseq_tmp.fasta",
+                                            reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5,
+                                            out="blastn_contig_results.xml")  
+        blastn_cline()   
+        blast_records = list(NCBIXML.parse(open("blastn_contig_results.xml"))) 
         for record in blast_records:
             if record.alignments:
                 hsp = record.alignments[0].hsps[0]

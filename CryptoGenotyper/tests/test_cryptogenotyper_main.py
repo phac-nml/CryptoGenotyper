@@ -77,8 +77,8 @@ def test_default_database_18S(input_dir=os.path.abspath(os.path.join(os.path.dir
 
 
     assert 'C.parvum' in secondrow
-    assert 'KM012040.1' in secondrow
-    assert 'AF093492'  in thirdrow, thirdrow[::-1]
+    assert 'KT948751.1' in secondrow, secondrow[::-1]
+    assert 'KM012040.1'  in thirdrow, thirdrow[::-1]
     assert 'C.parvum' in thirdrow
 
 
@@ -104,8 +104,8 @@ def test_custom_database_18S(input_dir=os.path.abspath(os.path.join(os.path.dirn
     thirdrow = lines[2].split("\t")
 
     assert 'C.parvum' in secondrow
-    assert 'KM012040.1' in secondrow
-    assert 'AF093492'  in thirdrow
+    assert 'KT948751.1' in secondrow, secondrow[::-1]
+    assert 'KM012040.1'  in thirdrow, thirdrow[::-1]
     assert 'C.parvum' in thirdrow
 
 
@@ -127,11 +127,13 @@ def test_default_singlefile(input_dir=os.path.abspath(os.path.join(os.path.dirna
     cryptogenotyper_main()
 
     lines=read_report_file("test_cryptogenotyper_report.txt")
-    assert len(lines) == 2, f"Expected 2 lines in output but got {len(lines)}"
+    assert len(lines) == 3, f"Expected 3 lines in output but got {len(lines)}"
     
     secondrow = lines[1].split("\t")
     assert 'C.parvum' in secondrow
-    assert 'KM012040.1' in secondrow
+    assert 'KT948751.1' in secondrow
+    thirdrow = lines[2].split("\t")
+    assert 'KM012040.1' in thirdrow
    
             
  
