@@ -1,4 +1,4 @@
-import os, shutil, glob, itertools, subprocess, datetime, logging
+import os, shutil, glob, itertools, subprocess, datetime, logging, statistics
 from CryptoGenotyper import definitions
 from CryptoGenotyper.logging import create_logger
 
@@ -71,11 +71,16 @@ def is_databases_initialized():
 #sort BLAST hits based on %identity first and if a tie, 
 #then by the bitscore (default BLAST only sorts by the bitscore) and reference query coverage     
 def sort_blast_hits_by_id_and_bitscore(blast_record):
-    alignments = sorted([a for a in blast_record.alignments], 
-                                             key=lambda a: (-a.hsps[0].identities/a.hsps[0].align_length, -a.hsps[0].bits,
-                                                            -a.hsps[0].align_length/a.length
-                                                             )
+    if len(blast_record.alignments) > 1:
+        average_query_coverage = statistics.mean([a.hsps[0].align_length/a.length for a in blast_record.alignments])
+        alignments = sorted([a for a in blast_record.alignments if a.hsps[0].align_length/a.length > average_query_coverage], 
+                                             key=lambda a: (a.hsps[0].identities/a.hsps[0].align_length, a.hsps[0].score,
+                                                            a.hsps[0].align_length/a.length
+                                                             ), reverse=True
                                               )
-    return alignments
+        return alignments
+    else:
+        return blast_record.alignments
+
             
 

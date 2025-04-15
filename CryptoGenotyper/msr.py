@@ -765,27 +765,34 @@ def indelligent(gen1):
 #Function to build the contig of forward and reverse sequences
 #forewardseq = forward sequence in 5'->3'; reverseseq = reverse sequence in 5'->3'
 def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None): 
-
+    
     if forwardObj and reverseObj:
+        with open("forwardseq_tmp.fasta", "w") as fp:
+            fp.write(forwardseq)
+        with open("reverseseq_tmp.fasta", "w") as fp:
+            fp.write(reverseseq)
+
+        blastn_cline = NcbiblastnCommandline(query="forwardseq_tmp.fasta", subject="reverseseq_tmp.fasta",
+                                            reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5,
+                                            out="blastn_contig_results.xml")  
+        blastn_cline()   
+        blast_records = list(NCBIXML.parse(open("blastn_contig_results.xml")))
+
         start_pos = re.search(forwardseq[0:10], "".join(forwardObj.seq)).start() #use 10bp of to find original seq position
         phred_scores_forewardseq = forwardObj.phred_qual[start_pos:len(forwardseq)]
         phred_scores_forewardseq_avg = sum(phred_scores_forewardseq)/len(phred_scores_forewardseq)
         forwardObj.avgPhredQuality = phred_scores_forewardseq_avg
         
-        start_pos = re.search(revcomp(reverseseq[-10:]), "".join(reverseObj.seq)).start()
+        #start_pos = re.search(revcomp(reverseseq[-6:]), "".join(reverseObj.seq)).start()
+        #find start position in the reverse sequence via  BLAST as it is more reliable when IUPAC bases  are used (YCCTAM)
+        start_pos = [a.hsps[0].sbjct_start for a in blast_records[0].alignments][0] 
         phred_scores_reverseseq = reverseObj.phred_qual[start_pos:len(reverseseq)][::-1] #reverse order
         phred_scores_reverseseq_avg = sum(phred_scores_reverseseq)/len(phred_scores_reverseseq)
         reverseObj.avgPhredQuality = phred_scores_reverseseq_avg
 
-        with open("forwardseq_tmp.fasta", "w") as fp:
-            fp.write(forwardseq)
-        with open("reverseseq_tmp.fasta", "w") as fp:
-            fp.write(reverseseq)   
-        blastn_cline = NcbiblastnCommandline(query="forwardseq_tmp.fasta", subject="reverseseq_tmp.fasta",
-                                            reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5,
-                                            out="blastn_contig_results.xml")  
-        blastn_cline() 
-        for record in NCBIXML.parse(open("blastn_contig_results.xml")):
+           
+         
+        for record in blast_records:
             if record.alignments:
                 hsp = record.alignments[0].hsps[0]
                 if phred_scores_forewardseq_avg > phred_scores_reverseseq_avg:
@@ -1443,7 +1450,7 @@ class MixedSeq(object):
             result_handle = open("result1.xml", 'r')
             blast_records = NCBIXML.parse(result_handle)
             blast_record = next(blast_records)
-
+            
             blast_record.alignments = utilities.sort_blast_hits_by_id_and_bitscore(blast_record)
 
 

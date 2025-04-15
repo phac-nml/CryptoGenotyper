@@ -30,12 +30,14 @@ def parse_cli_arguments():
     cryptogenotyper -i example/P17705_gp60-Crypt14-1F-20170927_gp60F_G07_051.ab1 -m gp60 -t forward -f gp60F -o test
     cryptogenotyper -i example/ -m 18S -t contig -f SSUF -r SSUR -o test
     cryptogenotyper -i example/ -m gp60 -t contig -f gp60F -r gp60R -o test
+    cryptogenotyper -i example/input.fasta -m gp60 -o test
+    cryptogenotyper -i example/ -m gp60 -o test -f input                                                          
                                                               '''))
 
     parser.add_argument('--verbose', action='store_true', dest='verbose',
                         help='Turn on verbose logging [False].', required=False)
     parser.add_argument('-i','--input',  nargs=1,  required=True,
-                        help='''Path to SINGLE directory with AB1 forward and reverse files OR path to a SINGLE AB1 file. 
+                        help='''Path to SINGLE directory with AB1/FASTA forward and reverse files OR path to a SINGLE AB1/FASTA file. 
                         Use -f and/or -r to filter inputs''')
     parser.add_argument('-m', '--marker', type=str, required=True,
                         help="Name of the marker. Currently gp60 and 18S markers are supported")

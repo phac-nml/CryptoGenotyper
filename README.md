@@ -6,13 +6,13 @@
 
 ## CryptoGenotyper
 
-The `CryptoGenotyper` is a fast and reproducible tool that can be used to classify the genotype of *Cryptosporidium* samples by directly analyzing the DNA electropherogram files (.ab1) that correspond to two of its characteristic gene markers: SSU rRNA and *gp60*. 
+The `CryptoGenotyper` is a fast and reproducible tool that can be used to classify the genotype of *Cryptosporidium* samples by directly analyzing the DNA electropherogram files (.ab1) and DNA sequences in FASTA format that correspond to two of its characteristic gene markers: SSU rRNA and *gp60*. 
 
 *Cryptosporidium* is a protozoan parasite that causes the enteric disease, cryptosporidiosis. It is transmitted to both humans and animals through zoonotic or anthroponotic means, and these dynamics can be studied through the analysis of SSU rRNA or *gp60* gene locus. Although due to the nature of these gene targets, manual analysis can be repetitive and difficult, allowing for the potential of inaccurate or incomplete results to be reported. 
 
 CryptoGenotyper is able to analyze both well-defined and poorly-resolved peaks from SANGER sequencing files to ultimately output the corresponding sequence along with the *Cryptosporidium* genotype in standard nomenclature.
 
-Since v1.5.0 CryptoGenotyper now accepts sequences in popular FASTA format both for *18S* and *gp60* markers. Importantly the gp60 marker module now incorporates the most recent typing nomenclature available in gp60 subtyping table [here](https://cryptodb.org/cryptodb/app/static-content/gp60.html)
+Since v1.5.0 CryptoGenotyper introduces an ability to process popular and widely available FASTA format both for *18S* and *gp60* markers. Importantly the gp60 marker module now incorporates the most recent typing nomenclature defined by the gp60 typing table [here](https://cryptodb.org/cryptodb/app/static-content/gp60.html) of the [Robinson, Guy, et al. "Deciphering a cryptic minefield: A guide to Cryptosporidium gp60 subtyping." Current Research in Parasitology & Vector-Borne Diseases (2025): 100257](https://www.sciencedirect.com/science/article/pii/S2667114X25000172) publication.
 
 ## Requirements
 * `biopython >= 1.70,<1.78`
@@ -49,8 +49,8 @@ optional arguments:
   -h, --help            show this help message and exit
   --verbose             Turn on verbose logging [False].
   -i INPUT, --input INPUT
-                        Path to directory with AB1 forward and reverse files
-                        OR path to a single AB1 file
+                        Path to directory with AB1/FASTA forward and reverse files
+                        OR path to a single AB1/FASTA file
   -m MARKER, --marker MARKER
                         Name of the marker. Currently gp60 and 18S markers are
                         supported

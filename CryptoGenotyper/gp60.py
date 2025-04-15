@@ -1257,20 +1257,23 @@ class analyzingGp60(object):
                 result_handle = open("gp60result.xml", 'r')
                 blast_records = list(NCBIXML.parse(result_handle))
                 #blast_record = next(blast_records)
-                blast_record = blast_records[0]
-                blast_record.alignments = utilities.sort_blast_hits_by_id_and_bitscore(blast_record)
+                
 
                 if len(blast_record.alignments) == 0:
                     LOG.warning(f"No BLAST hits found! Check database {blastdbpath} or inputs")
                     return "","","","","","",""
+
+                blast_record = blast_records[0]
+                blast_record.alignments = utilities.sort_blast_hits_by_id_and_bitscore(blast_record)
 
                 br_alignment = blast_record.alignments[0]
                 hsp = br_alignment.hsps[0]
                 
                 top10hits=[f"\n{idx+1} - {a.hit_id}: accession:{a.accession}, length:{a.length}, bitscore:{a.hsps[0].bits}, score:{a.hsps[0].score},"\
                             f"identity: {round((a.hsps[0].identities/a.hsps[0].align_length)*100,1)}%, query_coverage: {round((a.hsps[0].align_length/blast_record.query_length)*100)}%," \
-                            f"ref_allele_coverage: {round(a.hsps[0].align_length/a.length*100,2)}% ,"\
-                            f"gaps:{a.hsps[0].gaps}, strand:{a.hsps[0].strand}, query match coordinates (start-end):{a.hsps[0].query_start}-{a.hsps[0].query_end}" for r in blast_records for idx,a in enumerate(r.alignments) if idx < 10]            
+                            f"ref_coverage: {round(a.hsps[0].align_length/a.length*100,2)}% ,"\
+                            f"gaps:{a.hsps[0].gaps}, strand:{a.hsps[0].strand}, query match coordinates (start-end):{a.hsps[0].query_start}-{a.hsps[0].query_end}" 
+                            for r in blast_records for idx,a in enumerate(r.alignments) if idx < 10]            
                 LOG.debug("Top 10 BLAST hits:"+"".join(top10hits))
             
 
