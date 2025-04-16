@@ -765,26 +765,37 @@ def indelligent(gen1):
 #Function to build the contig of forward and reverse sequences
 #forewardseq = forward sequence in 5'->3'; reverseseq = reverse sequence in 5'->3'
 def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None): 
-    
+    LOG.info(f"Building contig from forward {len(forwardseq)}bp and reverse {len(reverseseq)}bp sequences")
     if forwardObj and reverseObj:
-        with open("reverseseq_original_tmp.fasta", "w") as fp:
-            fp.write("".join(reverseObj.seq))
-        with open("reverseseq_tmp.fasta", "w") as fp:
-            fp.write(reverseseq)
+        with open("forward_original_tmp.fasta", "w") as fp:
+            fp.write("".join(forwardObj.seq))
+        with open("forward_tmp.fasta", "w") as fp:
+            fp.write(forwardseq)
 
-        blastn_cline = NcbiblastnCommandline(query="forwardseq_tmp.fasta", subject="reverseseq_original_tmp.fasta",
+        blastn_cline = NcbiblastnCommandline(query="forward_tmp.fasta", subject="forward_original_tmp.fasta",
                                             reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5,
                                             out="blastn_contig_results.xml")  
         blastn_cline()   
         blast_records = list(NCBIXML.parse(open("blastn_contig_results.xml")))
-
-        start_pos = re.search(forwardseq[0:10], "".join(forwardObj.seq)).start() #use 10bp of to find original seq position
+        start_pos = min([(a.hsps[0].sbjct_end, a.hsps[0].sbjct_start) for a in blast_records[0].alignments][0])-1 
+        #start_pos = re.search(forwardseq[0:10], "".join(forwardObj.seq)).start() #use 10bp of to find original seq position
         phred_scores_forewardseq = forwardObj.phred_qual[start_pos:len(forwardseq)]
         phred_scores_forewardseq_avg = sum(phred_scores_forewardseq)/len(phred_scores_forewardseq)
         forwardObj.avgPhredQuality = phred_scores_forewardseq_avg
         
         #start_pos = re.search(revcomp(reverseseq[-6:]), "".join(reverseObj.seq)).start()
         #find start position in the reverse sequence via  BLAST as it is more reliable when IUPAC bases  are used (YCCTAM)
+        with open("reverseseq_original_tmp.fasta", "w") as fp:
+            fp.write("".join(reverseObj.seq))
+        with open("reverseseq_tmp.fasta", "w") as fp:
+            fp.write(reverseseq)
+
+        blastn_cline = NcbiblastnCommandline(query="reverseseq_tmp.fasta", subject="reverseseq_original_tmp.fasta",
+                                            reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5,
+                                            out="blastn_contig_results.xml")  
+        blastn_cline()   
+        blast_records = list(NCBIXML.parse(open("blastn_contig_results.xml")))
+
         start_pos = min([(a.hsps[0].sbjct_end, a.hsps[0].sbjct_start) for a in blast_records[0].alignments][0])-1 
         phred_scores_reverseseq = reverseObj.phred_qual[start_pos:len(reverseseq)][::-1] #reverse order
         phred_scores_reverseseq_avg = sum(phred_scores_reverseseq)/len(phred_scores_reverseseq)
@@ -810,6 +821,7 @@ def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None):
                 else:
                     #use reverse aligned overlap sequence instead of reverse  (forward+reverse_overlap_alignment(blast)+reverse)
                     contig = forwardseq[0:hsp.query_start]+reverseseq[hsp.sbjct_start-1:]
+                LOG.info(f"A contig of {len(contig)}bp was successfully formed ...")    
     else:
         substring = reverseseq[0:10]
     
@@ -2471,9 +2483,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                         r_species = "|."
                         r_species2 = "|."
 
-                    
-                    if (r_species == r_species2 and f_species==f_species2 and f_species==r_species) or ("C.hominis" in r_species and "C.hominis" in r_species2 and "C.hominis" in f_species and "C.hominis" in f_species2):
-                        
+                    if ((r_species.split('|')[0] == r_species2.split('|')[0] and f_species.split('|')[0] ==f_species2.split('|')[0]) and f_species==r_species) or ("C.hominis" in r_species and "C.hominis" in r_species2 and "C.hominis" in f_species and "C.hominis" in f_species2):
                         if "C.hominis|GQ183513.11" in f_species and "C.hominis|GQ183513.8" in f_species2:
                             forwardseq = forward.species1Seq
                         elif "C.hominis|GQ183513.11" in f_species2 and "C.hominis|GQ183513.8" in f_species:
@@ -2568,8 +2578,11 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                         forward.outputResults(contig1, customdatabsename, typeSeq)
 
                     else:
+                        LOG.info(f"Did not build a contig but analyzed forward and reverse as separate sequences as species are not identical (forward species:{f_species} {f_species2}, reverse species: {r_species} {r_species2})")
                         forward.outputResults("", customdatabsename, "forward")
                         reverse.outputResults("", customdatabsename, "reverse")
+            else:
+                LOG.info("Contig would not be built because of quality issues")            
 
 
     elif typeSeq=="forward":
