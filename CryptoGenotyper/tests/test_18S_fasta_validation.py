@@ -49,11 +49,12 @@ def test_validation_18S_dataset(input_fasta_file=os.path.join(TEST_DATA_DIR,"dat
         if results_dict[sample_id]["predicted_species"] != results_dict[sample_id]["expected_species"]:
             mismatch_sampleid_list.append(sample_id)
     
-    print(f"Overall results of 18S marker testing on {len(results_dict)} samples:\n{results_dict}\n")
+    print(f"Overall results of 18S marker testing on {len(results_dict)} samples:\n{json.dumps(results_dict, indent=4, sort_keys=True)}\n")
 
     if len(mismatch_sampleid_list) != 0:
-        print(f"Found {len(mismatch_sampleid_list)} samples that did not match expected gp60 subtype values")
+        print(f"Found {len(mismatch_sampleid_list)} samples that did not match expected 18S subtype values")
         for sample_id in mismatch_sampleid_list:
             print(sample_id, results_dict[sample_id])
     
     print(f"Matched {len(results_dict) - len(mismatch_sampleid_list)} out of {len(results_dict) } 18S marker samples in FASTA inputs mode") 
+    assert len(mismatch_sampleid_list) == 0, f"Found {len(mismatch_sampleid_list)} mismatch(es) ({mismatch_sampleid_list}) between expected and predicted species values"

@@ -106,7 +106,7 @@ class analyzingGp60(object):
         #opens the ab1 file
         if  filetype == "abi" or filetype == "ab1":
             handle=open(dataFile,"rb")
-            record=SeqIO.read(handle, filetype)
+            record=SeqIO.read(handle, "abi")
             #retrieving base amplitude data
             self.g=np.array(record.annotations['abif_raw']['DATA9'])
             self.a=np.array(record.annotations['abif_raw']['DATA10'])
@@ -124,7 +124,7 @@ class analyzingGp60(object):
             self.seq = raw_seq
         elif filetype == "fasta" or filetype == "fa":
             handle=open(dataFile,"r")   
-            record=SeqIO.read(handle, filetype)
+            record=SeqIO.read(handle, "fasta")
             raw_seq = list(record.seq.upper()) #making sure all bases converted to upper case so matching works
             self.seq = raw_seq
             self.phred_qual = [60] * len(raw_seq)

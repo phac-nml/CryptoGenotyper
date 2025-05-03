@@ -925,7 +925,7 @@ class MixedSeq(object):
 
         elif filetype == "fasta" or filetype == "fa":
             handle=open(dataFile,"r")   
-            record=SeqIO.read(handle, filetype)
+            record=SeqIO.read(handle, "fasta")
             raw_seq = list(record.seq.upper()) #making sure all bases converted to upper case so matching works
             self.seq = raw_seq
             self.phred_qual = [60] * len(raw_seq)
@@ -2072,7 +2072,7 @@ class MixedSeq(object):
                 if maxBitScore == alignment.hsps[0].score: #
                     identicalAlignHits.append(alignment)
                 if idx < 10:
-                    LOG.debug(f"{idx+1}: ID={alignment.hit_id}\tScore={alignment.hsps[0].score}\tIdentity={round(hsp.identities/hsp.align_length,3)*100}%\tCoverage={round(hsp.align_length/blast_record.query_length,3)*100}%\tGaps={hsp.gaps}\tQueryLen={blast_record.query_length}bp\tAlignmentLen={hsp.align_length}bp")
+                    LOG.debug(f"{idx+1}: ID={alignment.hit_id}\tScore={alignment.hsps[0].score}\tIdentity={round(hsp.identities/hsp.align_length,3)*100}%\tQuery coverage={round(hsp.align_length/blast_record.query_length,3)*100}%\tGaps={hsp.gaps}\tQueryLen={blast_record.query_length}bp\tAlignmentLen={hsp.align_length}bp")
                 if idx == 10:
                     break
 
@@ -2103,14 +2103,13 @@ class MixedSeq(object):
 
             LOG.debug(f"TOP hit species={species} query_length={query_length} originalLength={self.origLength} percent_identity={percent_identity} evalue {evalue}")
             if query_length < int(0.6*self.origLength) or percent_identity < 85 or evalue > 1e-200:
-                LOG.warning(f"Query length is less than {self.origLength}  {0.6*self.origLength} and only {percent_identity}% identity and e-value {evalue}")
+                LOG.warning(f"Query length {query_length}bp was either reduced to less than 60% of its original length of {self.origLength}bp or top hit {percent_identity}% identity < 85% or e-value {evalue} > 1e-200")
             #    return "","",0,"",0,"","",""
             if percent_identity < 95:
                 LOG.warning(f"The %identity of the top hit ({accession}) is less than 95% ({percent_identity}%) which may lead to incorrect species identification. Check reference database and input.")
                 return "","",0,"",0,"","",""
 
             
-
             if "|" in accession:
                 accession = accession.split("|")[1]
 
