@@ -2061,9 +2061,7 @@ class MixedSeq(object):
 
             blast_record.alignments = utilities.sort_blast_hits_by_id_and_bitscore(blast_record)
 
-            
-
-            LOG.debug("Top 10 BLAST hits ...")
+            LOG.debug("Top 10 BLAST hits ranked based on precent identity, then bitscore and then reference allele coverage ...")
             maxBitScore = 0; identicalAlignHits = [] #BLAST hits that have identical top score (if any). Usually only single hit with unique top score
             for idx, alignment in enumerate(blast_record.alignments):
                 hsp = alignment.hsps[0]
@@ -2072,30 +2070,38 @@ class MixedSeq(object):
                 if maxBitScore == alignment.hsps[0].score: #
                     identicalAlignHits.append(alignment)
                 if idx < 10:
-                    LOG.debug(f"{idx+1}: ID={alignment.hit_id}\tScore={alignment.hsps[0].score}\tIdentity={round(hsp.identities/hsp.align_length,3)*100}%\tQuery coverage={round(hsp.align_length/blast_record.query_length,3)*100}%\tGaps={hsp.gaps}\tQueryLen={blast_record.query_length}bp\tAlignmentLen={hsp.align_length}bp")
+                    LOG.debug(
+                        f"\n{idx + 1}. ID={alignment.hit_id} │ "
+                        f"Score={hsp.score} │ "
+                        f"Ident={hsp.identities / hsp.align_length * 100:.2f}% │ "
+                        f"Cov={min(hsp.align_length / blast_record.query_length * 100, 100)}% │"
+                        f"Gaps={hsp.gaps} │ "
+                        f"QLen={blast_record.query_length}bp │ "
+                        f"ALen={hsp.align_length}bp"
+                    )
                 if idx == 10:
                     break
 
             if len(identicalAlignHits) >= 2:   
                 identical_score_hits_ids_str = '\n'.join([f"{a.hit_id}\t{a.hsps[0].score}" for a in identicalAlignHits]) 
-                LOG.warning(f"!!! Found {len(identicalAlignHits)} identically scored candidate BLAST hits in reference database with bitscores:\n{identical_score_hits_ids_str}.\nTrying to pick one with min # of gaps and resolve the tie!!!") 
-                min_gaps = min([align.hsps[0].gaps for align in identicalAlignHits])
-                min_gaps_alignments = [align for align in identicalAlignHits if align.hsps[0].gaps == min_gaps]
-                if len(min_gaps_alignments) > 1:
-                    LOG.warning(f"Could not resolve candidate BLAST top hits based on min gaps. Will pick the first top hit ({min_gaps_alignments[0].hit_id})")
-                else:
-                    LOG.info(f"Successfully resolved the tie and picked {min_gaps_alignments[0].hit_id} hit")
-                br_alignment = min_gaps_alignments[0]
-                hsp = br_alignment.hsps[0]
-            else:
-                br_alignment = blast_record.alignments[0]
-                hsp = br_alignment.hsps[0]    
+                LOG.warning(f"!!! Found {len(identicalAlignHits)} identically scored candidate BLAST hits in reference database with bitscores:\n{identical_score_hits_ids_str}.\nBe careful with species ID!") 
+                #min_gaps = min([align.hsps[0].gaps for align in identicalAlignHits])
+                #min_gaps_alignments = [align for align in identicalAlignHits if align.hsps[0].gaps == min_gaps]
+                #if len(min_gaps_alignments) > 1:
+                #    LOG.warning(f"Could not resolve candidate BLAST top hits based on min gaps. Will pick the first top hit ({min_gaps_alignments[0].hit_id})")
+                #else:
+                #    LOG.info(f"Successfully resolved the tie and picked {min_gaps_alignments[0].hit_id} hit")
+                #br_alignment = min_gaps_alignments[0]
+                #hsp = br_alignment.hsps[0]
+            #else:
+            br_alignment = blast_record.alignments[0]
+            hsp = br_alignment.hsps[0]    
            
         
             percent_identity = round(hsp.identities/hsp.align_length,3)*100
             evalue = hsp.expect
             bitscore = hsp.score
-            query_coverage = round(hsp.align_length/blast_record.query_length,3)*100
+            query_coverage = min(round(hsp.align_length/blast_record.query_length,3)*100,100) #make sure coverage not higher than 100 due to alignment gaps, etc.
             query_length = blast_record.query_length
             species = br_alignment.hit_id
             accession = blast_record.alignments[0].hit_id
@@ -2337,6 +2343,7 @@ class MixedSeq(object):
 def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customdatabsename, noheader, verbose):
     if verbose:
         LOG.setLevel(logging.DEBUG)
+        logging.getLogger("CryptoGenotyper.utilities").setLevel(logging.DEBUG)  
     
     tabfile = io.StringIO()
 

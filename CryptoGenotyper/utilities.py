@@ -4,8 +4,6 @@ from CryptoGenotyper.logging import create_logger
 
 # setup the application logging
 LOG = create_logger(__name__)
-LOG.setLevel(logging.getLogger().level)
-
 DATABASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__),"reference_database"))
 
 def createTempFastaFiles(experiment_prefix="", record=None):
@@ -69,16 +67,42 @@ def is_databases_initialized():
      else:
         return False 
 #sort BLAST hits based on %identity first and if a tie, 
-#then by the bitscore (default BLAST only sorts by the bitscore) and reference query coverage     
+#then by the bitscore (default BLAST only sorts by the bitscore) and reference coverage     
 def sort_blast_hits_by_id_and_bitscore(blast_record):
     if len(blast_record.alignments) > 1:
-        average_query_coverage = statistics.mean([a.hsps[0].align_length/a.length for a in blast_record.alignments])
-        alignments = sorted([a for a in blast_record.alignments if a.hsps[0].align_length/a.length > average_query_coverage], 
-                                             key=lambda a: (a.hsps[0].identities/a.hsps[0].align_length, a.hsps[0].score,
-                                                            a.hsps[0].align_length/a.length
-                                                             ), reverse=True
-                                              )
-        return alignments
+        # Calculate coverage for each alignment
+        coverages = {a: a.hsps[0].align_length / a.length for a in blast_record.alignments}
+
+        # Compute mean and standard deviation
+        coverage_values = list(coverages.values())
+        mean_cov = statistics.mean(coverage_values)
+        std_dev_cov = statistics.stdev(coverage_values)
+        threshold = mean_cov - 2 * std_dev_cov
+        coverages = {a: a.hsps[0].align_length / a.length for a in blast_record.alignments}
+        average_query_coverage = statistics.mean(coverages.values())
+
+        LOG.debug(f"Average query coverage for BLAST hits is {average_query_coverage:.4f} and coverage threshold is {threshold}")
+
+        # Filter alignments (only alignment objects)
+        kept_alignments = [a for a in blast_record.alignments if coverages[a] >= threshold]
+        filtered_alignments = [a for a in blast_record.alignments if coverages[a] < threshold]
+
+        # Log filtered hits info for debug
+        if filtered_alignments:
+            LOG.debug("Filtered out alignments:")
+            for a in filtered_alignments:
+                LOG.debug(f"  {a.hit_id}: coverage={coverages[a]:.4f}")
+        
+         # Sort kept alignments using composite sort key
+        return sorted(
+            kept_alignments,
+            key=lambda a: (
+                a.hsps[0].identities / a.hsps[0].align_length,
+                a.hsps[0].score,
+                a.hsps[0].align_length / a.length
+            ),
+            reverse=True
+        )
     else:
         return blast_record.alignments
 

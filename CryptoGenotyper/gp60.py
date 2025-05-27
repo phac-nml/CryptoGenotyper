@@ -1645,6 +1645,7 @@ def cleanTempFastaFilesDir(temp_dir="tmp_fasta_files"):
 def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdatabasename, noheader, verbose):
     if verbose:
         LOG.setLevel(logging.DEBUG)
+        logging.getLogger("CryptoGenotyper.utilities").setLevel(logging.DEBUG)
     
     fPrimer = fPrimer.replace(' ', '')
     rPrimer = rPrimer.replace(' ', '')
