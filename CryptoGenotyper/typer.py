@@ -11,8 +11,7 @@ from CryptoGenotyper.logging import create_logger
 import CryptoGenotyper.definitions as definitions
 from CryptoGenotyper import utilities
 
-LOG = create_logger(__name__,logging.INFO) 
-
+LOG = create_logger(logging.INFO) #craete a root logger with settings that will be used by other module loggers
 
 
 def make_custom_database(input_fasta):
@@ -63,13 +62,14 @@ def parse_cli_arguments():
 def main():
     args= parse_cli_arguments()
     if args.verbose:
-        LOG.setLevel(logging.DEBUG)
+        for handler in logging.getLogger().handlers:
+            if isinstance(handler, logging.FileHandler):
+                handler.setLevel(logging.DEBUG)  # Ensure file logs DEBUG too
+            if isinstance(handler, logging.StreamHandler):
+                handler.setLevel(logging.DEBUG)  # Optional: console too
     else:
         LOG.setLevel(logging.INFO)
-    
-       
- 
-
+   
     LOG.info("Running cryptogenotyper v{}".format(__version__))
     LOG.info(args)
 

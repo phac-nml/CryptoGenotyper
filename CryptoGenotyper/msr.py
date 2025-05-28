@@ -26,7 +26,8 @@ global TESTING
 TESTING = False
 
 # setup the application logging
-LOG = create_logger(__name__)
+#LOG = create_logger(__name__)
+LOG = logging.getLogger(__name__)
 
 ##############################################################################
 # IUPAC Code:
@@ -2328,11 +2329,16 @@ class MixedSeq(object):
             self.tabfile.write(str(accession2)+"\n")
 
 
-def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customdatabsename, noheader, verbose):
-    if verbose:
-        LOG.setLevel(logging.DEBUG)
-        logging.getLogger("CryptoGenotyper.utilities").setLevel(logging.DEBUG)  
-    
+def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customdatabsename, noheader, verbose):       
+    #if verbose:
+        #logging.getLogger("root").setLevel(logging.DEBUG)
+        #LOG.setLevel(logging.DEBUG)
+        
+        #logging.getLogger("CryptoGenotyper.utilities").setLevel(logging.DEBUG)
+        #logging.getLogger("CryptoGenotyper.msr").setLevel(logging.DEBUG)  
+    #print(LOG.name, LOG.getEffectiveLevel()); exit()
+
+     
     tabfile = io.StringIO()
 
     forwardP = forwardP.replace(' ', '')
@@ -2367,7 +2373,6 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
         raise Exception(msg)
    
     pathlist.sort()
-
 
     if not noheader:
         tabfile.write("Sample Name\tType of Sequences\tMixed?\tSpecies\tSequence\tComments\tBit Score\tQuery Length (bp)\tQuery Coverage\tE-value\tPercent Identity\tAccession Number\n")
@@ -2636,7 +2641,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
     if verbose == False:
         LOG.info("Cleaning the temporary FASTA and BLAST database files (if any)")
         utilities.cleanTempFastaFilesDir()
-    print("The 18S run completed successfully")
+    LOG.info("The 18S run completed successfully")
 
 if __name__ == "__main__":
     msr_main()

@@ -3,7 +3,7 @@ from CryptoGenotyper import definitions
 from CryptoGenotyper.logging import create_logger
 
 # setup the application logging
-LOG = create_logger(__name__)
+LOG = logging.getLogger(__name__)
 DATABASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__),"reference_database"))
 
 def createTempFastaFiles(experiment_prefix="", record=None):
@@ -104,13 +104,10 @@ def sort_blast_hits_by_id_and_bitscore(blast_record):
         # Compute %identity and %coverage (reference allele)
         coverage_values = list(coverages.values())
         identity_values = list(identities.values())
-        threshold_coverage = quantile(coverage_values,0.25)
+        threshold_coverage = quantile(coverage_values,0.75)
         threshold_identity = quantile(identity_values,0.25)
         threshold_score = quantile(scores.values(),0.95)
-        print(threshold_score)
-        threshold_coverage=0; threshold_identity=0
 
-        #LOG.debug(f"Median reference coverage for BLAST hits is {median_query_coverage*100:.2f}% and coverage decimal threshold is {threshold:.2f}")
         LOG.debug(f"HSP score threshold 95th quantile {threshold_score}")
         # Filter alignments (only alignment objects)
         kept_alignments = [a for a in blast_record.alignments if scores[a] >= threshold_score]
@@ -126,7 +123,7 @@ def sort_blast_hits_by_id_and_bitscore(blast_record):
             LOG.debug(f"Filtered out {len(filtered_alignments)} alignments:{[a.hit_id for a in filtered_alignments]}")
         LOG.debug(f"Kept {len(kept_alignments)} alignments")    
         
-        # Sort kept alignments using composite sort key
+        # Sort kept alignments using composite sort key by %identity, score, reference allele
         sorted_blast_hits = sorted(
             kept_alignments,
             key=lambda a: (
