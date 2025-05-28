@@ -2061,7 +2061,6 @@ class MixedSeq(object):
 
             blast_record.alignments = utilities.sort_blast_hits_by_id_and_bitscore(blast_record)
 
-            LOG.debug("Top 10 BLAST hits ranked based on precent identity, then bitscore and then reference allele coverage ...")
             maxBitScore = 0; identicalAlignHits = [] #BLAST hits that have identical top score (if any). Usually only single hit with unique top score
             for idx, alignment in enumerate(blast_record.alignments):
                 hsp = alignment.hsps[0]
@@ -2069,18 +2068,7 @@ class MixedSeq(object):
                    maxBitScore =  alignment.hsps[0].score
                 if maxBitScore == alignment.hsps[0].score: #
                     identicalAlignHits.append(alignment)
-                if idx < 10:
-                    LOG.debug(
-                        f"\n{idx + 1}. ID={alignment.hit_id} │ "
-                        f"Score={hsp.score} │ "
-                        f"Ident={hsp.identities / hsp.align_length * 100:.2f}% │ "
-                        f"Cov={min(hsp.align_length / blast_record.query_length * 100, 100)}% │"
-                        f"Gaps={hsp.gaps} │ "
-                        f"QLen={blast_record.query_length}bp │ "
-                        f"ALen={hsp.align_length}bp"
-                    )
-                if idx == 10:
-                    break
+                
 
             if len(identicalAlignHits) >= 2:   
                 identical_score_hits_ids_str = '\n'.join([f"{a.hit_id}\t{a.hsps[0].score}" for a in identicalAlignHits]) 

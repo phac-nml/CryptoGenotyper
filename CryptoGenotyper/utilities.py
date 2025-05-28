@@ -66,35 +66,68 @@ def is_databases_initialized():
         return True
      else:
         return False 
+
+
+
+def quantile(data, q):
+    """
+    Calculate the q-th quantile of a list of numbers.
+    
+    Parameters:
+    - data: list of numeric values
+    - q: quantile to compute (e.g., 0.25 for Q1, 0.5 for median, 0.75 for Q3)
+
+    Returns:
+    - The quantile value
+    """
+    if not 0 <= q <= 1:
+        raise ValueError("q must be between 0 and 1")
+
+    sorted_data = sorted(data)
+    n = len(sorted_data)
+    pos = q * (n - 1)
+    lower = int(pos)
+    upper = min(lower + 1, n - 1)
+    fraction = pos - lower
+
+    return sorted_data[lower] * (1 - fraction) + sorted_data[upper] * fraction
+
 #sort BLAST hits based on %identity first and if a tie, 
 #then by the bitscore (default BLAST only sorts by the bitscore) and reference coverage     
 def sort_blast_hits_by_id_and_bitscore(blast_record):
     if len(blast_record.alignments) > 1:
         # Calculate coverage for each alignment
-        coverages = {a: a.hsps[0].align_length / a.length for a in blast_record.alignments}
-
-        # Compute mean and standard deviation
+        coverages = {a: a.hsps[0].align_length / blast_record.query_length for a in blast_record.alignments}
+        identities = {a: a.hsps[0].identities / a.hsps[0].align_length for a in blast_record.alignments}
+        scores = {a: a.hsps[0].score for a in blast_record.alignments}
+        
+        # Compute %identity and %coverage (reference allele)
         coverage_values = list(coverages.values())
-        mean_cov = statistics.mean(coverage_values)
-        std_dev_cov = statistics.stdev(coverage_values)
-        threshold = mean_cov - 2 * std_dev_cov
-        coverages = {a: a.hsps[0].align_length / a.length for a in blast_record.alignments}
-        average_query_coverage = statistics.mean(coverages.values())
+        identity_values = list(identities.values())
+        threshold_coverage = quantile(coverage_values,0.25)
+        threshold_identity = quantile(identity_values,0.25)
+        threshold_score = quantile(scores.values(),0.95)
+        print(threshold_score)
+        threshold_coverage=0; threshold_identity=0
 
-        LOG.debug(f"Average query coverage for BLAST hits is {average_query_coverage:.4f} and coverage threshold is {threshold}")
-
+        #LOG.debug(f"Median reference coverage for BLAST hits is {median_query_coverage*100:.2f}% and coverage decimal threshold is {threshold:.2f}")
+        LOG.debug(f"HSP score threshold 95th quantile {threshold_score}")
         # Filter alignments (only alignment objects)
-        kept_alignments = [a for a in blast_record.alignments if coverages[a] >= threshold]
-        filtered_alignments = [a for a in blast_record.alignments if coverages[a] < threshold]
+        kept_alignments = [a for a in blast_record.alignments if scores[a] >= threshold_score]
+        # Fallback: if no alignments pass the threshold, keep the top-scoring alignment
+        if not kept_alignments:
+            top_alignment = max(blast_record.alignments, key=lambda a: a.hsps[0].score)
+            kept_alignments = [top_alignment]
+            LOG.debug(f"No alignments passed threshold — using the top scoring alignment: {top_alignment.hit_id} with score {top_alignment.hsps[0].score}")
+        filtered_alignments = [a for a in blast_record.alignments if coverages[a] < threshold_coverage and identities[a] < threshold_identity ]
 
         # Log filtered hits info for debug
         if filtered_alignments:
-            LOG.debug("Filtered out alignments:")
-            for a in filtered_alignments:
-                LOG.debug(f"  {a.hit_id}: coverage={coverages[a]:.4f}")
+            LOG.debug(f"Filtered out {len(filtered_alignments)} alignments:{[a.hit_id for a in filtered_alignments]}")
+        LOG.debug(f"Kept {len(kept_alignments)} alignments")    
         
-         # Sort kept alignments using composite sort key
-        return sorted(
+        # Sort kept alignments using composite sort key
+        sorted_blast_hits = sorted(
             kept_alignments,
             key=lambda a: (
                 a.hsps[0].identities / a.hsps[0].align_length,
@@ -102,7 +135,28 @@ def sort_blast_hits_by_id_and_bitscore(blast_record):
                 a.hsps[0].align_length / a.length
             ),
             reverse=True
-        )
+            )
+        # Log first 10 hits
+        table_lines = [
+            f"{'Idx':<3} │ {'ID':<50} │ {'Score':>6} │ {'Ident %':>8} │ {'Ref Cov %':>8} │ {'Gaps':>4} │ {'QLen':>6} │ {'ALen':>6}",
+            "-" * 115
+        ]
+        for idx, alignment in enumerate(sorted_blast_hits[:100]):
+                hsp = alignment.hsps[0]
+                identity = hsp.identities / hsp.align_length * 100
+                coverage = hsp.align_length / blast_record.query_length * 100
+                table_lines.append(
+                f"{idx + 1:<3} │ "
+                f"{alignment.hit_id:<50} │ "
+                f"{hsp.score:6.1f} │ "
+                f"{identity:8.2f} │ "
+                f"{coverage:9.2f} │ "
+                f"{hsp.gaps:4d} │ "
+                f"{blast_record.query_length:6d} │ "
+                f"{hsp.align_length:6d}"
+                )
+        LOG.debug("Top 10 BLAST hits ranked based on perecent identity, then bitscore and then reference allele coverage:\n" + "\n".join(table_lines))        
+        return sorted_blast_hits 
     else:
         return blast_record.alignments
 
