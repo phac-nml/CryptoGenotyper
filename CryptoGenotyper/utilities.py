@@ -7,7 +7,7 @@ LOG = logging.getLogger(__name__)
 DATABASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__),"reference_database"))
 
 def createTempFastaFiles(experiment_prefix="", record=None):
-    LOG.info("Creating temporary FASTA files from multi-FASTA file ...")
+    LOG.debug("Creating temporary FASTA files from multi-FASTA file ...")
     temp_dir = os.path.join("./",f"tmp_fasta_files_{experiment_prefix}")
     if os.path.exists(temp_dir == False):
         os.makedirs(temp_dir, exist_ok=True)
@@ -27,7 +27,7 @@ def getFileType(path):
         return None
     
 def cleanTempFastaFilesDir(temp_dir="tmp_fasta_files"):
-    LOG.info("Cleaning temporary files after the run")
+    LOG.debug("Cleaning temporary files after the run")
     if os.path.exists(temp_dir):
         shutil.rmtree(temp_dir, ignore_errors=True)
     tmpfiles2remove = list(itertools.chain.from_iterable([glob.glob(e) for e in 

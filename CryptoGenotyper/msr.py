@@ -2330,14 +2330,6 @@ class MixedSeq(object):
 
 
 def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customdatabsename, noheader, verbose):       
-    #if verbose:
-        #logging.getLogger("root").setLevel(logging.DEBUG)
-        #LOG.setLevel(logging.DEBUG)
-        
-        #logging.getLogger("CryptoGenotyper.utilities").setLevel(logging.DEBUG)
-        #logging.getLogger("CryptoGenotyper.msr").setLevel(logging.DEBUG)  
-    #print(LOG.name, LOG.getEffectiveLevel()); exit()
-
      
     tabfile = io.StringIO()
 
