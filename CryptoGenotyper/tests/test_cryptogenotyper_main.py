@@ -9,15 +9,15 @@ def read_report_file(report_file_path):
          return lines
 
 #test the main function
-def test_default_database_gp60_contiginput(input_dir=os.path.abspath(os.path.join(os.path.dirname(__file__),"..","example"))):
-    print(os.getcwd(),os.listdir(input_dir))
+def test_default_database_gp60_contig_input(input_dir=os.path.abspath(os.path.join(os.path.dirname(__file__),"..","example"))):
 
     args = [
         "-i", input_dir ,
         "-m", "gp60",
         "-t", "contig",
-        "-f", "gp60F",
-        "-r", "gp60R",
+        "-f", 'P17705_gp60-Crypt14-1F',
+        "-r", "P17705_gp60-Crypt14-1R",
+        "-s", "P17705",
         "-o", "test"
 
     ]
@@ -37,8 +37,8 @@ def test_custom_database_gp60_contig_input(input_dir=os.path.abspath(os.path.joi
         "-i", input_dir,
         "-m", "gp60",
         "-t", "contig",
-        "-f", "gp60F",
-        "-r", "gp60R",
+        "-f", "P17705_gp60-Crypt14-1F",
+        "-r", "P17705_gp60-Crypt14-1R",
         "-d", os.path.abspath(os.path.join(os.path.dirname(__file__),"..","reference_database","gp60_ref.fa")),
         "-o", "test"
 

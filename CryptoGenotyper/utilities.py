@@ -1,6 +1,6 @@
-import os, shutil, glob, itertools, subprocess, datetime, logging, statistics
+import os, shutil, glob, itertools, subprocess, datetime, logging, re
 from CryptoGenotyper import definitions
-from CryptoGenotyper.logging import create_logger
+from collections import defaultdict
 
 # setup the application logging
 LOG = logging.getLogger(__name__)
@@ -141,7 +141,7 @@ def sort_blast_hits_by_id_and_bitscore(blast_record):
         for idx, alignment in enumerate(sorted_blast_hits[:100]):
                 hsp = alignment.hsps[0]
                 identity = hsp.identities / hsp.align_length * 100
-                coverage = hsp.align_length / blast_record.query_length * 100
+                coverage = min(hsp.align_length / blast_record.query_length * 100, 100)
                 table_lines.append(
                 f"{idx + 1:<3} │ "
                 f"{alignment.hit_id:<50} │ "
@@ -159,3 +159,101 @@ def sort_blast_hits_by_id_and_bitscore(blast_record):
 
             
 
+def pair_files(file_paths, forward_suffix, reverse_suffix):
+    """
+    Pairs sequencing files into forward and reverse read tuples based on specified suffix patterns.
+
+    This function processes a list of AB1 file paths and groups them into forward and reverse read pairs
+    based on the provided suffix strings. Each file name is examined for the presence of either the forward
+    or reverse suffix. If a match is found, the suffix is used to identify and group files by sample ID 
+    (by stripping characters starting from the suffix match). Files with matching sample IDs are then paired.
+
+    :param file_paths: List[str]
+        A list of file paths to files to be paired.
+    
+    :param forward_suffix: str
+        A string pattern indicating that a file is a forward read (e.g., 'SSUF_' or '_F1_') specified by --forwardprimername.
+
+    :param reverse_suffix: str
+        A string pattern indicating that a file is a reverse read (e.g., 'SSUR_' or '_R2_') specified by --reverseprimername.
+
+    :return: List[Tuple[str, str]]
+        A list of tuples each consisting of two values
+        Each tuple contains the file paths for a forward and reverse read pair (paired_files list) and occasionally
+        Files that cannot be paired are returned as a separate unpaired_files lies .
+    """
+
+    def strip_suffix(filename, suffix):
+        best_match = None
+        best_span = (0, 0)
+
+        #for suffix in suffixes:
+        match = re.search(re.escape(suffix), filename)
+        if match:
+            if (match.end() - match.start()) > (best_span[1] - best_span[0]):
+                best_match = match
+                best_span = match.span()
+
+            if best_match:
+                return filename[:best_span[0]]
+        return filename
+    
+    grouped_files = defaultdict(dict)
+    unpaired_files = []
+    
+    for path in sorted(file_paths):
+        filename = os.path.basename(path) #use only filenames but not paths 
+        name_no_ext = os.path.splitext(filename)[0] #remove file extension from the file name
+
+        if forward_suffix in name_no_ext:
+            sample_id = strip_suffix(name_no_ext, forward_suffix)
+            grouped_files[sample_id]['F'] = path
+        elif reverse_suffix in name_no_ext:
+            sample_id = strip_suffix(name_no_ext, reverse_suffix)
+            grouped_files[sample_id]['R'] = path
+        else:
+            unpaired_files.append(path)
+            LOG.warning(f"Could not identify direction for file: {filename}")
+
+    file_pairs = []
+    for sample_id, files in sorted(grouped_files.items()):
+        f = files.get('F')
+        r = files.get('R')
+        if f and r:
+            file_pairs.append((f, r))
+        else:
+            LOG.warning(f"Incomplete pair for '{sample_id}': {files}")
+    
+    
+    if file_pairs:
+        table_lines = [
+        f"\n{'Idx':<3} │ {'Forward Read':<50} │ {'Reverse Read':<50}", "─" * 115]
+        for idx, (fwd, rev) in enumerate(file_pairs, 1):
+            table_lines.append(f"{idx:<3} │ {os.path.basename(fwd):<50} │ {os.path.basename(rev):<50}")  
+        # Print the table
+        LOG.info("\n".join(table_lines))   
+
+    # Print unpaired files as a simple list
+    if unpaired_files:
+        LOG.info(
+        f"\nUnpaired {len(unpaired_files)} files:\n" +
+        "\n".join(f"{i+1:>2}. {file}" for i, file in enumerate(sorted(unpaired_files))) +
+        "\n"
+    )
+    return  file_pairs, unpaired_files
+
+
+def filter_files_by_suffix(pathlist, suffix):
+    """
+    Filters a list of file paths based on a provided suffix.
+
+    :param pathlist: List of file paths
+    :param suffix: Suffix string to filter files by (if None or empty, no filtering is applied)
+    :return: Filtered list of file paths
+    """
+    if suffix:
+        original_count = len(pathlist)
+        pathlist = [path for path in pathlist if suffix in os.path.basename(path)]
+        LOG.info(f"Filtered {original_count} files using suffix '{suffix}' and {len(pathlist)} files remaining after filtering.")
+    
+    return pathlist

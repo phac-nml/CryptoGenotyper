@@ -1258,8 +1258,11 @@ class analyzingGp60(object):
                 blast_records = list(NCBIXML.parse(result_handle))
                 #blast_record = next(blast_records)
                 
-
-                if len(blast_record.alignments) == 0:
+                if not blast_records:
+                    LOG.warning(f"No BLAST hits found! Check database {blastdbpath} or inputs")
+                    return "","","","","","",""
+                
+                if len(blast_records[0].alignments) == 0:
                     LOG.warning(f"No BLAST hits found! Check database {blastdbpath} or inputs")
                     return "","","","","","",""
 
@@ -1680,7 +1683,7 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
     pathlist.sort()
     pathlistEnumerated = [f"{idx+1}: {i}" for idx, i in enumerate(pathlist)]
     list_of_files_str = "\n".join(pathlistEnumerated)
-    LOG.info(f"Processing {len(pathlist)} file(s):\n{list_of_files_str}")
+    LOG.info(f"Processing {len(pathlist)} file(s) in {typeSeq} mode:\n{list_of_files_str}")
 
     contig = False
     onlyForwards = False
@@ -1861,6 +1864,7 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
     if verbose == False:
         LOG.info("Cleaning the temporary FASTA and BLAST database files (if any)")
         utilities.cleanTempFastaFilesDir()
+        utilities.cleanTempFastaFilesDir("tmp_fasta_files_"+expName)
     LOG.info("The gp60 run completed successfully")
    # os.system("rm gp60result.xml gp60result2.xml")
     #os.system("rm query.txt")

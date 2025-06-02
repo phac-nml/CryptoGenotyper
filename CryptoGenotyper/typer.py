@@ -49,6 +49,8 @@ def parse_cli_arguments():
                         help="Name of the forward primer to identify forward read (e.g. gp60F, SSUF)")
     parser.add_argument('-r', '--reverseprimername', type=str, required=False,
                         help="Name of the reverse primer to identify forward read (e.g. gp60R, SSUR)")
+    parser.add_argument('-s', '--suffix', type=str, required=False, default=None,
+                        help="Optional suffix to filter filenames (e.g. only include files ending with a specific pattern)")
     parser.add_argument('-o', '--outputprefix', type=str, required=False, default="cryptorun",
                         help="Output name prefix for the results (e.g. test results in test_report.fa)")
     parser.add_argument('-d', '--databasefile',type=str, required=False, default=None,
@@ -61,6 +63,7 @@ def parse_cli_arguments():
 #in command line: sequences, marker, contig/f/r, fname, rname, expName
 def main():
     args= parse_cli_arguments()
+    LOG.debug(args)
 
     if args.verbose:
         for handler in logging.getLogger().handlers:
@@ -95,23 +98,32 @@ def main():
         raise ValueError(msg)
     
     typeSeq = args.seqtype
-
     expName = args.outputprefix
-
     header = args.header
 
     pathlist=list()
     if os.path.isdir(seq_dir):
         seq_dir = os.path.abspath(seq_dir) #get directory name
-
-        for file in os.listdir(seq_dir):
-            if any([file.endswith(file_ext)for file_ext in definitions.FILETYPES]):
-                pathlist.append(os.path.abspath(seq_dir + "/" + file))
+        for file in os.listdir(seq_dir): #filter by extension type
+            full_path = os.path.join(seq_dir, file)
+            if os.path.isfile(full_path) and any(file.endswith(file_ext) for file_ext in definitions.FILETYPES):
+                pathlist.append(full_path)
+        pathlist = utilities.filter_files_by_suffix(pathlist,args.suffix)        
+        #try to pair any ab1 files
+        if typeSeq == "contig":
+            file_pairs, other_files = utilities.pair_files(pathlist, args.forwardprimername, args.reverseprimername)
+            flat_file_list = [file for pair in file_pairs for file in pair] #Now `flat_list` is a single list of all file paths
+            pathlist = flat_file_list + other_files       
     else:
-        #get absolute path of a single file
+        #get absolute path of a single file provided
         if any([seq_dir.endswith(file_ext) for file_ext in definitions.FILETYPES]):
             pathlist.append(os.path.abspath(seq_dir)) 
+        pathlist = utilities.filter_files_by_suffix(pathlist,args.suffix)    
     
+    
+    if not pathlist:
+        raise ValueError("No input files found to process. Please check your input path or suffix filters.")
+
 
     #check if files exists actually
     for path in pathlist:

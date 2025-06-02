@@ -2345,7 +2345,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
     elif reverseP:
         pathlist = [path for path in pathlist if re.search(reverseP, path)]
 
-    #if multi-FASTA file is present in the list slice it up into individual files https://www.metagenomics.wiki/tools/fastq/multi-fasta-format 
+    #if a multi-FASTA file is present in the list, slice it up into individual files https://www.metagenomics.wiki/tools/fastq/multi-fasta-format 
     fasta_paths = [path for path in pathlist for fasta_extension in definitions.FASTA_FILETYPES if path.endswith(fasta_extension)]
     for fasta_path in fasta_paths:
         with open(fasta_path,"r") as handle:
@@ -2358,9 +2358,8 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                 pathlist.remove(fasta_path)     
     
     
-    
     if pathlist == []:
-        msg = f"Not supported input file(s) found in pathlist {pathlist_unfiltered}. Supported input filetypes are {definitions.FILETYPES}"
+        msg = f"Found 0 files. Not supported input file(s) found in pathlist {pathlist_unfiltered}. Supported input filetypes are {definitions.FILETYPES}"
         LOG.error(msg)
         raise Exception(msg)
    
@@ -2392,7 +2391,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
 
     if len(pathlist)%2 != 0 and typeSeq == 'contig':
         print("ERROR: Uneven number of input files ({}). "
-              "Cannot find all paired forward and reverse files. Aborting ...".format(len(pathlist)))
+              "Cannot find all paired forward and reverse files in {} directory. Aborting ...".format(len(pathlist), os.path.dirname(pathlist[0]) ))
         file.write("\nError: Need to include both forward and reverse sequences of ALL samples to produce contig.")
         file.write("\nSequences files given:\n")
 
@@ -2403,7 +2402,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
         tabfile.write("Error: Need to include both forward and reverse sequences of ALL samples to produce contig.\t\t\t\t\t\t\t\t\t\t\t\n")
 
     elif typeSeq == "contig":
-        LOG.info(f"Processing {len(pathlist)} file(s):\n{pathlist}")
+        LOG.info(f"Processing {len(pathlist)} file(s) in {typeSeq} mode:\n{pathlist}")
         for idx in range(0,len(pathlist),2):
             forward = MixedSeq(file, tabfile, 'contig')
             reverse = MixedSeq(file, tabfile, 'contig')
@@ -2577,7 +2576,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
 
 
     elif typeSeq=="forward":
-        LOG.info(f"Processing {len(pathlist)} file(s):\n{pathlist}")
+        LOG.info(f"Processing {len(pathlist)} file(s) in {typeSeq} mode:\n{pathlist}")
         for idx, path in enumerate(pathlist):
             filetype = utilities.getFileType(path)
             forward = MixedSeq(file, tabfile, 'forward')
@@ -2593,6 +2592,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                 forward.outputResults("", customdatabsename, typeSeq, filetype)
             
     elif typeSeq=="reverse":
+        LOG.info(f"Processing {len(pathlist)} file(s) in {typeSeq} mode:\n{pathlist}")
         for idx in range(0, len(pathlist)):
             reverse=MixedSeq(file,tabfile, 'reverse')
             goodSeq = reverse.readFiles(pathlist[idx], False)
@@ -2632,7 +2632,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
     
     if verbose == False:
         LOG.info("Cleaning the temporary FASTA and BLAST database files (if any)")
-        utilities.cleanTempFastaFilesDir()
+        utilities.cleanTempFastaFilesDir("tmp_fasta_files_"+expName)
     LOG.info("The 18S run completed successfully")
 
 if __name__ == "__main__":
