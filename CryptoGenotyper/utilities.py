@@ -1,4 +1,6 @@
 import os, shutil, glob, itertools, subprocess, datetime, logging, re
+from Bio.Blast.Applications import NcbiblastnCommandline
+from Bio.Blast import NCBIXML
 from CryptoGenotyper import definitions
 from collections import defaultdict
 
@@ -94,7 +96,7 @@ def quantile(data, q):
 
 #sort BLAST hits based on %identity first and if a tie, 
 #then by the bitscore (default BLAST only sorts by the bitscore) and reference coverage     
-def sort_blast_hits_by_id_and_bitscore(blast_record):
+def sort_blast_hits_by_id_and_bitscore(blast_record, mode="default"):
     if len(blast_record.alignments) > 1:
         # Calculate coverage for each alignment
         coverages = {a: a.hsps[0].align_length / blast_record.query_length for a in blast_record.alignments}
@@ -108,7 +110,7 @@ def sort_blast_hits_by_id_and_bitscore(blast_record):
         threshold_identity = quantile(identity_values,0.25)
         threshold_score = quantile(scores.values(),0.95)
 
-        LOG.debug(f"HSP score threshold 95th quantile {threshold_score}")
+        LOG.debug(f"HSP score threshold 95th quantile {int(threshold_score)}")
         # Filter alignments (only alignment objects)
         kept_alignments = [a for a in blast_record.alignments if scores[a] >= threshold_score]
         # Fallback: if no alignments pass the threshold, keep the top-scoring alignment
@@ -123,20 +125,33 @@ def sort_blast_hits_by_id_and_bitscore(blast_record):
             LOG.debug(f"Filtered out {len(filtered_alignments)} alignments:{[a.hit_id for a in filtered_alignments]}")
         LOG.debug(f"Kept {len(kept_alignments)} alignments")    
         
-        # Sort kept alignments using composite sort key by %identity, score, reference allele
-        sorted_blast_hits = sorted(
-            kept_alignments,
-            key=lambda a: (
-                a.hsps[0].identities / a.hsps[0].align_length,
-                a.hsps[0].score,
-                a.hsps[0].align_length / a.length
-            ),
-            reverse=True
-            )
+        # Sort kept alignments using composite sort key by %identity, score, reference allele coverage
+        if mode=="default":
+            sorted_blast_hits = sorted(
+                kept_alignments,
+                key=lambda a: (
+                    a.hsps[0].identities / a.hsps[0].align_length,
+                    a.hsps[0].score,
+                    a.hsps[0].align_length / a.length #coverage of the reference allele
+                ),
+                reverse=True
+                )
+        elif mode == "bitscore":
+            sorted_blast_hits = sorted(
+                kept_alignments,
+                key=lambda a: (
+                    a.hsps[0].score,
+                    a.hsps[0].align_length / a.length #length of the subject (reference allele)
+                ),
+                reverse=True
+                )
+        else:
+            sorted_blast_hits = kept_alignments    
+
         # Log first 10 hits
         table_lines = [
-            f"{'Idx':<3} │ {'ID':<50} │ {'Score':>6} │ {'Ident %':>8} │ {'Ref Cov %':>8} │ {'Gaps':>4} │ {'QLen':>6} │ {'ALen':>6}",
-            "-" * 115
+            f"{'Idx':<3} │ {'ID':<50} │ {'Score':>6} │ {'Ident %':>8} │ {'Ref Cov %':>9} │ {'Gaps':>4} │ {'QLen':>6} │ {'ALen':>6} │ {'Qstart':>7} │ {'Qend':>5}",
+            "-" * 132
         ]
         for idx, alignment in enumerate(sorted_blast_hits[:100]):
                 hsp = alignment.hsps[0]
@@ -150,7 +165,9 @@ def sort_blast_hits_by_id_and_bitscore(blast_record):
                 f"{coverage:9.2f} │ "
                 f"{hsp.gaps:4d} │ "
                 f"{blast_record.query_length:6d} │ "
-                f"{hsp.align_length:6d}"
+                f"{hsp.align_length:6d} │ "
+                f"{hsp.query_start:7d} │ "
+                f"{hsp.query_end:5d}"
                 )
         LOG.debug("Top 10 BLAST hits ranked based on perecent identity, then bitscore and then reference allele coverage:\n" + "\n".join(table_lines))        
         return sorted_blast_hits 
@@ -158,73 +175,109 @@ def sort_blast_hits_by_id_and_bitscore(blast_record):
         return blast_record.alignments
 
             
-
-def pair_files(file_paths, forward_suffix, reverse_suffix):
+def pair_files(file_paths, forward_suffix: str, reverse_suffix: str):
     """
-    Pairs sequencing files into forward and reverse read tuples based on specified suffix patterns.
+    Pairs sequencing files into forward/reverse read tuples.
 
-    This function processes a list of AB1 file paths and groups them into forward and reverse read pairs
-    based on the provided suffix strings. Each file name is examined for the presence of either the forward
-    or reverse suffix. If a match is found, the suffix is used to identify and group files by sample ID 
-    (by stripping characters starting from the suffix match). Files with matching sample IDs are then paired.
+    Operates in two modes:
+    1. Direct File Mode: If `forward_suffix` and `reverse_suffix` are complete
+       filenames of existing files in `file_paths`, they are paired directly.
+    2. Suffix Mode: Otherwise, the function treats them as patterns and searches
+       for them within the filenames to group and pair files by a common sample ID.
 
-    :param file_paths: List[str]
-        A list of file paths to files to be paired.
-    
-    :param forward_suffix: str
-        A string pattern indicating that a file is a forward read (e.g., 'SSUF_' or '_F1_') specified by --forwardprimername.
-
-    :param reverse_suffix: str
-        A string pattern indicating that a file is a reverse read (e.g., 'SSUR_' or '_R2_') specified by --reverseprimername.
-
-    :return: List[Tuple[str, str]]
-        A list of tuples each consisting of two values
-        Each tuple contains the file paths for a forward and reverse read pair (paired_files list) and occasionally
-        Files that cannot be paired are returned as a separate unpaired_files lies .
+    :param file_paths: A list of file paths to be paired.
+    :param forward_suffix: A full filename or a string pattern for a forward read.
+    :param reverse_suffix: A full filename or a string pattern for a reverse read.
+    :return: A tuple containing a list of (forward, reverse) pairs and a list of unpaired files.
     """
 
-    def strip_suffix(filename, suffix):
-        best_match = None
-        best_span = (0, 0)
-
-        #for suffix in suffixes:
+    def strip_suffix(filename: str, suffix: str) -> str:
+        """Removes the given suffix and preceding text from a filename."""
         match = re.search(re.escape(suffix), filename)
         if match:
-            if (match.end() - match.start()) > (best_span[1] - best_span[0]):
-                best_match = match
-                best_span = match.span()
-
-            if best_match:
-                return filename[:best_span[0]]
+            return filename[:match.start()]
         return filename
-    
-    grouped_files = defaultdict(dict)
-    unpaired_files = []
-    
-    for path in sorted(file_paths):
-        filename = os.path.basename(path) #use only filenames but not paths 
-        name_no_ext = os.path.splitext(filename)[0] #remove file extension from the file name
 
+    # --- Step 0: Check for Direct File Mode ---
+    # This handles the case where the user provides full filenames instead of suffixes.
+    f_basename = os.path.basename(forward_suffix)
+    r_basename = os.path.basename(reverse_suffix)
+    # Create a map of basenames to full paths for efficient lookup
+    path_map = {os.path.basename(p): p for p in file_paths}
+
+    if f_basename in path_map and r_basename in path_map:
+        LOG.info("Direct file mode activated: Provided forward and reverse names are existing files.")
+        
+        f_path = path_map[f_basename]
+        r_path = path_map[r_basename]
+        
+        file_pairs = [(f_path, r_path)]
+        unpaired_files = [p for p in file_paths if p != f_path and p != r_path]
+        
+        return file_pairs, unpaired_files
+
+    # --- If not in Direct File Mode, proceed with Suffix Mode ---
+    LOG.info("Suffix mode activated: Searching for files containing specified suffix patterns.")
+
+    # --- Step 1: Categorize all files in a single pass ---
+    forward_reads = []
+    reverse_reads = []
+    other_files = []
+    for path in file_paths:
+        name_no_ext = os.path.splitext(os.path.basename(path))[0]
         if forward_suffix in name_no_ext:
-            sample_id = strip_suffix(name_no_ext, forward_suffix)
-            grouped_files[sample_id]['F'] = path
+            forward_reads.append(path)
         elif reverse_suffix in name_no_ext:
-            sample_id = strip_suffix(name_no_ext, reverse_suffix)
-            grouped_files[sample_id]['R'] = path
+            reverse_reads.append(path)
         else:
-            unpaired_files.append(path)
-            LOG.warning(f"Could not identify direction for file: {filename}")
+            other_files.append(path)
 
+    # --- Step 2: Check for the special case (single F/R pair found via suffix) ---
+    if len(forward_reads) == 1 and len(reverse_reads) == 1:
+        LOG.info(
+            "Special suffix case: Found exactly one forward and one reverse file via suffix. "
+            "Pairing them directly."
+        )
+        file_pairs = [(forward_reads[0], reverse_reads[0])]
+    
+        return file_pairs, other_files
+
+    # --- Step 3: Proceed with standard sample_id based pairing ---
+    grouped_files = defaultdict(dict)
+    unpaired_files = list(other_files)
+
+    for path in sorted(forward_reads):
+        name_no_ext = os.path.splitext(os.path.basename(path))[0]
+        sample_id = strip_suffix(name_no_ext, forward_suffix)
+        if 'F' in grouped_files[sample_id]:
+            LOG.warning(f"Duplicate forward read for sample ID '{sample_id}'. Keeping first, discarding {os.path.basename(path)}")
+            unpaired_files.append(path)
+        else:
+            grouped_files[sample_id]['F'] = path
+
+    for path in sorted(reverse_reads):
+        name_no_ext = os.path.splitext(os.path.basename(path))[0]
+        sample_id = strip_suffix(name_no_ext, reverse_suffix)
+        if 'R' in grouped_files[sample_id]:
+            LOG.warning(f"Duplicate reverse read for sample ID '{sample_id}'. Keeping first, discarding {os.path.basename(path)}")
+            unpaired_files.append(path)
+        else:
+            grouped_files[sample_id]['R'] = path
+
+    # --- Step 4: Create pairs and identify remaining unpaired files ---
     file_pairs = []
     for sample_id, files in sorted(grouped_files.items()):
-        f = files.get('F')
-        r = files.get('R')
-        if f and r:
-            file_pairs.append((f, r))
+        f_path = files.get('F')
+        r_path = files.get('R')
+
+        if f_path and r_path:
+            file_pairs.append((f_path, r_path))
         else:
-            LOG.warning(f"Incomplete pair for '{sample_id}': {files}")
-    
-    
+            if f_path: unpaired_files.append(f_path)
+            if r_path: unpaired_files.append(r_path)
+            LOG.warning(f"Incomplete pair for sample ID '{sample_id}': Found files {list(files.keys())} but not a complete F/R set.")
+
+    # --- Step 5: Log results and return ---
     if file_pairs:
         table_lines = [
         f"\n{'Idx':<3} │ {'Forward Read':<50} │ {'Reverse Read':<50}", "─" * 115]
@@ -240,8 +293,8 @@ def pair_files(file_paths, forward_suffix, reverse_suffix):
         "\n".join(f"{i+1:>2}. {file}" for i, file in enumerate(sorted(unpaired_files))) +
         "\n"
     )
-    return  file_pairs, unpaired_files
-
+    
+    return file_pairs, unpaired_files
 
 def filter_files_by_suffix(pathlist, suffix):
     """
@@ -257,3 +310,86 @@ def filter_files_by_suffix(pathlist, suffix):
         LOG.info(f"Filtered {original_count} files using suffix '{suffix}' and {len(pathlist)} files remaining after filtering.")
     
     return pathlist
+
+
+def checkInputOrientation(sequence,  blastdbpath):
+    LOG.info(f"Checking input sequence orientation")
+    blast_output_filename = "blastn_orientation_results_tmp.xml"
+    query_filename = "query.txt"
+
+        # Open the file with writing permission
+    myfile = open(query_filename, 'w')
+    myfile.write('>query\n')    
+    myfile.write(''.join(sequence))
+    myfile.close()
+ 
+    blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn',query="query.txt", dust='yes',
+                                                    db=blastdbpath, reward=1, 
+                                                    penalty=-2, gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, 
+                                                    out=blast_output_filename)
+
+    LOG.info(f"Running BLASTN to find if input path is Forward or Reverse orientation")
+    stdout, stderr = blastn_cline()
+    if stdout:
+        LOG.debug(f"BLASTN stdout: {stdout}")
+    if stderr:
+        LOG.warning(f"BLASTN stderr: {stderr}")
+
+    if (os.stat(blast_output_filename).st_size == 0):
+        return "No Significant Hits Found"
+
+    result_handle = open(blast_output_filename , 'r')
+    blast_records = NCBIXML.parse(result_handle)
+    blast_record = next(blast_records)
+    
+    
+
+    # 4. Parse the BLAST XML results
+    forward_frame_matches = 0
+    reverse_frame_matches = 0
+
+    with open(blast_output_filename, 'r') as result_handle:
+        blast_records = NCBIXML.parse(result_handle)
+        try:
+            blast_record = next(blast_records) # Get the first (and usually only) query record
+        except StopIteration:
+            LOG.warning("No BLAST records found in the XML output. No significant hits.")
+            return "No Significant Hits Found"
+
+        # Iterate through alignments and HSPs to check frames
+        # Iterate through alignments and HSPs to check strands
+        for alignment in blast_record.alignments:
+            for hsp in alignment.hsps:
+                    # hsp.strand is a tuple (query_strand, subject_strand) e.g. ('Plus', 'Minus')
+                    # For BLASTN, Plus indicates forward, Minus indicates reverse.
+                    if hsp.strand[0] == "Plus" and hsp.strand[1] == "Plus":
+                        forward_frame_matches += 1
+                    elif hsp.strand[0] == "Plus" and hsp.strand[1] == "Minus":
+                        reverse_frame_matches += 1
+                    # Other strand combinations (e.g., query_strand -1) might occur
+                    # if the query itself is being treated as reverse complemented by BLAST,
+                    # but for typical query orientation checks, we assume the input query
+                    # is "forward" and check subject alignment relative to it.
+
+        # Clean up temporary files
+        if os.path.exists(query_filename):
+            os.remove(query_filename)
+            LOG.debug(f"Cleaned up {query_filename}")
+        if os.path.exists(blast_output_filename):
+            os.remove(blast_output_filename)
+            LOG.debug(f"Cleaned up {blast_output_filename}")
+        
+        # 5. Determine the overall orientation
+        if forward_frame_matches > reverse_frame_matches:
+            LOG.info(f"Determined orientation: Forward (Forward matches: {forward_frame_matches}, Reverse matches: {reverse_frame_matches})")
+            return "Forward"
+        elif reverse_frame_matches > forward_frame_matches:
+            LOG.info(f"Determined orientation: Reverse (Forward matches: {forward_frame_matches}, Reverse matches: {reverse_frame_matches})")
+            return "Reverse"
+        elif forward_frame_matches > 0 and forward_frame_matches == reverse_frame_matches:
+            LOG.info(f"Determined orientation: Ambiguous (Equal Forward and Reverse matches: {forward_frame_matches})")
+            return "Ambiguous"
+        else:
+            LOG.info("No clear orientation could be determined from significant BLASTN hits.")
+            return "No Significant Hits Found"
+        

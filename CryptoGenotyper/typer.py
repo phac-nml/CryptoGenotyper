@@ -45,7 +45,7 @@ def parse_cli_arguments():
                              "contig - both F and R sequences provided\n "
                              "forward - forward only sequence provided\n"
                              "reverse - reverse only sequence provided\n")
-    parser.add_argument('-f', '--forwardprimername', type=str, required=False,
+    parser.add_argument('-f', '--forwardprimername', type=str,  required=False,
                         help="Name of the forward primer to identify forward read (e.g. gp60F, SSUF)")
     parser.add_argument('-r', '--reverseprimername', type=str, required=False,
                         help="Name of the reverse primer to identify forward read (e.g. gp60R, SSUR)")
@@ -113,7 +113,7 @@ def main():
         if typeSeq == "contig":
             file_pairs, other_files = utilities.pair_files(pathlist, args.forwardprimername, args.reverseprimername)
             flat_file_list = [file for pair in file_pairs for file in pair] #Now `flat_list` is a single list of all file paths
-            pathlist = flat_file_list + other_files       
+            pathlist = flat_file_list     
     else:
         #get absolute path of a single file provided
         if any([seq_dir.endswith(file_ext) for file_ext in definitions.FILETYPES]):

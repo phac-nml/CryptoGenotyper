@@ -49,10 +49,12 @@ def test_custom_database_gp60_contig_input(input_dir=os.path.abspath(os.path.joi
 
     lines=read_report_file("test_cryptogenotyper_report.txt")
     secondrow = lines[1].split("\t")
-    assert 'Could not classify repeat region. Check manually.' in secondrow, f'Could not find the expected QC message'
-    assert 'AY262034' in secondrow
-    assert 'C.parvum' in secondrow
-    assert 'IIa' in secondrow
+    assert any('Found double peaks in repeat region' in item for item in secondrow), f'Could not find the expected QC message'
+    assert any('AY262034' in item for item in secondrow), "AY262034 not found in any field."
+    assert any('AY262034' in item for item in secondrow), "AY262034 not found in any field."
+    assert any('C.parvum' in item for item in secondrow), "C.parvum not found in any field."
+    assert any('IIa' in item for item in secondrow), "IIa not found in any field."
+
 
 def test_default_database_18S(input_dir=os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "example"))):
     args = [

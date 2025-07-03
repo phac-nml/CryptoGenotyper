@@ -766,7 +766,7 @@ def indelligent(gen1):
 #Function to build the contig of forward and reverse sequences
 #forewardseq = forward sequence in 5'->3'; reverseseq = reverse sequence in 5'->3'
 def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None): 
-    LOG.info(f"Building contig from forward {len(forwardseq)}bp and reverse {len(reverseseq)}bp sequences")
+    LOG.info(f"Building 18S contig from forward {len(forwardseq)}bp and reverse {len(reverseseq)}bp sequences")
     if forwardObj and reverseObj:
         with open("forward_original_tmp.fasta", "w") as fp:
             fp.write("".join(forwardObj.seq))
@@ -778,6 +778,16 @@ def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None):
                                             out="blastn_contig_results.xml")  
         blastn_cline()   
         blast_records = list(NCBIXML.parse(open("blastn_contig_results.xml")))
+        flat_alignments_list = [alignment for record in blast_records for alignment in record.alignments]
+        if len(blast_records) == 0:
+            LOG.error("No BLAST hits found during contig building  ...")
+            #longest_sequence = forwardseq if len(forwardseq) >= len(reverseseq) else reverseseq
+            return ""
+        elif len(flat_alignments_list) == 0:
+            LOG.error("No BLAST alignments found during contig building ...")
+            return ""
+        else:
+            LOG.info(f"Found {len(blast_records)} hit(s) and {len(flat_alignments_list)}")
         start_pos = min([(a.hsps[0].sbjct_end, a.hsps[0].sbjct_start) for a in blast_records[0].alignments][0])-1 
         #start_pos = re.search(forwardseq[0:10], "".join(forwardObj.seq)).start() #use 10bp of to find original seq position
         phred_scores_forewardseq = forwardObj.phred_qual[start_pos:len(forwardseq)]
@@ -835,11 +845,6 @@ def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None):
             contig += reverseseq
         else:
             LOG.warning(f"Could not form contig as was not able to find overlap based on {substring} substring")
-    
-
-
-
-                                
 
     return contig
 
@@ -932,6 +937,8 @@ class MixedSeq(object):
             self.phred_qual = [60] * len(raw_seq)
             return True
 
+        
+        
 
         #retrieving base amplitude data
         self.g=np.array(record.annotations['abif_raw']['DATA9'])
@@ -951,11 +958,19 @@ class MixedSeq(object):
         self.seqLength = len(self.seq)
         self.origLength = len(self.seq)
 
+        
         #in case the class is of a binary nature
         if any([isinstance(element,str) == False for element in self.seq]):
             self.seq = list(record.annotations['abif_raw']['PBAS2'].decode('UTF-8'))
             self.oldseq = list(record.annotations['abif_raw']['PBAS2'].decode('UTF-8'))
             #exit("Sequence extracted is of wrong data type. Expected lisf of stings, got {}".format(self.seq))
+            
+            sequence_orientation_check_result  = utilities.checkInputOrientation(self.seq, os.path.dirname(__file__)+"/reference_database/msr_ref.fa")
+            LOG.info(f"Input {self.name} sequence orientation is {sequence_orientation_check_result}")
+            if sequence_orientation_check_result  == "Reverse":
+                self.forwardSeq = False 
+            elif sequence_orientation_check_result  == "Forward":
+                self.forwardSeq = True 
 
         #peak locations
         self.peakLoc=np.array(record.annotations['abif_raw']['PLOC2'])
@@ -2098,10 +2113,10 @@ class MixedSeq(object):
 
             LOG.debug(f"TOP hit species={species} query_length={query_length} originalLength={self.origLength} percent_identity={percent_identity} evalue {evalue}")
             if query_length < int(0.6*self.origLength) or percent_identity < 85 or evalue > 1e-200:
-                LOG.warning(f"Query length {query_length}bp was either reduced to less than 60% of its original length of {self.origLength}bp or top hit {percent_identity}% identity < 85% or e-value {evalue} > 1e-200")
+                LOG.warning(f"Query length {query_length}bp was either reduced to less than 60% of its original length of {self.origLength}bp or top hit {int(percent_identity)}% identity < 85% or e-value {evalue} > 1e-200")
             #    return "","",0,"",0,"","",""
             if percent_identity < 95:
-                LOG.warning(f"The %identity of the top hit ({accession}) is less than 95% ({percent_identity}%) which may lead to incorrect species identification. Check reference database and input.")
+                LOG.warning(f"The %identity of the top hit ({accession}) is less than 95% ({int(percent_identity)}%) which may lead to incorrect species identification. Check reference database and input.")
                 return "","",0,"",0,"","",""
 
             
@@ -2277,6 +2292,7 @@ class MixedSeq(object):
                 self.tabfile.write(str(accession2)+"\n")
 
         else:
+            is_mixed_sequence = "Yes"
             if ("C.parvum" in species2 and "C.hominis" in species and seq.find("TCACAATTAATG") == -1):
                 os.system("blastdbcmd -db " + os.path.dirname(__file__)+"/reference_database/msr_ref.fa -entry " + "'{}'".format("C.parvum|KT948751.1") + " -out refseq.fa")
 
@@ -2306,8 +2322,10 @@ class MixedSeq(object):
                 bitscore2,evalue2,query_coverage2,query_length2,percent_identity2, accession2, species2, seq2 = self.blast(refseq,False)
 
 
-
-            self.tabfile.write("Yes\t")
+            elif ("C.parvum" in species and "C.parvum" in species2 and abs(seq.count("TGA") - seq2.count("TGA")) == 1):
+                is_mixed_sequence  = "No"
+   
+            self.tabfile.write(f"{is_mixed_sequence}\t")
 
             self.tabfile.write(species.split("|")[0] + "\t")
             self.tabfile.write(seq + "\t \t")
@@ -2318,7 +2336,7 @@ class MixedSeq(object):
             self.tabfile.write(str(percent_identity) + "%\t")
             self.tabfile.write(str(accession)+"\n")
 
-            self.tabfile.write("\t\tYes\t")
+            self.tabfile.write(f"\t\t{is_mixed_sequence}\t")
             self.tabfile.write(species2.split("|")[0] + "\t")
             self.tabfile.write(seq2 + "\t \t")
             self.tabfile.write(str(bitscore2)+"\t")
@@ -2340,7 +2358,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
 
     if forwardP and reverseP:
         pathlist = [path for path in pathlist if re.search(forwardP, path) or re.search(reverseP, path)]  # select only files matching the primers
-    elif reverseP:
+    elif forwardP:
         pathlist = [path for path in pathlist if re.search(forwardP, path)]
     elif reverseP:
         pathlist = [path for path in pathlist if re.search(reverseP, path)]
@@ -2404,6 +2422,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
     elif typeSeq == "contig":
         LOG.info(f"Processing {len(pathlist)} file(s) in {typeSeq} mode:\n{pathlist}")
         for idx in range(0,len(pathlist),2):
+            LOG.info(f"\n{idx}: *** Working now on pair {pathlist[idx]} and {pathlist[idx+1]} ***")
             forward = MixedSeq(file, tabfile, 'contig')
             reverse = MixedSeq(file, tabfile, 'contig')
 
@@ -2602,6 +2621,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                 reverse.findHeteroBases(2.0)
                 reverse.determineAllTypes(customdatabsename)
                 reverse.outputResults("", customdatabsename, typeSeq)
+
 
     experimentName = expName + "_"
     output_report_file_name = experimentName + 'cryptogenotyper_report.fa'
