@@ -4,6 +4,12 @@ from Bio.Blast import NCBIXML
 from CryptoGenotyper import definitions
 from collections import defaultdict
 
+# ANSI escape codes for text formatting
+RED = "\033[31m"
+BOLD = "\033[1m"
+RESET = "\033[0m"
+
+
 # setup the application logging
 LOG = logging.getLogger(__name__)
 DATABASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__),"reference_database"))
@@ -287,12 +293,33 @@ def pair_files(file_paths, forward_suffix: str, reverse_suffix: str):
         LOG.info("\n".join(table_lines))   
 
     # Print unpaired files as a simple list
+    # Print unpaired files as a simple list with highlighting
+    # Print unpaired files as a simple list with highlighting
     if unpaired_files:
+        highlighted_unpaired_lines = []
+        sorted_unpaired = sorted(unpaired_files) 
+        
+        for i, file_path in enumerate(sorted_unpaired):
+            display_name = os.path.basename(file_path)
+            
+            highlighted_display_name = display_name # Start with the original name
+
+            # Only highlight if the filename contains either the forward or reverse suffix.
+            # This covers duplicates and files with missing partners.
+            if forward_suffix in display_name:
+                highlighted_display_name = re.sub(re.escape(forward_suffix), f"{RED}{BOLD}{forward_suffix}{RESET}", display_name, count=1)
+            elif reverse_suffix in display_name:
+                highlighted_display_name = re.sub(re.escape(reverse_suffix), f"{RED}{BOLD}{reverse_suffix}{RESET}", display_name, count=1)
+            # Files in 'other_files' will not contain these suffixes and thus won't be highlighted,
+            # which is the desired behavior for "pattern fails the pattern matches"
+            
+            highlighted_unpaired_lines.append(f"{i+1:>2}. {highlighted_display_name}")
+
         LOG.info(
-        f"\nUnpaired {len(unpaired_files)} files:\n" +
-        "\n".join(f"{i+1:>2}. {file}" for i, file in enumerate(sorted(unpaired_files))) +
-        "\n"
-    )
+            f"\nUnpaired {len(unpaired_files)} files:\n" +
+            "\n".join(highlighted_unpaired_lines) +
+            "\n"
+        )
     
     return file_pairs, unpaired_files
 
@@ -336,11 +363,20 @@ def checkInputOrientation(sequence,  blastdbpath):
         LOG.warning(f"BLASTN stderr: {stderr}")
 
     if (os.stat(blast_output_filename).st_size == 0):
+        LOG.warning(f"No Significant Hits Found")
         return "No Significant Hits Found"
 
     result_handle = open(blast_output_filename , 'r')
     blast_records = NCBIXML.parse(result_handle)
-    blast_record = next(blast_records)
+
+    total_alignments = sum(len(blast_record.alignments) for blast_record in NCBIXML.parse(result_handle))
+
+    LOG.info(f"Found total alignments {total_alignments}")
+    if total_alignments == 0:
+        LOG.warning("No BLAST records found in the XML output.")
+        return ""
+    
+
     
     
 
@@ -350,11 +386,14 @@ def checkInputOrientation(sequence,  blastdbpath):
 
     with open(blast_output_filename, 'r') as result_handle:
         blast_records = NCBIXML.parse(result_handle)
+        
         try:
             blast_record = next(blast_records) # Get the first (and usually only) query record
         except StopIteration:
-            LOG.warning("No BLAST records found in the XML output. No significant hits.")
-            return "No Significant Hits Found"
+            LOG.warning("No BLAST records found in the XML output. No significant hits")
+            return ""
+        
+       
 
         # Iterate through alignments and HSPs to check frames
         # Iterate through alignments and HSPs to check strands
@@ -388,8 +427,8 @@ def checkInputOrientation(sequence,  blastdbpath):
             return "Reverse"
         elif forward_frame_matches > 0 and forward_frame_matches == reverse_frame_matches:
             LOG.info(f"Determined orientation: Ambiguous (Equal Forward and Reverse matches: {forward_frame_matches})")
-            return "Ambiguous"
+            return ""
         else:
             LOG.info("No clear orientation could be determined from significant BLASTN hits.")
-            return "No Significant Hits Found"
+            return ""
         

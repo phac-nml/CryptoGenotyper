@@ -966,11 +966,14 @@ class MixedSeq(object):
             #exit("Sequence extracted is of wrong data type. Expected lisf of stings, got {}".format(self.seq))
             
             sequence_orientation_check_result  = utilities.checkInputOrientation(self.seq, os.path.dirname(__file__)+"/reference_database/msr_ref.fa")
-            LOG.info(f"Input {self.name} sequence orientation is {sequence_orientation_check_result}")
-            if sequence_orientation_check_result  == "Reverse":
-                self.forwardSeq = False 
-            elif sequence_orientation_check_result  == "Forward":
-                self.forwardSeq = True 
+            if sequence_orientation_check_result:
+                LOG.info(f"Input {self.name} sequence orientation is {sequence_orientation_check_result}")
+                if sequence_orientation_check_result  == "Reverse":
+                    self.forwardSeq = False 
+                elif sequence_orientation_check_result  == "Forward":
+                    self.forwardSeq = True
+            else:
+                LOG.info(f"Could not determine orientation for {self.name}")         
 
         #peak locations
         self.peakLoc=np.array(record.annotations['abif_raw']['PLOC2'])

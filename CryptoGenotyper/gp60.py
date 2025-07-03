@@ -131,12 +131,14 @@ class analyzingGp60(object):
         
         sequence_orientation_check_result  = utilities.checkInputOrientation(self.seq, os.path.dirname(__file__)+"/reference_database/gp60_ref.fa")
      
-        LOG.info(f"Input {self.name} sequence orientation is {sequence_orientation_check_result}")
-        if sequence_orientation_check_result  == "Reverse":
-            self.forwardSeq = False 
-        elif sequence_orientation_check_result  == "Forward":
-            self.forwardSeq = True 
-
+        if sequence_orientation_check_result:
+            LOG.info(f"Input {self.name} sequence orientation is {sequence_orientation_check_result}")
+            if sequence_orientation_check_result  == "Reverse":
+                self.forwardSeq = False 
+            elif sequence_orientation_check_result  == "Forward":
+                self.forwardSeq = True
+        else:
+            LOG.info(f"Could not determine orientation for {self.name}")  
         
         self.seqLength = len(self.seq)
 
@@ -200,38 +202,39 @@ class analyzingGp60(object):
             hsp = br_alignment.hsps[0]
     
             #works even if sequence is in reverse orientation as results are always given with respect to the query sequence so
-            #trimming coordianates are always valid
+            #trimming coordinates are always valid
             self.species = br_alignment.hit_id
             b = hsp.query_start-1
             e = hsp.query_end
+
+            dbpath = os.path.join(os.path.dirname(__file__),"reference_database/gp60_ref.fa")
+            LOG.info(f"Querying {self.name} against the {dbpath} gp60 database ...")
+
+            filename = f"query.txt"
+
+            # Open the file with writing permission
+            myfile = open(filename, 'w')
+
+            t = round(len(self.seq)*0.5)
+            myfile.write(''.join(self.seq[0:t]))
+
+            # Close the file
+            myfile.close()
+
+            if customdatabasename:
+                    dbpath = "custom_db"
+            else:
+                    dbpath = os.path.dirname(__file__)+"/reference_database/gp60_ref.fa"
+            blastn_cline = NcbiblastnCommandline(cmd ='blastn', task='blastn',query=filename, dust='yes',
+                                                     db = dbpath, 
+                                                     reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=1e-5, outfmt=5, out="gp60result.xml")
+            LOG.info(f"Querying {self.name} against the {blastn_cline.db} gp60 database ...")
+            stdout, stderr = blastn_cline()
             
  
             if b > (len(self.seq)*0.25):
-                logging.debug(f"Position b={b} and is GREATER than 25% of the original sequence length ({len(self.seq)}). Threshold: {len(self.seq)*0.25:.2f}")
-                dbpath = os.path.join(os.path.dirname(__file__),"reference_database/gp60_ref.fa")
-                LOG.info(f"Querying {self.name} against the {dbpath} gp60 database ...")
-
-                filename = f"query_vs_gp60_ref.txt"
-
-                # Open the file with writing permission
-                myfile = open(filename, 'w')
-
-                t = round(len(self.seq)*0.5)
-                myfile.write(''.join(self.seq[0:t]))
-
-                # Close the file
-                myfile.close()
-
-                if customdatabasename:
-                    dbpath = "custom_db"
-                else:
-                    dbpath = os.path.dirname(__file__)+"/reference_database/gp60_ref.fa"
-                blastn_cline = NcbiblastnCommandline(cmd ='blastn', task='blastn',query=filename, dust='yes',
-                                                     db = dbpath, 
-                                                     reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=1e-5, outfmt=5, out="gp60result.xml")
-                LOG.info(f"Querying {self.name} against the {blastn_cline.db} gp60 database ...")
-                stdout, stderr = blastn_cline()
-
+                LOG.debug(f"Position b={b} and is GREATER than 25% of the original sequence length ({len(self.seq)}). Threshold: {len(self.seq)*0.25:.2f}")
+                
                 if (os.stat("gp60result.xml").st_size !=0):
                     result_handle = open("gp60result.xml", 'r')
                     blast_records = NCBIXML.parse(result_handle)
@@ -247,8 +250,17 @@ class analyzingGp60(object):
                     b = hsp.query_start-1
                     e = hsp.query_end
             else:
-                logging.debug(f"Position b={b} and is LESS than 25% of the original sequence length ({len(self.seq)}). Threshold: {len(self.seq)*0.25:.2f}")        
-            
+                LOG.debug(f"Position b={b} and is LESS than 25% of the original sequence length ({len(self.seq)}). Threshold: {len(self.seq)*0.25:.2f}")        
+                if (os.stat("gp60result.xml").st_size !=0):
+                    result_handle = open("gp60result.xml", 'r')
+                    blast_records = NCBIXML.parse(result_handle)
+                    blast_record = next(blast_records)
+                    if len(blast_record.alignments) == 0:
+                        return False
+
+                    br_alignment = blast_record.alignments[0]
+                    self.species = br_alignment.hit_id
+                  
         #Checking quality of the sequence.  If the avg. phred quality < 20 (99% base
         #   calling certainty), then the sequence cannot be analyzed.
         
@@ -287,6 +299,7 @@ class analyzingGp60(object):
 
             self.b = b
             self.e = e
+         
             LOG.info(f"Final sequence length {self.seqLength}bp (coordinates {b}:{e}) selected from raw {len(raw_seq)} bp sequence ({round(self.seqLength/len(raw_seq)*100,1)}% left)")
             #calling trimSeq to trim the ends of the Sanger sequence
             #goodTrim = self.trimSeq()
@@ -1611,9 +1624,9 @@ def buildContig(s1, s2):
 
         file = open("align.fa", 'w')
         file.write("\n>Seq1\n")
-        file.write(s1)
+        file.write(str(s1))
         file.write("\n>Seq2\n")
-        file.write(s2)
+        file.write(str(s2))
         file.close()
 
         clustalw_cline = ClustalwCommandline("clustalw", infile="align.fa")
@@ -1786,16 +1799,19 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
                 revSeqbool = reverse.readFiles(pathlist[idx+1], False, file, tabfile,filetypeR, customdatabasename)
                 pathlist.remove(pathlist[idx+1])    
 
+
                 forwardPhred = forward.averagePhredQuality
                 reversePhred = reverse.averagePhredQuality
 
 
 
                 forward.averagePhredQuality = str(forwardPhred) + "(F); " + str(reversePhred) + "(R)"
-
+                
+                
                 if forwSeqbool and revSeqbool:
                     goodTrimF = forward.trimSeq(filetypeF)
                     goodTrimR = reverse.trimSeq(filetypeR)
+                    
                     #print(dir(forward),dir(reverse),customdatabasename)
                     #print(f"forward seq top hit blast {forward.species} reverse {reverse.species}")
                     
@@ -1818,9 +1834,11 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
                     
                     #if the crypto subfamily was found, find repeat region
                     #print(forward.species, reverse.species, forward.repeats, reverse.repeats, forward.repeats == reverse.repeats);exit()
-                    if forward.species == reverse.species and forward.species != "":# and forward.repeats == reverse.repeats and forward.repeats != "":
+                    
+                    if forward.species != "" and forward.species.split('|')[0] == reverse.species.split('|')[0]:# and forward.repeats == reverse.repeats and forward.repeats != "":
                         #forward.determineFamily(customdatabasename)
                         #reverse.determineFamily(customdatabasename)
+                      
                         Fbitscore,Fevalue,Fquery_coverage,Fquery_length,Fpercent_identity, Faccession, Fnewseq, species = forward.blast(str(forward.seq), False, customdatabasename)
                         Rbitscore,Revalue,Rquery_coverage,Rquery_length,Rpercent_identity, Raccession, Rnewseq, species = reverse.blast(str(reverse.seq), False, customdatabasename)
                         LOG.info(f"Build contig from forward and reverse extracted sequences of {len(Fnewseq)}bp and {len(Rnewseq)}bp")
