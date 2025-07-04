@@ -2245,10 +2245,6 @@ class MixedSeq(object):
             seq2 = revcomp(seq2)
        
         
-
-
-        distance = utilities.hamming_distance(str(self.species1Seq), str(self.species2Seq))
-        print(f"Hamming Distance between 'seq1' {species} and 'seq2' {species2} : {distance}")
  
         if (species == "" and species2 == ""): #or (query_coverage < 50 and query_coverage2 < 50):
             self.tabfile.write("\t\t\t" + "Could not analyze input file. Please check manually." + "\t\t\t\t\t\t\t\n")
