@@ -2174,7 +2174,7 @@ class MixedSeq(object):
             #    return "","",0,"",0,"","",""
             if percent_identity < 95:
                 LOG.warning(f"The %identity of the top hit ({accession}) is less than 95% ({int(percent_identity)}%) which may lead to incorrect species identification. Check reference database and input.")
-                return "","",0,"",0,"","",""
+                #return "","",0,"",0,"","",""
 
             
             if "|" in accession:
@@ -2365,7 +2365,7 @@ class MixedSeq(object):
 
             #print(self.tabfile.getvalue())
             #paralogue sequence #2
-            self.tabfile.write("\t\tNo\t")
+            self.tabfile.write("\t\tYes\t")
             self.tabfile.write(species.split("|")[0] + "\t")
             self.tabfile.write(str(seq2) + "\t-\t")
           
@@ -2611,21 +2611,16 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                         
                         reverseseq = revcomp(reverseseq)
                         
-                        
-                      
-                        
-
+                        contig = buildContig(forwardseq, reverseseq, forward, reverse)
                         if "C.parvum" in f_species and "C.parvum" in r_species:
                             contig = buildContig(f_seq, r_seq, forward, reverse)
                             contig2 = buildContig(f_seq2, r_seq2, forward, reverse)
                             forward.species1Seq = contig
                             forward.species2Seq = contig2
                         elif contig != "":
-                            contig = buildContig(forwardseq, reverseseq, forward, reverse)
                             forward.species1Seq = contig
                             forward.species2Seq = contig    
                         else:
-                            contig = buildContig(forwardseq, reverseseq, forward, reverse)
                             forward.species1Seq = forwardseq
                             forward.species2Seq = reverseseq
 
