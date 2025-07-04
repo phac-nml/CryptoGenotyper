@@ -138,7 +138,7 @@ class analyzingGp60(object):
             elif sequence_orientation_check_result  == "Forward":
                 self.forwardSeq = True
         else:
-            LOG.info(f"Could not determine orientation for {self.name}")  
+            LOG.info(f"Could not verify orientation from BLAST searches for {self.name}")  
         
         self.seqLength = len(self.seq)
 
@@ -937,9 +937,9 @@ class analyzingGp60(object):
                 LOG.debug("Top 10 hits in species and determine family identification:"+"".join(top10hits))
                 top10bitscores = [a.hsps[0].bits for r in blast_records for idx,a in enumerate(r.alignments) if idx <= 10]
                 #find hits with identical bitscore and warn user
-                
+             
                 if len(top10bitscores) != len(set(top10bitscores)):
-                    LOG.warning("Hits with identical bitscore are found. The list of duplicated bitscores: " \
+                    LOG.warning("Hits with identical BLAST bitscore are found. The list of duplicated bitscores: " \
                         f"{[item for item, count in collections.Counter(top10bitscores).items() if count > 1]}")
             
                 if len(blast_record.alignments) >= 2:
@@ -990,8 +990,7 @@ class analyzingGp60(object):
                     data = hit.split(" ")[0]
                     self.species = blast_record.alignments[0].hit_id
                 
-                LOG.info(f"Species identified {self.species} from {os.path.basename(blastn_cline.db)} gp60 database")        
-
+                LOG.info(f"Species identified {self.species} from {os.path.basename(blastn_cline.db)} gp60 database")    
             else:
                 LOG.warning("No blast hits.")
                 self.species="No blast hits."
@@ -1615,7 +1614,8 @@ class analyzingGp60(object):
 
 #Function to build the contig of forward and reverse sequences
 def buildContig(s1, s2):
-    LOG.info("Building gp60 contig of forward and reverse sequences ...")
+    contig=""
+    LOG.info("Building a gp60 contig from sequences ...")
     if s1 == "":
         return s2
     elif s2 == "":
@@ -1640,7 +1640,7 @@ def buildContig(s1, s2):
             else:
                 seq2 = record.seq
 
-        contig=""
+        
         l = len(seq1)
 
         for i in range(0, l):
@@ -1654,7 +1654,7 @@ def buildContig(s1, s2):
                 contig += seq1[i]
             else:
                 contig += seq2[i]
-
+        LOG.debug(f"Formed a contig of {len(contig)}b long from s1={len(s1)}bp and s2={len(s2)}bp")
         return contig
 
 
@@ -1820,21 +1820,20 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
                         reverse.repeats="Could not classify repeat region. Check manually."
 
                     else:
-                        
-                        if customdatabasename:
-                            forward.determineFamily(customdatabasename)
-                            reverse.determineFamily(customdatabasename)
+                        #if customdatabasename:
+                        forward.determineFamily(customdatabasename)
+                        reverse.determineFamily(customdatabasename)
 
-
-                        if forward.species == reverse.species and forward.species!= "":
+                        #if the crypto subfamily was found, find repeat region    
+                        if forward.species.split('|')[0] == reverse.species.split('|')[0] and forward.species!= "":
                             LOG.info(f"Determining repeats for {forward.name} and {reverse.name} ...")
                             forward.determineRepeats()
                             reverse.determineRepeats()
 
                     
-                    #if the crypto subfamily was found, find repeat region
-                    #print(forward.species, reverse.species, forward.repeats, reverse.repeats, forward.repeats == reverse.repeats);exit()
-                    
+                        
+                    # Form a contig if species of both reads is the same 
+                    # e.g. C.mortiferum == C.mortiferum from forward.species=C.mortiferum|XIVa|a(KP099082)            
                     if forward.species != "" and forward.species.split('|')[0] == reverse.species.split('|')[0]:# and forward.repeats == reverse.repeats and forward.repeats != "":
                         #forward.determineFamily(customdatabasename)
                         #reverse.determineFamily(customdatabasename)
@@ -1844,9 +1843,7 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
                         LOG.info(f"Build contig from forward and reverse extracted sequences of {len(Fnewseq)}bp and {len(Rnewseq)}bp")
                         contig = buildContig(Fnewseq, Rnewseq)
                         
-
                         sampleName = forward.name.split(".ab1")[0] + ", " + reverse.name.split(".ab1")[0]
-
                         forward.printFasta(contig, "contig", sampleName, customdatabasename)
 
                     else:

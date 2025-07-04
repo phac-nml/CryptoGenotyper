@@ -44,7 +44,8 @@ def parse_cli_arguments():
                         help="Input sequences type. Select one option out of these three:\n"
                              "contig - both F and R sequences provided\n "
                              "forward - forward only sequence provided\n"
-                             "reverse - reverse only sequence provided\n")
+                             "reverse - reverse only sequence provided\n",
+                        choices=["forward", "reverse", "contig"])
     parser.add_argument('-f', '--forwardprimername', type=str,  required=False,
                         help="Name of the forward primer to identify forward read (e.g. gp60F, SSUF)")
     parser.add_argument('-r', '--reverseprimername', type=str, required=False,
