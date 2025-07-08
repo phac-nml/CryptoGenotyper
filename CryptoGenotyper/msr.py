@@ -768,6 +768,7 @@ def indelligent(gen1):
 #forewardseq = forward sequence in 5'->3'; reverseseq = reverse sequence in 5'->3'
 def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None): 
     LOG.info(f"Building 18S contig from forward {len(forwardseq)}bp and reverse {len(reverseseq)}bp sequences")
+    contig = ""
     if forwardObj and reverseObj:
         with open("forward_original_tmp.fasta", "w") as fp:
             fp.write("".join(forwardObj.seq))
@@ -876,9 +877,10 @@ def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None):
                     contig = forwardseq[0 : query_start_0based] + str(working_reverseseq[sbjct_start_0based : ])
                     LOG.info(f"Contig formed: Prioritizing Reverse (higher Phred score). Overlap region used from Reverse (now in forward orientation).")
 
-            # --- General logging for the formed contig ---
-            LOG.info(f"A contig of {len(contig)}bp was successfully formed.")
-
+                # --- General logging for the formed contig ---
+                LOG.info(f"A contig of {len(contig)}bp was formed.")
+            else:
+                LOG.warning("Was not able to form a contig as no valid alignments ...")
             if is_subject_reversed:
                 LOG.info(f"Note: Subject sequence was reverse-complemented for assembly. Effective subject alignment coordinates on RC sequence: {sbjct_start_0based+1}-{sbjct_end_0based}.")
             
