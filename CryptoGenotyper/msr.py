@@ -831,9 +831,11 @@ def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None):
             if record.alignments:
                 hsp = record.alignments[0].hsps[0] # Take the Highest Scoring Pair (HSP) from the best alignment
                 is_subject_reversed = hsp.sbjct_start > hsp.sbjct_end
+
+                if is_subject_reversed:
+                    LOG.info(f"Note: Subject sequence was reverse-complemented for assembly. Effective subject alignment coordinates on RC sequence: {sbjct_start_0based+1}-{sbjct_end_0based}.")
             
-                # This print is for debugging purposes, showing raw BLAST coordinates
-                print(hsp.query_start, hsp.query_end, hsp.sbjct_start, hsp.sbjct_end)
+            
             
                 # --- FIX for UnboundLocalError: Initialize working_reverseseq here ---
                 # It must be initialized outside the if/else block to ensure it's always defined.
@@ -881,8 +883,6 @@ def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None):
                 LOG.info(f"A contig of {len(contig)}bp was formed.")
             else:
                 LOG.warning("Was not able to form a contig as no valid alignments ...")
-            if is_subject_reversed:
-                LOG.info(f"Note: Subject sequence was reverse-complemented for assembly. Effective subject alignment coordinates on RC sequence: {sbjct_start_0based+1}-{sbjct_end_0based}.")
             
             break # Exit the loop after processing the first valid alignment        
     else:
