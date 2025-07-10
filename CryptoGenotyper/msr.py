@@ -2047,15 +2047,16 @@ class MixedSeq(object):
         if percent_identity1 < 99 or percent_identity2 < 99:
             stop1 = len(newseq1)
             stop2 = len(newseq2)
+            
 
             counter = 0
             counter2 = 0
 
             breakloop1 = False
             breakloop2 = False
-
+    
             for i in range(length-1, 0, -1):
-                if i < length/2:
+                if i < length*0.75:
                     stop1 = i
                     stop2 = i
                     break
@@ -2084,13 +2085,13 @@ class MixedSeq(object):
                         stop2 = i-1
                         counter2 = 0
 
-
             self.species1Seq = newseq1[:stop1]
             self.species2Seq = newseq2[:stop2]
 
         else:
             self.species1Seq = newseq1
             self.species2Seq = newseq2
+           
          
 
 
@@ -2242,7 +2243,7 @@ class MixedSeq(object):
         if self.avgPhred >= 20 and query_coverage < 50 and query_coverage2 < 50:
             bitscore,evalue,query_coverage,query_length,percent_identity, accession, species, seq = self.blast(''.join(self.fixedSeq),False)
 
-
+        LOG.debug(f"species={species} and species2={species2} seq={len(seq)}bp and seq2={len(seq2)}")
         if mode == 'reverse':
             seq = revcomp(seq)
             seq2 = revcomp(seq2)
@@ -2301,7 +2302,7 @@ class MixedSeq(object):
             self.tabfile.write(str(percent_identity) + "%\t")
             self.tabfile.write(str(accession)+"\n")
 
-        elif species == species2 and ("C.hominis" in species and "C.hominis" in species2) and seq2 != "":
+        elif species == species2 or ("C.hominis" in species and "C.hominis" in species2) and seq2 != "":
             #if query_coverage < 50 and query_coverage2 < 50:
             #    self.tabfile.write("\t\t\t" + "Could not analyze input file. Please check manually." + "\t\t\t\t\t\t\t\n")
             #    return
@@ -2420,7 +2421,7 @@ class MixedSeq(object):
             self.tabfile.write(str(percent_identity) + "%\t")
             self.tabfile.write(str(accession)+"\n")
 
-            if seq2:
+            if seq2 and seq != seq2:
                 self.tabfile.write(f"\t\tYes\t")
                 self.tabfile.write(species2.split("|")[0] + "\t")
                 self.tabfile.write(seq2 + "\t \t")
@@ -2510,6 +2511,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
             LOG.info(f"\n{idx}: *** Working now on pair {pathlist[idx]} and {pathlist[idx+1]} ***")
             forward = MixedSeq(file, tabfile, 'contig')
             reverse = MixedSeq(file, tabfile, 'contig')
+        
 
             filetype = utilities.getFileType(pathlist[idx])
             f_goodSeq = forward.readFiles(pathlist[idx], True)
@@ -2520,7 +2522,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
 
             f_bitscore,f_evalue,f_query_coverage,f_query_length,f_percent_identity, f_accession, f_species, f_seq = forward.blast(str(''.join(forward.oldseq)),False)
             r_bitscore,r_evalue,r_query_coverage,r_query_length,r_percent_identity, r_accession, r_species, r_seq = reverse.blast(str(''.join(reverse.oldseq)),False)
-
+            LOG.info(f"Forward sequence is good = {f_goodSeq}? Reverse is good = {r_goodSeq}?")
             if f_goodSeq and r_goodSeq:
                 
                 if f_species == "" and r_species == "":
@@ -2529,12 +2531,15 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                     forward.outputResults("", customdatabsename, typeSeq, filetype)
 
                 else:
+                    LOG.info("Finding all heterobases in forward and reverse object ...")
                     forward.findHeteroBases(2.0)
                     reverse.findHeteroBases(2.0)
 
                     reverse.determineAllTypes(customdatabsename)
                     forward.determineAllTypes(customdatabsename)
-
+                    LOG.info(f"Foward sequence {len(forward.seq)}bp species1Seq={len(forward.species1Seq)}bp species2Seq={len(forward.species2Seq)}bp")
+                    LOG.info(f"Reverse {len(reverse.seq)}bp. species1Seq={len(reverse.species1Seq)}bp species2Seq={len(forward.species2Seq)}bp")
+                    
                     f_bitscore,f_evalue,f_query_coverage,f_query_length,f_percent_identity, f_accession, f_species, f_seq = forward.blast(forward.species1Seq,False)
                     f_bitscore2,f_evalue2,f_query_coverage2,f_query_length2,f_percent_identity2, f_accession2, f_species2, f_seq2 = forward.blast(forward.species2Seq,False)
 
@@ -2564,6 +2569,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                         r_species2 = r_species
                         reverse.species2Seq = reverse.species1Seq
 
+                    LOG.debug(f"f_species={f_species} and r_species={r_species} and f_species2={f_species2} and r_species2={r_species2}")
                     if f_species == "" and r_species == "" and f_species2 == "" and r_species2 == "":
                         f_species = "|."
                         r_species = "|."
@@ -2577,8 +2583,10 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                     elif r_species == "" and r_species2 == "":
                         r_species = "|."
                         r_species2 = "|."
-
+                    LOG.debug(f"f_species={f_species} and r_species={r_species} and f_species2={f_species2} and r_species2={r_species2}");
                     if ((r_species.split('|')[0] == r_species2.split('|')[0] and f_species.split('|')[0] ==f_species2.split('|')[0]) and f_species==r_species) or ("C.hominis" in r_species and "C.hominis" in r_species2 and "C.hominis" in f_species and "C.hominis" in f_species2):
+                        
+                        
                         if "C.hominis|GQ183513.11" in f_species and "C.hominis|GQ183513.8" in f_species2:
                             forwardseq = forward.species1Seq
                         elif "C.hominis|GQ183513.11" in f_species2 and "C.hominis|GQ183513.8" in f_species:
@@ -2614,7 +2622,6 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                             else:
                                 forward.species1Seq = forwardseq
                                 forward.species2Seq = reverseseq
-
                         forward.avgPhredQuality = round((forward.avgPhredQuality + reverse.avgPhredQuality), 2)
                         forward.outputResults(contig, customdatabsename, typeSeq, filetype)
 
@@ -2624,6 +2631,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
 
                         contig1 = buildContig(f_seq, reverseseq)
                         contig2 = buildContig(f_seq2, reverseseq2)
+                        
 
                         if contig1 != "":
                             forward.species1Seq = contig1

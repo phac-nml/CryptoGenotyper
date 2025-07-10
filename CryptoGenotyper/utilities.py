@@ -162,7 +162,7 @@ def sort_blast_hits_by_id_and_bitscore(blast_record, mode="default"):
         for idx, alignment in enumerate(sorted_blast_hits[:100]):
                 hsp = alignment.hsps[0]
                 identity = hsp.identities / hsp.align_length * 100
-                coverage = min(hsp.align_length / blast_record.query_length * 100, 100)
+                coverage = min(alignment.hsps[0].align_length / alignment.length * 100, 100)
                 table_lines.append(
                 f"{idx + 1:<3} │ "
                 f"{alignment.hit_id:<50} │ "
