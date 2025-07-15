@@ -47,7 +47,7 @@ def parse_cli_arguments():
                              "reverse - reverse only sequence provided\n",
                         choices=["forward", "reverse", "contig"])
 
-    parser.add_argument('-f', '--forwardprimername', type=str,  required=False,
+    parser.add_argument('-f', '--forwardprimername', type=str,  required=False, 
                         help="Name of the forward primer to identify forward read (e.g. gp60F, SSUF)")
     parser.add_argument('-r', '--reverseprimername', type=str, required=False,
                         help="Name of the reverse primer to identify forward read (e.g. gp60R, SSUR)")
@@ -63,21 +63,15 @@ def parse_cli_arguments():
     args = parser.parse_args()
 
      # --- Custom validation logic ---
-    if args.seqtype == 'forward':
-        if not args.forwardprimername:
-            parser.error("For --seqtype 'forward', a --forwardprimername (-f) must be provided.")
-        if args.reverseprimername:
-             parser.error("Error: --reverseprimername (-r) is not allowed when --seqtype is 'forward'.")
+    if args.seqtype == 'forward' and args.reverseprimername:
+        parser.error("Error: --reverseprimername (-r) is not allowed when --seqtype is 'forward'.")
 
-    elif args.seqtype == 'reverse':
-        if not args.reverseprimername:
-            parser.error("For --seqtype 'reverse', a --reverseprimername (-r) must be provided.")
-        if args.forwardprimername:
-            parser.error("Error: --forwardprimername (-f) is not allowed when --seqtype is 'reverse'.")
+    elif args.seqtype == 'reverse' and args.forwardprimername:
+        parser.error("Error: --forwardprimername (-f) is not allowed when --seqtype is 'reverse'.")
 
     elif args.seqtype == 'contig':
         if not args.forwardprimername or not args.reverseprimername:
-            parser.error("For --seqtype 'contig', both --forwardprimername (-f) and --reverseprimername (-r) must be provided.")
+            parser.error("For --seqtype 'contig', BOTH --forwardprimername (-f) and --reverseprimername (-r) must be provided.")
 
     return args
 

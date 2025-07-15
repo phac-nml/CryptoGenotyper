@@ -119,7 +119,6 @@ def test_default_singlefile(input_dir=os.path.abspath(os.path.join(os.path.dirna
         "-m", "18S",
         "-t", "forward",
         "-f", "SSUF",
-        "-r", "SSUR",
         "-o", "test"
 
     ]

@@ -2180,8 +2180,8 @@ class MixedSeq(object):
                 failed_conditions.append(f"Query length {query_length}bp < 60% of original length {self.origLength}bp")
             if percent_identity < 85:
                 failed_conditions.append(f"Top hit percent identity ({int(percent_identity)}%) < 85%")
-            if evalue > 1e-200:
-                failed_conditions.append(f"E-value ({evalue}) > 1e-200")
+            if evalue > 1e-100:
+                failed_conditions.append(f"E-value ({evalue}) > 1e-100")
 
             if failed_conditions:
                 LOG.warning(f"BLAST hit failed criteria: {'; '.join(failed_conditions)}. Returning empty values.")
