@@ -833,7 +833,7 @@ def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None):
                 is_subject_reversed = hsp.sbjct_start > hsp.sbjct_end
 
                 if is_subject_reversed:
-                    LOG.info(f"Note: Subject sequence was reverse-complemented for assembly. Effective subject alignment coordinates on RC sequence: {sbjct_start_0based+1}-{sbjct_end_0based}.")
+                    LOG.info(f"Note: Subject sequence was reverse-complemented for assembly.")
             
             
             
@@ -2056,7 +2056,7 @@ class MixedSeq(object):
             breakloop2 = False
             bad_region_start_position = utilities.find_quality_drop_position(self.phred_qual,3,10,10, self.forwardSeq)
             percent_good_seq_region = bad_region_start_position/len(self.phred_qual)
-            #print(length,self.species1, percent_good_seq_region);exit(dir(self))
+            LOG.info("Percent of the original sequence with acceptable quality PHRED > 10")
             for i in range(length-1, 0, -1):
                 if i < length*percent_good_seq_region:  #previously it was set to 0.5 because in C.hominis the "bad region" starts after 50% of the sequence
                     stop1 = i
