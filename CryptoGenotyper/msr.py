@@ -2054,9 +2054,11 @@ class MixedSeq(object):
 
             breakloop1 = False
             breakloop2 = False
-    
+            bad_region_start_position = utilities.find_quality_drop_position(self.phred_qual,3,10,10, self.forwardSeq)
+            percent_good_seq_region = bad_region_start_position/len(self.phred_qual)
+            #print(length,self.species1, percent_good_seq_region);exit(dir(self))
             for i in range(length-1, 0, -1):
-                if i < length*0.75:
+                if i < length*percent_good_seq_region:  #previously it was set to 0.5 because in C.hominis the "bad region" starts after 50% of the sequence
                     stop1 = i
                     stop2 = i
                     break
@@ -2148,7 +2150,7 @@ class MixedSeq(object):
 
             if len(identicalAlignHits) >= 2:   
                 identical_score_hits_ids_str = '\n'.join([f"{a.hit_id}\t{a.hsps[0].score}" for a in identicalAlignHits]) 
-                LOG.warning(f"!!! Found {len(identicalAlignHits)} identically scored candidate BLAST hits in reference database with bitscores:\n{identical_score_hits_ids_str}.\nBe careful with species ID!") 
+                LOG.warning(f"!!! Found {len(identicalAlignHits)} identically scored candidate BLAST hits in reference database with bitscores:\n{identical_score_hits_ids_str}.\nBe careful with species ID for {self.name}!") 
                 #min_gaps = min([align.hsps[0].gaps for align in identicalAlignHits])
                 #min_gaps_alignments = [align for align in identicalAlignHits if align.hsps[0].gaps == min_gaps]
                 #if len(min_gaps_alignments) > 1:
@@ -2172,12 +2174,24 @@ class MixedSeq(object):
             
 
             LOG.debug(f"TOP hit species={species} query_length={query_length} originalLength={self.origLength} percent_identity={percent_identity} evalue {evalue}")
-            if query_length < int(0.6*self.origLength) or percent_identity < 85 or evalue > 1e-200:
-                LOG.warning(f"Query length {query_length}bp was either reduced to less than 60% of its original length of {self.origLength}bp or top hit {int(percent_identity)}% identity < 85% or e-value {evalue} > 1e-200")
-            #    return "","",0,"",0,"","",""
+            # Check and log each condition separately for clarity
+            failed_conditions = []
+            if query_length < int(0.6 * self.origLength):
+                failed_conditions.append(f"Query length {query_length}bp < 60% of original length {self.origLength}bp")
+            if percent_identity < 85:
+                failed_conditions.append(f"Top hit percent identity ({int(percent_identity)}%) < 85%")
+            if evalue > 1e-200:
+                failed_conditions.append(f"E-value ({evalue}) > 1e-200")
+
+            if failed_conditions:
+                LOG.warning(f"BLAST hit failed criteria: {'; '.join(failed_conditions)}. Returning empty values.")
+                return "", "", 0, "", 0, "", "", ""
+
+            # This is a separate, less critical warning
             if percent_identity < 95:
                 LOG.warning(f"The %identity of the top hit ({accession}) is less than 95% ({int(percent_identity)}%) which may lead to incorrect species identification. Check reference database and input.")
-                #return "","",0,"",0,"","",""
+                # Based on your original code, this warning doesn't cause a return,
+                # so the function would continue if only this condition is met.
 
             
             if "|" in accession:
@@ -2219,7 +2233,6 @@ class MixedSeq(object):
     #outputResults() outputs the results in .txt and .fa file formats
     def outputResults(self, contig, customdatabsename, mode, filetype="abi"):
         seq=""; seq2=""
-        
         self.file.write("\n>Sequence: " + self.name.split(f".{filetype}")[0] + " | ")
         self.tabfile.write(self.name.split(f".{filetype}")[0] + "\t" + mode + "\t")
         
@@ -2522,7 +2535,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
 
             f_bitscore,f_evalue,f_query_coverage,f_query_length,f_percent_identity, f_accession, f_species, f_seq = forward.blast(str(''.join(forward.oldseq)),False)
             r_bitscore,r_evalue,r_query_coverage,r_query_length,r_percent_identity, r_accession, r_species, r_seq = reverse.blast(str(''.join(reverse.oldseq)),False)
-            LOG.info(f"Forward sequence is good = {f_goodSeq}? Reverse is good = {r_goodSeq}?")
+            LOG.debug(f"Forward sequence is good = {f_goodSeq}? Reverse is good = {r_goodSeq}?")
             if f_goodSeq and r_goodSeq:
                 
                 if f_species == "" and r_species == "":
@@ -2585,8 +2598,6 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                         r_species2 = "|."
                     LOG.debug(f"f_species={f_species} and r_species={r_species} and f_species2={f_species2} and r_species2={r_species2}");
                     if ((r_species.split('|')[0] == r_species2.split('|')[0] and f_species.split('|')[0] ==f_species2.split('|')[0]) and f_species==r_species) or ("C.hominis" in r_species and "C.hominis" in r_species2 and "C.hominis" in f_species and "C.hominis" in f_species2):
-                        
-                        
                         if "C.hominis|GQ183513.11" in f_species and "C.hominis|GQ183513.8" in f_species2:
                             forwardseq = forward.species1Seq
                         elif "C.hominis|GQ183513.11" in f_species2 and "C.hominis|GQ183513.8" in f_species:

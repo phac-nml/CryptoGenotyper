@@ -432,3 +432,105 @@ def checkInputOrientation(sequence,  blastdbpath):
             LOG.info("No clear orientation could be determined from significant BLASTN hits.")
             return ""
 
+def find_quality_drop_position(
+    phred_scores: list[int],
+    window_size: int = 5,
+    threshold: int = 20,
+    consecutive_windows: int = 3,
+    is_forward_sequence: bool = True # New parameter for orientation by default it is forward orientation
+) -> int:
+    """
+    Identifies the first position (0-indexed) where the average Phred quality score
+    within a sliding window drops below a specified threshold for a given number
+    of consecutive windows. Can process scores in reverse if specified.
+
+    Args:
+        phred_scores: A list of integers, where each integer represents the Phred
+                      quality score for a single nucleotide.
+        window_size: The size of the sliding window (number of nucleotides) to
+                     calculate the average score. Defaults to 5.
+        threshold: The minimum acceptable average Phred score for the window.
+                   If the average drops below this, the window is considered "bad".
+                   Defaults to 20.
+        consecutive_windows: The number of consecutive "bad" windows required
+                             to trigger a quality drop detection. Defaults to 3.
+        is_forward_sequence: A boolean indicating if the sequence is in forward
+                             orientation (True) or reverse orientation (False).
+                             If False, the phred_scores list will be processed
+                             in reverse order. Defaults to True.
+
+    Returns:
+        The 0-indexed starting position of the first window in the sequence of
+        consecutive "bad" windows. This position is relative to the *processed*
+        (potentially reversed) phred_scores list. Returns None if no such
+        sustained drop is found across the entire sequence.
+    """
+    # --- Input Validation ---
+    if not isinstance(phred_scores, list) or not all(isinstance(score, int) for score in phred_scores):
+        LOG.error("Input 'phred_scores' must be a list of integers.")
+        return None
+    if not isinstance(window_size, int) or window_size <= 0:
+        LOG.error("Input 'window_size' must be a positive integer.")
+        return None
+    if not isinstance(threshold, int) or threshold < 0:
+        LOG.error("Input 'threshold' must be a non-negative integer.")
+        return None
+    if not isinstance(consecutive_windows, int) or consecutive_windows <= 0:
+        LOG.error("Input 'consecutive_windows' must be a positive integer.")
+        return None
+    if not isinstance(is_forward_sequence, bool):
+        LOG.error("Input 'is_forward_sequence' must be a boolean.")
+        return None
+
+    # --- Adapt for reverse orientation ---
+    # Create a mutable copy of the phred_scores list to avoid modifying the original
+    processed_phred_scores = list(phred_scores)
+    if not is_forward_sequence:
+        processed_phred_scores.reverse()
+        LOG.info("Processing Phred scores in reverse order due to reverse orientation.")
+    else:
+        LOG.info("Processing Phred scores in forward order.")
+
+
+    # If the sequence is too short to even form the required number of consecutive windows
+    if len(processed_phred_scores) < window_size + (consecutive_windows - 1):
+        LOG.warning(f"Processed sequence length ({len(processed_phred_scores)}) is too short to form {consecutive_windows} consecutive windows of size {window_size}. No sustained drop can be detected.")
+        return None
+
+    bad_window_count = 0
+    first_bad_window_start_pos = None
+
+    # Iterate through the list using a sliding window
+    # The loop runs until there are enough elements left to form a full window
+    for i in range(len(processed_phred_scores) - window_size + 1):
+        # Extract the current window
+        current_window = processed_phred_scores[i : i + window_size]
+
+        # Calculate the average Phred score for the current window
+        # Handle case where window might be empty (though prevented by loop range)
+        if not current_window:
+            average_score = 0
+            LOG.warning(f"Empty window encountered at position {i}. Average set to 0.")
+        else:
+            average_score = sum(current_window) / window_size
+
+        LOG.debug(f"Window {i}-{i+window_size-1} (processed seq): Scores={current_window}, Average={average_score:.2f}")
+
+        # Check if the average score drops below the threshold
+        if average_score < threshold:
+            bad_window_count += 1
+            if first_bad_window_start_pos is None:
+                first_bad_window_start_pos = i # Mark the start of the current sequence of bad windows
+            LOG.debug(f"Window {i} (processed seq) is 'bad'. Consecutive bad windows: {bad_window_count}")
+            if bad_window_count >= consecutive_windows:
+                LOG.info(f"Sustained quality drop detected starting at position {first_bad_window_start_pos} (relative to processed sequence). {consecutive_windows} consecutive windows (of size {window_size}) had average scores below {threshold}.")
+                return first_bad_window_start_pos  # Return the starting index of the first bad window in the series
+        else:
+            # Reset count if a good window is encountered
+            bad_window_count = 0
+            first_bad_window_start_pos = None
+            LOG.debug(f"Window {i} (processed seq) is 'good'. Resetting consecutive bad window count.")
+
+    # If the loop completes, no sustained drop below the threshold was found
+    LOG.info(f"No sustained quality drop (at least {consecutive_windows} consecutive windows below {threshold}) detected.")
+    return len(phred_scores)

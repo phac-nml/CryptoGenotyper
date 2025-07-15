@@ -46,6 +46,7 @@ def parse_cli_arguments():
                              "forward - forward only sequence provided\n"
                              "reverse - reverse only sequence provided\n",
                         choices=["forward", "reverse", "contig"])
+
     parser.add_argument('-f', '--forwardprimername', type=str,  required=False,
                         help="Name of the forward primer to identify forward read (e.g. gp60F, SSUF)")
     parser.add_argument('-r', '--reverseprimername', type=str, required=False,
@@ -59,12 +60,33 @@ def parse_cli_arguments():
     parser.add_argument('-v', '--version', action='version', version='%(prog)s {}'.format(__version__))
     parser.add_argument('--noheaderline',action='store_true',dest='header',help='Display header on tab-delimited file [False]', required=False)
     
-    return parser.parse_args()
+    args = parser.parse_args()
+
+     # --- Custom validation logic ---
+    if args.seqtype == 'forward':
+        if not args.forwardprimername:
+            parser.error("For --seqtype 'forward', a --forwardprimername (-f) must be provided.")
+        if args.reverseprimername:
+             parser.error("Error: --reverseprimername (-r) is not allowed when --seqtype is 'forward'.")
+
+    elif args.seqtype == 'reverse':
+        if not args.reverseprimername:
+            parser.error("For --seqtype 'reverse', a --reverseprimername (-r) must be provided.")
+        if args.forwardprimername:
+            parser.error("Error: --forwardprimername (-f) is not allowed when --seqtype is 'reverse'.")
+
+    elif args.seqtype == 'contig':
+        if not args.forwardprimername or not args.reverseprimername:
+            parser.error("For --seqtype 'contig', both --forwardprimername (-f) and --reverseprimername (-r) must be provided.")
+
+    return args
 
 #in command line: sequences, marker, contig/f/r, fname, rname, expName
 def main():
     args= parse_cli_arguments()
     LOG.debug(args)
+
+    
 
     if args.verbose:
         for handler in logging.getLogger().handlers:
