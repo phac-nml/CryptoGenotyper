@@ -2054,11 +2054,9 @@ class MixedSeq(object):
 
             breakloop1 = False
             breakloop2 = False
-            bad_region_start_position = utilities.find_quality_drop_position(self.phred_qual,3,10,10, self.forwardSeq)
-            percent_good_seq_region = bad_region_start_position/len(self.phred_qual)
-            LOG.info("Percent of the original sequence with acceptable quality PHRED > 10")
+             
             for i in range(length-1, 0, -1):
-                if i < length*percent_good_seq_region:  #previously it was set to 0.5 because in C.hominis the "bad region" starts after 50% of the sequence
+                if i < length: #*percent_good_seq_region:  previously it was set to 0.5 because in C.hominis the "bad region" starts after 50% of the sequence
                     stop1 = i
                     stop2 = i
                     break
@@ -2177,12 +2175,13 @@ class MixedSeq(object):
             # Check and log each condition separately for clarity
             failed_conditions = []
             if query_length < int(0.6 * self.origLength):
-                failed_conditions.append(f"Query length {query_length}bp < 60% of original length {self.origLength}bp")
+                failed_conditions.append(f"Query length {query_length}bp < 60% of original length {self.origLength}bp ({int(0.6 * self.origLength)}bp)")
             if percent_identity < 85:
-                failed_conditions.append(f"Top hit percent identity ({int(percent_identity)}%) < 85%")
+                failed_conditions.append(f"Top hit percent identity ({int(percent_identity)}%) < 90%")
             if evalue > 1e-100:
                 failed_conditions.append(f"E-value ({evalue}) > 1e-100")
 
+    
             if failed_conditions:
                 LOG.warning(f"BLAST hit failed criteria: {'; '.join(failed_conditions)}. Returning empty values.")
                 return "", "", 0, "", 0, "", "", ""
@@ -2273,11 +2272,11 @@ class MixedSeq(object):
             self.tabfile.write(seq2 + "\t")
 
             if self.avgPhredQuality < 10 and "C.hominis" not in species2:
-                self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
-                self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
+                self.tabfile.write("Poor sequence quality. Average Phred Quality < 10, could be other potential mixed seqs. Check results manually.\t")
+                self.file.write("  (Note: Poor sequence quality. Average Phred Quality < 10, could be other potential mixed seqs.  Check results manually.)")
             elif self.mixed:
-                self.tabfile.write("Could be other potential mixed seqs. Check manually.\t")
-                self.file.write("  (Note: Could be other potential mixed seqs. Check manually.)")
+                self.tabfile.write("Could be other potential mixed seqs. Check results manually.\t")
+                self.file.write("  (Note: Could be other potential mixed seqs. Check results manually.)")
             else:
                 self.tabfile.write(" \t")
 
@@ -2298,8 +2297,8 @@ class MixedSeq(object):
             self.tabfile.write(seq + "\t")
 
             if self.avgPhredQuality < 10 and "C.hominis" not in species:
-                self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
-                self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
+                self.tabfile.write("Poor sequence quality. Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
+                self.file.write("  (Note: Poor sequence quality. Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
             elif self.mixed:
                 self.tabfile.write("Could be other potential mixed seqs. Check manually.\t")
                 self.file.write("  (Note: Could be other potential mixed seqs. Check manually.)")
@@ -2327,8 +2326,8 @@ class MixedSeq(object):
                 self.tabfile.write(str(seq) + "\t")
              
                 if self.avgPhredQuality < 10 and "C.hominis" not in species:
-                    self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
-                    self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
+                    self.tabfile.write("Poor sequence quality. Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
+                    self.file.write("  (Note: Poor sequence quality. Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
                 elif self.mixed:
                     self.tabfile.write("Could be other potential mixed seqs. Check manually.\t")
                     self.file.write("  (Note: Could be other potential mixed seqs. Check manually.)")
@@ -2346,11 +2345,11 @@ class MixedSeq(object):
                 self.tabfile.write(seq2 + "\t")
 
                 if self.avgPhredQuality < 10 and "C.hominis" not in species:
-                    self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
-                    self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
+                    self.tabfile.write("Poor sequence quality. Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
+                    self.file.write("  (Note: Poor sequence quality. Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
                 elif self.mixed:
-                    self.tabfile.write("Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
-                    self.file.write("  (Note: Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
+                    self.tabfile.write("Poor sequence quality. Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
+                    self.file.write("  (Note: Poor sequence quality. Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
                 else:
                     self.tabfile.write(" \t")
 
