@@ -2171,11 +2171,13 @@ class MixedSeq(object):
             accession = blast_record.alignments[0].hit_id
             
 
-            LOG.debug(f"TOP hit species={species} query_length={query_length} originalLength={self.origLength} percent_identity={percent_identity} evalue {evalue}")
+            LOG.debug(f"TOP hit species={species} query_length={query_length} subject_length={br_alignment.length} originalLength={self.origLength} percent_identity={percent_identity} evalue {evalue}")
             # Check and log each condition separately for clarity
             failed_conditions = []
-            if query_length < int(0.6 * self.origLength):
-                failed_conditions.append(f"Query length {query_length}bp < 60% of original length {self.origLength}bp ({int(0.6 * self.origLength)}bp)")
+            #This rule applies only if initial query sequence is smaller than database sequence  
+            if hsp.align_length < int(0.6 * self.origLength) and br_alignment.length > query_length:
+                failed_conditions.append(f"Alignment length {hsp.align_length}bp < 60% of the original length {self.origLength}bp ({int(0.6 * self.origLength)}bp)")
+                LOG.info(f"{br_alignment.length} and ")
             if percent_identity < 85:
                 failed_conditions.append(f"Top hit percent identity ({int(percent_identity)}%) < 90%")
             if evalue > 1e-100:
@@ -2188,7 +2190,7 @@ class MixedSeq(object):
 
             # This is a separate, less critical warning
             if percent_identity < 95:
-                LOG.warning(f"The %identity of the top hit ({accession}) is less than 95% ({int(percent_identity)}%) which may lead to incorrect species identification. Check reference database and input.")
+                LOG.warning(f"The %identity of the top hit ({accession}) for query of length {query_length}bp  is less than 95% ({int(percent_identity)}%) which may lead to incorrect species identification. Check reference database and input.")
                 # Based on your original code, this warning doesn't cause a return,
                 # so the function would continue if only this condition is met.
 
