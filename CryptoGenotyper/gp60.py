@@ -79,6 +79,7 @@ class analyzingGp60(object):
         self.checkRepeatManually = False
         self.averagePhredQuality = 0
         self.doublePeaksinRepeat = False
+        self.ambigSpeciesBlast = "" #multiple BLAST hits with identical ranking making typing ambiguous
 
 
 
@@ -939,8 +940,17 @@ class analyzingGp60(object):
                 #find hits with identical bitscore and warn user
              
                 if len(top10bitscores) != len(set(top10bitscores)):
-                    LOG.warning("Hits with identical BLAST bitscore are found. The list of duplicated bitscores: " \
-                        f"{[item for item, count in collections.Counter(top10bitscores).items() if count > 1]}")
+                    duplicated_bitscores = [item for item, count in collections.Counter(top10bitscores).items() if count > 1]
+                    identicalHits = [a.hit_id for r in blast_records for idx,a in enumerate(r.alignments) if idx <= 10 and a.hsps[0].bits in duplicated_bitscores]
+                    identicalHits_str = ", ".join(identicalHits)
+                    LOG.warning("Hits with identical BLAST bitscore are found. The list of duplicated bitscore(s): " \
+                        f"{duplicated_bitscores} ({identicalHits_str})")
+                    
+                    
+                    self.ambigSpeciesBlast = identicalHits_str
+                else:
+                    self.ambigSpeciesBlast = ""    
+                    
             
                 if len(blast_record.alignments) >= 2:
                     br_alignment1 = blast_record.alignments[0]
@@ -1565,6 +1575,8 @@ class analyzingGp60(object):
 
             #Quality check in comments section of the report
             qc_messages = [] # Initialize a list to collect all QC messages
+            if self.ambigSpeciesBlast:
+                qc_messages.append(f"WARNING: Hits with identical BLAST bitscore were found ({self.ambigSpeciesBlast}). Be careful with species assignment.")
             if not foundRepeat:
                 qc_messages.append("Could not classify repeat region. Check manually.")
 

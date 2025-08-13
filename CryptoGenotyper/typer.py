@@ -47,9 +47,9 @@ def parse_cli_arguments():
                              "reverse - reverse only sequence provided\n",
                         choices=["forward", "reverse", "contig"])
 
-    parser.add_argument('-f', '--forwardprimername', type=str,  required=False, 
+    parser.add_argument('-f', '--forwardprimername', type=str,  required=False,  default="",
                         help="Name of the forward primer to identify forward read (e.g. gp60F, SSUF)")
-    parser.add_argument('-r', '--reverseprimername', type=str, required=False,
+    parser.add_argument('-r', '--reverseprimername', type=str, required=False, default="",
                         help="Name of the reverse primer to identify forward read (e.g. gp60R, SSUR)")
     parser.add_argument('-s', '--suffix', type=str, required=False, default=None,
                         help="Optional suffix to filter filenames (e.g. only include files ending with a specific pattern)")
@@ -70,7 +70,7 @@ def parse_cli_arguments():
         parser.error("Error: --forwardprimername (-f) is not allowed when --seqtype is 'reverse'.")
 
     elif args.seqtype == 'contig':
-        if not args.forwardprimername or not args.reverseprimername:
+        if (args.forwardprimername and not args.reverseprimername) or (not args.forwardprimername and args.reverseprimername):
             parser.error("For --seqtype 'contig', BOTH --forwardprimername (-f) and --reverseprimername (-r) must be provided.")
 
     return args

@@ -97,9 +97,25 @@ def test_long_gp60_sequence(input_fasta_file=os.path.join(TEST_DATA_DIR,"CM09802
     cryptogenotyper_main()
 
     lines=read_report_file("long_sequence_validation_gp60_cryptogenotyper_report.txt")
-  
-    
     secondrow = lines[1].split("\t")
 
     assert 'C.hominis' in secondrow 
     assert 'IbA12G3' in secondrow
+
+def test_very_shot_gp60_sequence_blast_identical_hits(input_fasta_file=os.path.join(TEST_DATA_DIR,"very_short_gp60_sequence_identical_blast_hits.fasta")):
+    args = [
+        "-i", input_fasta_file ,
+        "-m", "gp60",
+        "-o", "very_short_identical_blast_hits_validation_gp60"
+
+    ]
+
+    sys.argv[1:] = args
+    cryptogenotyper_main()
+
+    lines=read_report_file("very_short_identical_blast_hits_validation_gp60_cryptogenotyper_report.txt")
+  
+    
+    secondrow = lines[1].split("\t")
+    assert 'C.hominis' in secondrow 
+    assert any('Hits with identical BLAST bitscore were found' in s for s in secondrow)

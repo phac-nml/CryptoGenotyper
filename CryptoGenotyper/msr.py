@@ -776,20 +776,26 @@ def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None):
             fp.write(forwardseq)
 
         blastn_cline = NcbiblastnCommandline(query="forward_tmp.fasta", subject="forward_original_tmp.fasta",
-                                            reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5,
+                                            task="dc-megablast", evalue=10, word_size=11,
+                                            #reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, 
+                                            outfmt=5,
                                             out="blastn_contig_results.xml")  
-        blastn_cline()   
+        blastn_cline() 
+        #blastn -task "dc-megablast"  -query forward_tmp.fasta -subject ./CryptoGenotyper/reference_database/msr_ref.fa  -outfmt 6 -evalue 0.00001  -penalty -2 -gapextend 2 -gapopen 5   
         blast_records = list(NCBIXML.parse(open("blastn_contig_results.xml")))
         flat_alignments_list = [alignment for record in blast_records for alignment in record.alignments]
+      
         if len(blast_records) == 0:
-            LOG.error("No BLAST hits found during contig building  ...")
+            LOG.error("No BLAST hits found during contig building for forward sequence ...")
             #longest_sequence = forwardseq if len(forwardseq) >= len(reverseseq) else reverseseq
             return ""
         elif len(flat_alignments_list) == 0:
-            LOG.error("No BLAST alignments found during contig building ...")
+            LOG.error("No BLAST alignments found during contig building for forward sequence ...")
             return ""
         else:
-            LOG.info(f"Found {len(blast_records)} hit(s) and {len(flat_alignments_list)}")
+            LOG.info(f"Found {len(blast_records)} hit(s) and {len(flat_alignments_list)} for forward sequence")
+        
+        
         start_pos = min([(a.hsps[0].sbjct_end, a.hsps[0].sbjct_start) for a in blast_records[0].alignments][0])-1 
         #start_pos = re.search(forwardseq[0:10], "".join(forwardObj.seq)).start() #use 10bp of to find original seq position
         phred_scores_forewardseq = forwardObj.phred_qual[start_pos:len(forwardseq)]
@@ -804,10 +810,21 @@ def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None):
             fp.write(reverseseq)
 
         blastn_cline = NcbiblastnCommandline(query="reverseseq_tmp.fasta", subject="reverseseq_original_tmp.fasta",
-                                            reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5,
+                                            task="dc-megablast", evalue=10, word_size=11,
+                                            #reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, 
+                                            outfmt=5,
                                             out="blastn_contig_results.xml")  
         blastn_cline()   
         blast_records = list(NCBIXML.parse(open("blastn_contig_results.xml")))
+        flat_alignments_list = [alignment for record in blast_records for alignment in record.alignments]
+        if len(blast_records) == 0:
+            LOG.error("No BLAST hits found during contig building for reverse sequence ...")
+            return ""
+        elif len(flat_alignments_list) == 0:
+            LOG.error("No BLAST alignments found during contig building for reverse sequence ...")
+            return ""
+        else:
+            LOG.info(f"Found {len(blast_records)} hit(s) and {len(flat_alignments_list)} for reverse sequence")
 
         start_pos = min([(a.hsps[0].sbjct_end, a.hsps[0].sbjct_start) for a in blast_records[0].alignments][0])-1 
         phred_scores_reverseseq = reverseObj.phred_qual[start_pos:len(reverseseq)][::-1] #reverse order
@@ -941,6 +958,7 @@ class MixedSeq(object):
         self.species2sbjtFrom = 0
 
         self.mixed=False
+        self.ambigSpeciesBlast = "" #ambiguous species due to identically ranked BLAST hits
 
         self.oldseq = []  #before trimming the ends of the sequence
         self.seq = []    #after trimming the ends of the sequence
@@ -1237,6 +1255,7 @@ class MixedSeq(object):
 
         counter = 0
         newSeq = []
+        phredSelectedBases = []
 
         lriBefore1 = maxLRI
         lriBefore2 = maxLRI
@@ -1245,11 +1264,13 @@ class MixedSeq(object):
         lriBefore5 = maxLRI
 
 
-        for i in range(0, self.seqLength):
+        for idx, i in enumerate(range(0, self.seqLength)):
             a = self.a[i]
             g = self.g[i]
             c = self.c[i]
             t = self.t[i]
+            phredSelectedBases.append(self.phred_qual[i])
+            
 
             maxAmp = max(a,g,c,t)
 
@@ -1455,10 +1476,10 @@ class MixedSeq(object):
 
         self.seq = newSeq
         self.counter = counter
-
-        if counter > len(newSeq)*0.33:
-            self.avgPhredQuality = 0
-
+        self.avgPhredQuality = int(sum(phredSelectedBases)/len(phredSelectedBases))
+        #if counter > len(newSeq)*0.33:
+        #    self.avgPhredQuality = 0
+        
 
         return newSeq
 
@@ -1476,7 +1497,6 @@ class MixedSeq(object):
 
         # Open the file with writing permission
         file1 = open(filename_seq1, 'w')
-
         seq = ''.join(self.seq)
 
        
@@ -1516,12 +1536,14 @@ class MixedSeq(object):
         
 
         # Write a line to the file
+        file1.write(f">{self.name}\n")
         file1.write(seq1)
         #file1.write(self.majorSeq)
 
 
         # Close the file
         file1.close()
+        
 
 
         if customdatabsename:
@@ -1564,6 +1586,7 @@ class MixedSeq(object):
 
 
         file2 = open(filename_seq2, 'w')
+        file2.write(f">{self.name}\n")
         file2.write(seq2)
         file2.close()
 
@@ -2100,12 +2123,17 @@ class MixedSeq(object):
         # Filename to write
         filename = "query.txt"
 
-        # Open the file with writing permission
-        myfile = open(filename, 'w')
-
-        # Write a line to the file
-        myfile.write(str(sequence))
-        #print(sequence)
+        if sequence:
+            # Open the file with writing permission
+            myfile = open(filename, 'w')
+            
+            # Write a line to the file
+            myfile.write(f">{self.name}\n")
+            myfile.write(str(sequence))
+            #print(sequence)
+        else:
+           LOG.warning(f"Input sequence from {self.name} is empty, returning empty BLAST output")
+           return "","",0,"",0,"","",sequence      
 
 
         # Close the file
@@ -2149,6 +2177,7 @@ class MixedSeq(object):
             if len(identicalAlignHits) >= 2:   
                 identical_score_hits_ids_str = '\n'.join([f"{a.hit_id}\t{a.hsps[0].score}" for a in identicalAlignHits]) 
                 LOG.warning(f"!!! Found {len(identicalAlignHits)} identically scored candidate BLAST hits in reference database with bitscores:\n{identical_score_hits_ids_str}.\nBe careful with species ID for {self.name}!") 
+                self.ambigSpeciesBlast = ", ".join([a.hit_id for a in identicalAlignHits])
                 #min_gaps = min([align.hsps[0].gaps for align in identicalAlignHits])
                 #min_gaps_alignments = [align for align in identicalAlignHits if align.hsps[0].gaps == min_gaps]
                 #if len(min_gaps_alignments) > 1:
@@ -2157,7 +2186,8 @@ class MixedSeq(object):
                 #    LOG.info(f"Successfully resolved the tie and picked {min_gaps_alignments[0].hit_id} hit")
                 #br_alignment = min_gaps_alignments[0]
                 #hsp = br_alignment.hsps[0]
-            #else:
+            else:
+                self.ambigSpeciesBlast = ""
             br_alignment = blast_record.alignments[0]
             hsp = br_alignment.hsps[0]    
            
@@ -2178,8 +2208,8 @@ class MixedSeq(object):
             if hsp.align_length < int(0.6 * self.origLength) and br_alignment.length > query_length:
                 failed_conditions.append(f"Alignment length {hsp.align_length}bp < 60% of the original length {self.origLength}bp ({int(0.6 * self.origLength)}bp)")
                 LOG.info(f"{br_alignment.length} and ")
-            if percent_identity < 85:
-                failed_conditions.append(f"Top hit percent identity ({int(percent_identity)}%) < 90%")
+            if percent_identity < 80:
+                failed_conditions.append(f"Top hit percent identity ({int(percent_identity)}%) < 80%")
             if evalue > 1e-100:
                 failed_conditions.append(f"E-value ({evalue}) > 1e-100")
 
@@ -2204,6 +2234,7 @@ class MixedSeq(object):
             myfile = open(filename, 'w')
 
             # Write a line to the file
+            myfile.write(f">{self.name}\n")
             myfile.write(str(sequence))
 
 
@@ -2232,17 +2263,18 @@ class MixedSeq(object):
 
 
     #outputResults() outputs the results in .txt and .fa file formats
-    def outputResults(self, contig, customdatabsename, mode, filetype="abi"):
+    def outputResults(self, customdatabsename, mode, filetype="abi"):
+     
         seq=""; seq2=""
         self.file.write("\n>Sequence: " + self.name.split(f".{filetype}")[0] + " | ")
         self.tabfile.write(self.name.split(f".{filetype}")[0] + "\t" + mode + "\t")
         
         if (self.species1 == ";>No blast hits." and self.species2 == ";>No blast hits."):
-            if self.avgPhredQuality < 10:
-                self.tabfile.write("\t\t\t" + "Could not analyze input file. Please check manually." + "\t\t\t\t\t\t\t\n")
+            if self.avgPhredQuality < 13:
+                self.tabfile.write("\t\t\t" + f"Could not analyze input file. No BLAST hits for species 1 and 2. Average Phred Quality < 13 ({self.avgPhredQuality}).  Please check manually." + "\t\t\t\t\t\t\t\n")
             else:
                 self.tabfile.write("\t\t\t" + "No blast hits." + "\t\t\t\t\t\t\t\n")
-            return
+            return None
        
         if filetype == "abi" or filetype == "ab1":
             bitscore,evalue,query_coverage,query_length,percent_identity, accession, species, seq = self.blast(self.species1Seq,False)
@@ -2261,26 +2293,39 @@ class MixedSeq(object):
         if mode == 'reverse':
             seq = revcomp(seq)
             seq2 = revcomp(seq2)
-       
-        
-        if (species == "" and species2 == ""): #or (query_coverage < 50 and query_coverage2 < 50):
-            self.tabfile.write("\t\t\t" + "Could not analyze input file. Please check manually." + "\t\t\t\t\t\t\t\n")
 
-        elif species == "" and seq2 != "":# or query_coverage < 50:
+        qc_critical_msgs = []
+        if self.avgPhredQuality < 13:
+            qc_critical_msgs.append(f"Average Phred Quality < 13 ({self.avgPhredQuality})")       
+
+        if (species == "" and species2 == ""): #or (query_coverage < 50 and query_coverage2 < 50):
+            qc_critical_msgs.append("No species detected (potential reasons: poor sequence quality, reference database limitations, BLAST failure)")
+
+    
+        #if any of the qc messages, terminate output as those are critical and we do not want mislead user with non-reliable results        
+        if qc_critical_msgs:
+            self.tabfile.write("\t\t\t" +f"Could not analyze input file. {'. '.join(qc_critical_msgs)}. Check results manually."+"\t\t\t\t\t\t\t\n")
+            return None
+        
+        qc_msg_multiblast_hit=""
+        if self.ambigSpeciesBlast != "":
+            qc_msg_multiblast_hit = f"WARNING: Hits with identical BLAST bitscore were found ({self.ambigSpeciesBlast}). Be careful with species assignment."
+        
+        if species == "" and seq2 != "":# or query_coverage < 50:
             self.file.write(species2.split("|")[0])
 
             self.tabfile.write("No\t")
             self.tabfile.write(species2.split("|")[0] + "\t")
             self.tabfile.write(seq2 + "\t")
 
-            if self.avgPhredQuality < 10 and "C.hominis" not in species2:
-                self.tabfile.write("Poor sequence quality. Average Phred Quality < 10, could be other potential mixed seqs. Check results manually.\t")
-                self.file.write("  (Note: Poor sequence quality. Average Phred Quality < 10, could be other potential mixed seqs.  Check results manually.)")
-            elif self.mixed:
-                self.tabfile.write("Could be other potential mixed seqs. Check results manually.\t")
-                self.file.write("  (Note: Could be other potential mixed seqs. Check results manually.)")
+            #if self.avgPhredQuality < 13 and "C.hominis" not in species2:
+            #    self.tabfile.write(f"Poor sequence quality. Average Phred Quality < 13, could be other potential mixed seqs. {qc_msg_multiblast_hit}. Check results manually.\t")
+            #    self.file.write(f"  (Note: Poor sequence quality. Average Phred Quality < 13, could be other potential mixed seqs. {qc_msg_multiblast_hit}  Check results manually.)")
+            if self.mixed:
+                self.tabfile.write(f"Could be other potential mixed seqs. {qc_msg_multiblast_hit}. Check results manually.\t")
+                self.file.write(f"  (Note: Could be other potential mixed seqs. {qc_msg_multiblast_hit}. Check results manually.)")
             else:
-                self.tabfile.write(" \t")
+                self.tabfile.write(f"{qc_msg_multiblast_hit}\t")
 
             self.file.write("\n" + seq2)
 
@@ -2298,14 +2343,14 @@ class MixedSeq(object):
             self.tabfile.write(species.split("|")[0] + "\t")
             self.tabfile.write(seq + "\t")
 
-            if self.avgPhredQuality < 10 and "C.hominis" not in species:
-                self.tabfile.write("Poor sequence quality. Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
-                self.file.write("  (Note: Poor sequence quality. Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
-            elif self.mixed:
-                self.tabfile.write("Could be other potential mixed seqs. Check manually.\t")
-                self.file.write("  (Note: Could be other potential mixed seqs. Check manually.)")
+            #if self.avgPhredQuality < 13 and "C.hominis" not in species:
+            #    self.tabfile.write(f"Poor sequence quality. Average Phred Quality < 13, could be other potential mixed seqs. {qc_msg_multiblast_hit}.Check manually.\t")
+            #    self.file.write(f"  (Note: Poor sequence quality. Average Phred Quality < 13, could be other potential mixed seqs. {qc_msg_multiblast_hit}.Check manually.)")
+            if self.mixed:
+                self.tabfile.write(f"Could be other potential mixed seqs. {qc_msg_multiblast_hit} Check manually.\t")
+                self.file.write(f"  (Note: Could be other potential mixed seqs. {qc_msg_multiblast_hit} Check manually.)")
             else:
-                self.tabfile.write(" \t")
+                self.tabfile.write(f"{qc_msg_multiblast_hit}\t")
 
             self.file.write("\n" + str(seq))
 
@@ -2326,51 +2371,51 @@ class MixedSeq(object):
 
             if percent_identity >= percent_identity2:
                 self.tabfile.write(str(seq) + "\t")
-             
-                if self.avgPhredQuality < 10 and "C.hominis" not in species:
-                    self.tabfile.write("Poor sequence quality. Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
-                    self.file.write("  (Note: Poor sequence quality. Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
-                elif self.mixed:
-                    self.tabfile.write("Could be other potential mixed seqs. Check manually.\t")
-                    self.file.write("  (Note: Could be other potential mixed seqs. Check manually.)")
+     
+                #if self.avgPhredQuality < 13 and "C.hominis" not in species:
+                #    self.tabfile.write(f"Poor sequence quality. Average Phred Quality < 13, could be other potential mixed seqs. {qc_msg_multiblast_hit} Check manually.\t")
+                #    self.file.write(f"  (Note: Poor sequence quality. Average Phred Quality < 13, could be other potential mixed seqs. {qc_msg_multiblast_hit} Check manually.)")
+                if self.mixed:
+                    self.tabfile.write(f"Could be other potential mixed seqs. {qc_msg_multiblast_hit}. Check manually.\t")
+                    self.file.write(f"  (Note: Could be other potential mixed seqs. {qc_msg_multiblast_hit}. Check manually.)")
                 else:
-                    self.tabfile.write(" \t")
+                    self.tabfile.write(f"{qc_msg_multiblast_hit}\t")
 
                 self.file.write("\n" + str(seq))
                 self.tabfile.write(str(bitscore)+"\t")
                 self.tabfile.write(str(query_length)+"\t")
-                self.tabfile.write(str(query_coverage) + "%\t")
+                self.tabfile.write(f"{query_coverage:.2f}%\t")
                 self.tabfile.write(str(evalue) +"\t")
-                self.tabfile.write(str(percent_identity) + "%\t")
+                self.tabfile.write(f"{percent_identity:.2f}%\t")
                 self.tabfile.write(str(accession)+"\n")
             else:
                 self.tabfile.write(seq2 + "\t")
-
-                if self.avgPhredQuality < 10 and "C.hominis" not in species:
-                    self.tabfile.write("Poor sequence quality. Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
-                    self.file.write("  (Note: Poor sequence quality. Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
-                elif self.mixed:
-                    self.tabfile.write("Poor sequence quality. Average Phred Quality < 10, could be other potential mixed seqs. Check manually.\t")
-                    self.file.write("  (Note: Poor sequence quality. Average Phred Quality < 10, could be other potential mixed seqs. Check manually.)")
+                #if self.avgPhredQuality < 13 and "C.hominis" not in species:
+                #    self.tabfile.write("Poor sequence quality. Average Phred Quality < 13, could be other potential mixed seqs. Check manually \t")
+                #    self.file.write("  (Note: Poor sequence quality. Average Phred Quality < 13, could be other potential mixed seqs. Check manually.)")
+                if self.mixed:
+                    self.tabfile.write(f"Poor sequence quality. {qc_msg_multiblast_hit}. Check manually \t")
+                    self.file.write(f"  (Note: Poor sequence quality. {qc_msg_multiblast_hit}. Check manually.)")
                 else:
-                    self.tabfile.write(" \t")
+                    self.tabfile.write(f"{qc_msg_multiblast_hit}\t")
 
                 self.file.write("\n" + seq2)
                 self.tabfile.write(str(bitscore2)+"\t")
                 self.tabfile.write(str(query_length2)+"\t")
-                self.tabfile.write(str(query_coverage2) + "%\t")
+                self.tabfile.write(f"{query_coverage2:.2f}%\t")
                 self.tabfile.write(str(evalue2) +"\t")
-                self.tabfile.write(str(percent_identity2) + "%\t")
+                self.tabfile.write(f"{percent_identity2:.2f}%\t")
                 self.tabfile.write(str(accession2)+"\n")
 
-        
+        # C. parvum TGA paralogs when the insertion causes garbled chromotogram
         elif "C.parvum" in species and "C.parvum" in species2 and seq2 != "":
+ 
             self.file.write(species.split("|")[0]+"\t")
             self.file.write("\n" + str(seq))
             self.file.write("\n" + str(seq2))
 
             self.tabfile.write("Yes\t"+species.split("|")[0] + "\t")
-            self.tabfile.write(str(seq) + "\t-\t")
+            self.tabfile.write(str(seq) + f"\tCheck for C. parvum TGA paralogs. Found {seq.count('TGA')} TGA codons.{qc_msg_multiblast_hit}.\t") # QC comments
             self.tabfile.write(str(bitscore)+"\t")
             self.tabfile.write(str(query_length)+"\t")
             self.tabfile.write(str(query_coverage) + "%\t")
@@ -2381,7 +2426,7 @@ class MixedSeq(object):
         
             self.tabfile.write("\t\tYes\t")
             self.tabfile.write(species.split("|")[0] + "\t")
-            self.tabfile.write(str(seq2) + "\t-\t")
+            self.tabfile.write(str(seq2) + f"\tCheck for C. parvum TGA paralogs. Found {seq2.count('TGA')} TGA codons.{qc_msg_multiblast_hit}.\t") #QC comments
         
             
             self.tabfile.write(str(bitscore2)+"\t")
@@ -2427,23 +2472,23 @@ class MixedSeq(object):
             self.tabfile.write(f"Yes\t")
 
             self.tabfile.write(species.split("|")[0] + "\t")
-            self.tabfile.write(seq + "\t \t")
+            self.tabfile.write(seq + f"\t{qc_msg_multiblast_hit}\t")
             self.tabfile.write(str(bitscore)+"\t")
             self.tabfile.write(str(query_length)+"\t")
             self.tabfile.write(str(query_coverage) + "%\t")
             self.tabfile.write(str(evalue) +"\t")
-            self.tabfile.write(str(percent_identity) + "%\t")
+            self.tabfile.write(f"{percent_identity:.2f}%\t")
             self.tabfile.write(str(accession)+"\n")
 
             if seq2 and seq != seq2:
                 self.tabfile.write(f"\t\tYes\t")
                 self.tabfile.write(species2.split("|")[0] + "\t")
-                self.tabfile.write(seq2 + "\t \t")
+                self.tabfile.write(seq2 + f"\t{qc_msg_multiblast_hit}\t")
                 self.tabfile.write(str(bitscore2)+"\t")
                 self.tabfile.write(str(query_length2)+"\t")
                 self.tabfile.write(str(query_coverage2) + "%\t")
                 self.tabfile.write(str(evalue2) +"\t")
-                self.tabfile.write(str(percent_identity2) + "%\t")
+                self.tabfile.write(f"{percent_identity2:.2f}%\t")
                 self.tabfile.write(str(accession2)+"\n")
 
 
@@ -2542,7 +2587,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                 if f_species == "" and r_species == "":
                     forward.species1=";>No blast hits."
                     forward.species2=";>No blast hits."
-                    forward.outputResults("", customdatabsename, typeSeq, filetype)
+                    forward.outputResults(customdatabsename, typeSeq, filetype)
 
                 else:
                     LOG.info("Finding all heterobases in forward and reverse object ...")
@@ -2597,8 +2642,14 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                     elif r_species == "" and r_species2 == "":
                         r_species = "|."
                         r_species2 = "|."
-                    LOG.debug(f"f_species={f_species} and r_species={r_species} and f_species2={f_species2} and r_species2={r_species2}");
-                    if ((r_species.split('|')[0] == r_species2.split('|')[0] and f_species.split('|')[0] ==f_species2.split('|')[0]) and f_species==r_species) or ("C.hominis" in r_species and "C.hominis" in r_species2 and "C.hominis" in f_species and "C.hominis" in f_species2):
+                    
+                    LOG.debug(f"Full names: f_species={f_species} and r_species={r_species} and f_species2={f_species2} and r_species2={r_species2}");
+                    LOG.debug(f"Species names: f_species={f_species.split('|')[0]} and r_species={r_species.split('|')[0]} and f_species2={f_species2.split('|')[0]} and r_species2={r_species2.split('|')[0]}")
+                    LOG.debug(f"Accesion #s: f_species={f_species.split('|')[1].split('.')[0]} and r_species={r_species.split('|')[1].split('.')[0]} and f_species2={f_species2.split('|')[1].split('.')[0]} and r_species2={r_species2.split('|')[1].split('.')[0]}")
+
+                    if ((r_species.split('|')[0] == r_species2.split('|')[0] and f_species.split('|')[0] ==f_species2.split('|')[0]) 
+                        and f_species.split('|')[0] ==r_species.split('|')[0]) \
+                        or ("C.hominis" in r_species and "C.hominis" in r_species2 and "C.hominis" in f_species and "C.hominis" in f_species2):
                         if "C.hominis|GQ183513.11" in f_species and "C.hominis|GQ183513.8" in f_species2:
                             forwardseq = forward.species1Seq
                         elif "C.hominis|GQ183513.11" in f_species2 and "C.hominis|GQ183513.8" in f_species:
@@ -2632,12 +2683,15 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                                 forward.species1Seq = contig
                                 forward.species2Seq = contig    
                             else:
+                                typeSeq = "forward" #default to forward object if contig was not formed
                                 forward.species1Seq = forwardseq
                                 forward.species2Seq = reverseseq
                         forward.avgPhredQuality = round((forward.avgPhredQuality + reverse.avgPhredQuality), 2)
-                        forward.outputResults(contig, customdatabsename, typeSeq, filetype)
+                        forward.outputResults(customdatabsename, typeSeq, filetype)
 
-                    elif (r_species.split('|')[1].split('.')[0] == f_species.split('|')[1].split('.')[0] and r_species2.split('|')[1].split('.')[0] == f_species2.split('|')[1].split('.')[0]) :
+                    #check by accession number
+                    elif (r_species.split('|')[1].split('.')[0] == f_species.split('|')[1].split('.')[0] and 
+                          r_species2.split('|')[1].split('.')[0] == f_species2.split('|')[1].split('.')[0]) :
                         reverseseq = revcomp(r_seq)
                         reverseseq2 = revcomp(r_seq2)
 
@@ -2651,7 +2705,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                             forward.species2Seq = contig2
 
                         forward.avgPhredQuality = round((forward.avgPhredQuality + reverse.avgPhredQuality), 2)
-                        forward.outputResults(contig1, customdatabsename, typeSeq, filetype)
+                        forward.outputResults(customdatabsename, typeSeq, filetype)
 
                     elif (r_species.split('|')[1].split('.')[0] == f_species2.split('|')[1].split('.')[0] and r_species2.split('|')[1].split('.')[0] == f_species.split('|')[1].split('.')[0]) :
                         reverseseq = revcomp(r_seq)
@@ -2695,12 +2749,13 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                         if contig2 != "":
                             forward.species2Seq = contig2
 
-                        forward.outputResults(contig1, customdatabsename, typeSeq, filetype)
+                        forward.outputResults(customdatabsename, typeSeq, filetype)
 
                     else:
                         LOG.info(f"Did not build a contig but analyzed forward and reverse as separate sequences as species are not identical (forward species:{f_species} {f_species2}, reverse species: {r_species} {r_species2})")
-                        forward.outputResults("", customdatabsename, "forward", filetype)
-                        reverse.outputResults("", customdatabsename, "reverse", filetype)
+                        forward.outputResults(customdatabsename, "forward", filetype)    
+                        reverse.outputResults(customdatabsename, "reverse", filetype)
+                      
             else:
                 LOG.info("Contig would not be built because of quality issues", filetype)            
 
@@ -2716,14 +2771,15 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                 forward.fixN()
                 forward.findHeteroBases(2.0)
                 forward.determineAllTypes(customdatabsename)
-                forward.outputResults("", customdatabsename, typeSeq, filetype)
+                forward.outputResults(customdatabsename, typeSeq, filetype)
             elif filetype == "fasta" or filetype == "fna"  or filetype == "fa":
                 forward.origLength = len(forward.seq)
-                forward.outputResults("", customdatabsename, typeSeq, filetype)
+                forward.outputResults(customdatabsename, typeSeq, filetype)
             
     elif typeSeq=="reverse":
         LOG.info(f"Processing {len(pathlist)} file(s) in {typeSeq} mode:\n{pathlist}")
-        for idx in range(0, len(pathlist)):
+        for idx, path in enumerate(pathlist):
+            filetype = utilities.getFileType(path)
             reverse=MixedSeq(file,tabfile, 'reverse')
             goodSeq = reverse.readFiles(pathlist[idx], False)
             reverse.fixN()
@@ -2731,7 +2787,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
             if goodSeq:
                 reverse.findHeteroBases(2.0)
                 reverse.determineAllTypes(customdatabsename)
-                reverse.outputResults("", customdatabsename, typeSeq, filetype)
+                reverse.outputResults(customdatabsename, typeSeq, filetype)
 
 
     experimentName = expName + "_"

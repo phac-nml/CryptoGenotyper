@@ -1,4 +1,4 @@
-import os, shutil, glob, itertools, subprocess, datetime, logging, re
+import os, shutil, glob, itertools, subprocess, datetime, logging, re, time, itertools
 from Bio.Blast.Applications import NcbiblastnCommandline
 from Bio.Blast import NCBIXML
 from CryptoGenotyper import definitions
@@ -175,13 +175,13 @@ def sort_blast_hits_by_id_and_bitscore(blast_record, mode="default"):
                 f"{hsp.query_start:7d} │ "
                 f"{hsp.query_end:5d}"
                 )
-        LOG.debug("Top 10 BLAST hits ranked based on percent identity, then bitscore and then reference allele coverage:\n" + "\n".join(table_lines))        
+        LOG.debug(f"Top 10 BLAST hits for {blast_record.query} ranked based on percent identity, then bitscore and then reference allele coverage:\n" + "\n".join(table_lines))        
         return sorted_blast_hits 
     else:
         return blast_record.alignments
 
             
-def pair_files(file_paths, forward_suffix: str, reverse_suffix: str):
+def pair_files(file_paths, forward_suffix: str = "", reverse_suffix: str = ""):
     """
     Pairs sequencing files into forward/reverse read tuples.
 
@@ -206,8 +206,11 @@ def pair_files(file_paths, forward_suffix: str, reverse_suffix: str):
 
     # --- Step 0: Check for Direct File Mode ---
     # This handles the case where the user provides full filenames instead of suffixes.
-    f_basename = os.path.basename(forward_suffix)
-    r_basename = os.path.basename(reverse_suffix)
+    f_basename=""; r_basename=""
+    if forward_suffix:
+        f_basename = os.path.basename(forward_suffix)
+    if reverse_suffix:  
+        r_basename = os.path.basename(reverse_suffix)
     # Create a map of basenames to full paths for efficient lookup
     path_map = {os.path.basename(p): p for p in file_paths}
 
@@ -320,8 +323,9 @@ def pair_files(file_paths, forward_suffix: str, reverse_suffix: str):
             "\n".join(highlighted_unpaired_lines) +
             "\n"
         )
-    
-    return file_pairs, unpaired_files
+    LOG.info("Will start analyzing files in 2 seconds ...")    
+    time.sleep(3)
+    return sorted(file_pairs), sorted(unpaired_files)
 
 def filter_files_by_suffix(pathlist, suffix):
     """

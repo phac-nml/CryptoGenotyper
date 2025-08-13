@@ -10,7 +10,7 @@ PV382364.1	C.avium
 MK311140.1	C.avium
 JQ894736.1	C.parvum
 KJ584578.1	C.sp.rat(genotypeII)
-KJ816870.1	C.sp.chipmunk(genotypeII_TypeB)
+KC954235.1	C.sp.chipmunk(genotypeII_TypeB)
 MW274645.1	C.myocastoris
 MW274651.1	C.myocastoris
 MW075511.1	C.abrahamseni
@@ -64,7 +64,7 @@ JQ413434.1	C.parvum
 AY642591.1	C.muris
 AJ307669.1	C.muris
 PV248760.1	C.parvum
-PV248761.1	C.parvum
+AB441687.1	C.parvum
 PV248765.1	C.hominis
 PV248766.1	C.hominis
 PV248767.1	C.hominis
