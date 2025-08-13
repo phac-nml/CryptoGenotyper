@@ -30,7 +30,7 @@ jobs:
         sudo apt-get install python3-pip python3-numpy python3-pandas -y
         python3 -m pip install --upgrade pip setuptools
         pip3 install pytest "biopython>=1.7,<1.78"
-        pip3 install -e . && cryptogenotyper_init
+        pip3 install -e .
     - name: Test  with pytest
       run: |
         pytest -o log_cli=true --basetemp=tmp-pytest
