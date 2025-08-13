@@ -2415,7 +2415,7 @@ class MixedSeq(object):
             self.file.write("\n" + str(seq2))
 
             self.tabfile.write("Yes\t"+species.split("|")[0] + "\t")
-            self.tabfile.write(str(seq) + f"\tCheck for C. parvum TGA paralogs. Found {seq.count('TGA')} TGA codons.{qc_msg_multiblast_hit}.\t") # QC comments
+            self.tabfile.write(str(seq) + f"\tCheck for C. parvum TGA paralogs.{qc_msg_multiblast_hit}.\t") # QC comments
             self.tabfile.write(str(bitscore)+"\t")
             self.tabfile.write(str(query_length)+"\t")
             self.tabfile.write(str(query_coverage) + "%\t")
@@ -2426,7 +2426,7 @@ class MixedSeq(object):
         
             self.tabfile.write("\t\tYes\t")
             self.tabfile.write(species.split("|")[0] + "\t")
-            self.tabfile.write(str(seq2) + f"\tCheck for C. parvum TGA paralogs. Found {seq2.count('TGA')} TGA codons.{qc_msg_multiblast_hit}.\t") #QC comments
+            self.tabfile.write(str(seq2) + f"\tCheck for C. parvum TGA paralogs.{qc_msg_multiblast_hit}.\t") #QC comments
         
             
             self.tabfile.write(str(bitscore2)+"\t")
