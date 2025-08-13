@@ -115,7 +115,7 @@ def test_very_shot_gp60_sequence_blast_identical_hits(input_fasta_file=os.path.j
 
     lines=read_report_file("very_short_identical_blast_hits_validation_gp60_cryptogenotyper_report.txt")
   
-    
+    print(lines)
     secondrow = lines[1].split("\t")
     assert 'C.hominis' in secondrow 
-    assert any('Hits with identical BLAST bitscore were found' in s for s in secondrow)
+    assert any('Check manually' in s for s in secondrow), secondrow

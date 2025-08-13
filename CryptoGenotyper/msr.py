@@ -958,7 +958,7 @@ class MixedSeq(object):
         self.species2sbjtFrom = 0
 
         self.mixed=False
-        self.ambigSpeciesBlast = "" #ambiguous species due to identically ranked BLAST hits
+        self.ambigSpeciesBlast = [] #ambiguous species due to identically ranked BLAST hits
 
         self.oldseq = []  #before trimming the ends of the sequence
         self.seq = []    #after trimming the ends of the sequence
@@ -2177,7 +2177,7 @@ class MixedSeq(object):
             if len(identicalAlignHits) >= 2:   
                 identical_score_hits_ids_str = '\n'.join([f"{a.hit_id}\t{a.hsps[0].score}" for a in identicalAlignHits]) 
                 LOG.warning(f"!!! Found {len(identicalAlignHits)} identically scored candidate BLAST hits in reference database with bitscores:\n{identical_score_hits_ids_str}.\nBe careful with species ID for {self.name}!") 
-                self.ambigSpeciesBlast = ", ".join([a.hit_id for a in identicalAlignHits])
+                self.ambigSpeciesBlast = [a.hit_id for a in identicalAlignHits]
                 #min_gaps = min([align.hsps[0].gaps for align in identicalAlignHits])
                 #min_gaps_alignments = [align for align in identicalAlignHits if align.hsps[0].gaps == min_gaps]
                 #if len(min_gaps_alignments) > 1:
@@ -2187,7 +2187,7 @@ class MixedSeq(object):
                 #br_alignment = min_gaps_alignments[0]
                 #hsp = br_alignment.hsps[0]
             else:
-                self.ambigSpeciesBlast = ""
+                self.ambigSpeciesBlast = []
             br_alignment = blast_record.alignments[0]
             hsp = br_alignment.hsps[0]    
            
@@ -2304,12 +2304,12 @@ class MixedSeq(object):
     
         #if any of the qc messages, terminate output as those are critical and we do not want mislead user with non-reliable results        
         if qc_critical_msgs:
-            self.tabfile.write("\t\t\t" +f"Could not analyze input file. {'. '.join(qc_critical_msgs)}. Check results manually."+"\t\t\t\t\t\t\t\n")
+            self.tabfile.write("\t\t\t" +f"Could not analyze input file. {'. '.join(qc_critical_msgs)}. Check manually."+"\t\t\t\t\t\t\t\n")
             return None
         
         qc_msg_multiblast_hit=""
-        if self.ambigSpeciesBlast != "":
-            qc_msg_multiblast_hit = f"WARNING: Hits with identical BLAST bitscore were found ({self.ambigSpeciesBlast}). Be careful with species assignment."
+        if self.ambigSpeciesBlast != []:
+            qc_msg_multiblast_hit = f"Check manually."
         
         if species == "" and seq2 != "":# or query_coverage < 50:
             self.file.write(species2.split("|")[0])
@@ -2322,8 +2322,8 @@ class MixedSeq(object):
             #    self.tabfile.write(f"Poor sequence quality. Average Phred Quality < 13, could be other potential mixed seqs. {qc_msg_multiblast_hit}. Check results manually.\t")
             #    self.file.write(f"  (Note: Poor sequence quality. Average Phred Quality < 13, could be other potential mixed seqs. {qc_msg_multiblast_hit}  Check results manually.)")
             if self.mixed:
-                self.tabfile.write(f"Could be other potential mixed seqs. {qc_msg_multiblast_hit}. Check results manually.\t")
-                self.file.write(f"  (Note: Could be other potential mixed seqs. {qc_msg_multiblast_hit}. Check results manually.)")
+                self.tabfile.write(f"Could be other potential mixed seqs. {qc_msg_multiblast_hit} Check manually.\t")
+                self.file.write(f"  (Note: Could be other potential mixed seqs. {qc_msg_multiblast_hit} Check manually.)")
             else:
                 self.tabfile.write(f"{qc_msg_multiblast_hit}\t")
 
@@ -2394,7 +2394,7 @@ class MixedSeq(object):
                 #    self.tabfile.write("Poor sequence quality. Average Phred Quality < 13, could be other potential mixed seqs. Check manually \t")
                 #    self.file.write("  (Note: Poor sequence quality. Average Phred Quality < 13, could be other potential mixed seqs. Check manually.)")
                 if self.mixed:
-                    self.tabfile.write(f"Poor sequence quality. {qc_msg_multiblast_hit}. Check manually \t")
+                    self.tabfile.write(f"Poor sequence quality. {qc_msg_multiblast_hit}. Check manually\t")
                     self.file.write(f"  (Note: Poor sequence quality. {qc_msg_multiblast_hit}. Check manually.)")
                 else:
                     self.tabfile.write(f"{qc_msg_multiblast_hit}\t")

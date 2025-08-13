@@ -79,7 +79,7 @@ class analyzingGp60(object):
         self.checkRepeatManually = False
         self.averagePhredQuality = 0
         self.doublePeaksinRepeat = False
-        self.ambigSpeciesBlast = "" #multiple BLAST hits with identical ranking making typing ambiguous
+        self.ambigSpeciesBlast = [] #multiple BLAST hits with identical ranking making typing ambiguous
 
 
 
@@ -947,9 +947,9 @@ class analyzingGp60(object):
                         f"{duplicated_bitscores} ({identicalHits_str})")
                     
                     
-                    self.ambigSpeciesBlast = identicalHits_str
+                    self.ambigSpeciesBlast = identicalHits
                 else:
-                    self.ambigSpeciesBlast = ""    
+                    self.ambigSpeciesBlast = []   
                     
             
                 if len(blast_record.alignments) >= 2:
@@ -1576,9 +1576,9 @@ class analyzingGp60(object):
             #Quality check in comments section of the report
             qc_messages = [] # Initialize a list to collect all QC messages
             if self.ambigSpeciesBlast:
-                qc_messages.append(f"WARNING: Hits with identical BLAST bitscore were found ({self.ambigSpeciesBlast}). Be careful with species assignment.")
+                qc_messages.append(f"Check manually.")
             if not foundRepeat:
-                qc_messages.append("Could not classify repeat region. Check manually.")
+                qc_messages.append("Could not classify repeat region.")
 
             elif len(self.species.split("|")) > 1 and "If" in self.species.split("|")[1]:
                     begin = seq.find("CACCCCAACTC")
@@ -1601,11 +1601,13 @@ class analyzingGp60(object):
             if percent_identity < 99.1:
                 qc_messages.append("BLAST percent identity less than 99.1%. Check manually in case of new gp60 family.")
             if foundRepeat == False:
-                qc_messages.append("Could not classify repeat region. Check manually.")   
+                qc_messages.append("Could not classify repeat region.")   
             
             if not qc_messages:
                 final_comment = "N/A"
             else:
+                if "Check manually." not in qc_messages:
+                    qc_messages.append("Check manually.")
                 # Join all collected messages with a dot and a space
                 final_comment = ". ".join(qc_messages)
             
