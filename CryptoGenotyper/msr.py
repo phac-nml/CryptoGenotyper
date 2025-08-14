@@ -2062,7 +2062,7 @@ class MixedSeq(object):
                             newseq1 += 'T'
                         else:
                             newseq1 += maxBase
-
+  
         bitscore,evalue,query_coverage,query_length,subject_length, percent_identity1, accession, species1,sequence = self.blast(newseq1, False)
         bitscore2,evalue2,query_coverage2,query_length2,subject_length2, percent_identity2, accession2, species2,sequence2 = self.blast(newseq2, False)
         
@@ -2133,8 +2133,7 @@ class MixedSeq(object):
             #print(sequence)
         else:
            LOG.warning(f"Input sequence from {self.name} is empty, returning empty BLAST output")
-           return "","",0,"",0,"","",sequence      
-
+           return "","",0,"","",0,"","",sequence      
 
         # Close the file
         myfile.close()
@@ -2151,7 +2150,7 @@ class MixedSeq(object):
         stdout, stderr = blastn_cline()
 
         if (os.stat("SSUresult.xml").st_size == 0):
-            return "","",0,"",0,"","",sequence
+            return "","",0,"","",0,"","",sequence
 
         else:
 
@@ -2161,7 +2160,7 @@ class MixedSeq(object):
 
             if len(blast_record.alignments) == 0:
                 LOG.error("No BLAST hits were found! No species will be identified!")
-                return "","",0,"",0,"","",""
+                return "","",0,"","",0,"","",""
 
             blast_record.alignments = utilities.sort_blast_hits_by_id_and_bitscore(blast_record)
 
@@ -2219,7 +2218,7 @@ class MixedSeq(object):
             
             if failed_conditions:
                 LOG.warning(f"BLAST hit failed criteria: {'; '.join(failed_conditions)}. Returning empty values.")
-                return "", "", 0, "", 0, "", "", ""
+                return "", "", 0, "","", 0, "", "", ""
 
             # This is a separate, less critical warning
             if percent_identity < 95:
