@@ -2063,8 +2063,8 @@ class MixedSeq(object):
                         else:
                             newseq1 += maxBase
 
-        bitscore,evalue,query_coverage,query_length,percent_identity1, accession, species1,sequence = self.blast(newseq1, False)
-        bitscore,evalue,query_coverage,query_length,percent_identity2, accession, species2,sequence = self.blast(newseq2, False)
+        bitscore,evalue,query_coverage,query_length,subject_length, percent_identity1, accession, species1,sequence = self.blast(newseq1, False)
+        bitscore2,evalue2,query_coverage2,query_length2,subject_length2, percent_identity2, accession2, species2,sequence2 = self.blast(newseq2, False)
         
 
         if percent_identity1 < 99 or percent_identity2 < 99:
@@ -2197,6 +2197,7 @@ class MixedSeq(object):
             bitscore = hsp.score
             query_coverage = min(round(hsp.align_length/blast_record.query_length,3)*100,100) #make sure coverage not higher than 100 due to alignment gaps, etc.
             query_length = blast_record.query_length
+            subject_length = br_alignment.length
             species = br_alignment.hit_id
             accession = blast_record.alignments[0].hit_id
             
@@ -2207,13 +2208,15 @@ class MixedSeq(object):
             #This rule applies only if initial query sequence is smaller than database sequence  
             if hsp.align_length < int(0.6 * self.origLength) and br_alignment.length > query_length:
                 failed_conditions.append(f"Alignment length {hsp.align_length}bp < 60% of the original length {self.origLength}bp ({int(0.6 * self.origLength)}bp)")
-                LOG.info(f"{br_alignment.length} and ")
+                LOG.info(f"Alignment length {hsp.align_length}bp < 60% of the original length {self.origLength}bp ({int(0.6 * self.origLength)}bp)")
             if percent_identity < 80:
-                failed_conditions.append(f"Top hit percent identity ({int(percent_identity)}%) < 80%")
+                failed_conditions.append(f"Top hit percent identity ({int(percent_identity)}%) < 90%")
+            #if  query_coverage < 60:
+            #    failed_conditions.append(f"Top hit percent query coverage by top reference hit is < 60% ({int(percent_identity)}%)")   
             if evalue > 1e-100:
                 failed_conditions.append(f"E-value ({evalue}) > 1e-100")
 
-    
+            
             if failed_conditions:
                 LOG.warning(f"BLAST hit failed criteria: {'; '.join(failed_conditions)}. Returning empty values.")
                 return "", "", 0, "", 0, "", "", ""
@@ -2259,7 +2262,7 @@ class MixedSeq(object):
             #species = blast_record.alignments[0].hit_id
             
 
-            return bitscore,evalue,query_coverage,query_length,percent_identity, accession, species,sequence
+            return bitscore,evalue,query_coverage,query_length, subject_length,percent_identity, accession, species,sequence
 
 
     #outputResults() outputs the results in .txt and .fa file formats
@@ -2271,25 +2274,27 @@ class MixedSeq(object):
         
         if (self.species1 == ";>No blast hits." and self.species2 == ";>No blast hits."):
             if self.avgPhredQuality < 13:
-                self.tabfile.write("\t\t\t" + f"Could not analyze input file. No BLAST hits for species 1 and 2. Average Phred Quality < 13 ({self.avgPhredQuality}).  Please check manually." + "\t\t\t\t\t\t\t\n")
+                self.tabfile.write("\t\t\t" + f"Could not analyze input file. No BLAST hits for potential species 1 and 2. Average Phred Quality < 13 ({self.avgPhredQuality}).  Check manually." + "\t\t\t\t\t\t\t\n")
             else:
                 self.tabfile.write("\t\t\t" + "No blast hits." + "\t\t\t\t\t\t\t\n")
             return None
        
         if filetype == "abi" or filetype == "ab1":
-            bitscore,evalue,query_coverage,query_length,percent_identity, accession, species, seq = self.blast(self.species1Seq,False)
-            bitscore2,evalue2,query_coverage2,query_length2,percent_identity2, accession2, species2, seq2 = self.blast(self.species2Seq,False)
+            bitscore,evalue,query_coverage,query_length,subject_length,percent_identity, accession, species, seq = self.blast(self.species1Seq,False)
+            bitscore2,evalue2,query_coverage2,query_length2,subject_length2,percent_identity2, accession2, species2, seq2 = self.blast(self.species2Seq,False)
         elif filetype == "fasta" or filetype == "fna"  or filetype == "fa":
             self.avgPhredQuality = 60
-            bitscore,evalue,query_coverage,query_length,percent_identity, accession, species, seq = self.blast("".join(self.seq), customdatabsename)
-            query_coverage2=query_coverage; species2 = species; percent_identity2 = percent_identity
+            
+            bitscore,evalue,query_coverage,query_length,subject_length,percent_identity, accession, species, seq = self.blast("".join(self.seq), customdatabsename)
+            bitscore2=bitscore; query_length2=query_length; subject_length2=subject_length; query_coverage2=query_coverage; species2 = species; 
+            percent_identity2 = percent_identity; evalue2=evalue; accession2=accession
         else:
             raise TypeError(f"Unsupported filetype '{filetype}' for {self.name}. Aborting")
 
         if self.avgPhred >= 20 and query_coverage < 50 and query_coverage2 < 50:
-            bitscore,evalue,query_coverage,query_length,percent_identity, accession, species, seq = self.blast(''.join(self.fixedSeq),False)
+            bitscore,evalue,query_coverage,query_length,subject_length,percent_identity, accession, species, seq = self.blast(''.join(self.fixedSeq),False)
 
-        LOG.debug(f"species={species} and species2={species2} seq={len(seq)}bp and seq2={len(seq2)}")
+        LOG.debug(f"{self.name} file species={species} and species2={species2} seq={len(seq)}bp and seq2={len(seq2)}")
         if mode == 'reverse':
             seq = revcomp(seq)
             seq2 = revcomp(seq2)
@@ -2297,21 +2302,28 @@ class MixedSeq(object):
         qc_critical_msgs = []
         if self.avgPhredQuality < 13:
             qc_critical_msgs.append(f"Average Phred Quality < 13 ({self.avgPhredQuality})")       
-
         if (species == "" and species2 == ""): #or (query_coverage < 50 and query_coverage2 < 50):
             qc_critical_msgs.append("No species detected (potential reasons: poor sequence quality, reference database limitations, BLAST failure)")
-
+        #if ("C.hominis" in species and percent_identity < 95) or ("C.hominis" in species)   
+        LOG.info(f"Average PHRED quality is {self.avgPhredQuality} for {self.name}")
     
         #if any of the qc messages, terminate output as those are critical and we do not want mislead user with non-reliable results        
         if qc_critical_msgs:
             self.tabfile.write("\t\t\t" +f"Could not analyze input file. {'. '.join(qc_critical_msgs)}. Check manually."+"\t\t\t\t\t\t\t\n")
             return None
         
-        qc_msg_multiblast_hit=""
+        qc_msg_list_final = []
         if self.ambigSpeciesBlast != []:
-            qc_msg_multiblast_hit = f"Check manually."
+            LOG.warning(f"BLAST equally likely hits found {self.ambigSpeciesBlast}")
+            qc_msg_list_final.append("Check manually.")
         
+       
         if species == "" and seq2 != "":# or query_coverage < 50:
+            if utilities.SSU_final_result_qc_checker(self.name, species2, percent_identity2,query_coverage2, query_length2,subject_length2) == False:
+                self.tabfile.write("\t\t\t" +f"Species 2 failed final QC criteria. See logs for more info. Check manually."+"\t\t\t\t\t\t\t\n")
+                self.tabfile.write("Species 2 failed final QC criteria. See logs for more info. Check manually.\n")
+                return
+
             self.file.write(species2.split("|")[0])
 
             self.tabfile.write("No\t")
@@ -2322,10 +2334,11 @@ class MixedSeq(object):
             #    self.tabfile.write(f"Poor sequence quality. Average Phred Quality < 13, could be other potential mixed seqs. {qc_msg_multiblast_hit}. Check results manually.\t")
             #    self.file.write(f"  (Note: Poor sequence quality. Average Phred Quality < 13, could be other potential mixed seqs. {qc_msg_multiblast_hit}  Check results manually.)")
             if self.mixed:
-                self.tabfile.write(f"Could be other potential mixed seqs. {qc_msg_multiblast_hit} Check manually.\t")
-                self.file.write(f"  (Note: Could be other potential mixed seqs. {qc_msg_multiblast_hit} Check manually.)")
+                qc_msg_list_final.append("Could be other potential mixed seqs.")
+                self.tabfile.write(f"{utilities.add_check_manually_str(qc_msg_list_final)}\t")
+                self.file.write(f"  (Note: {utilities.add_check_manually_str(qc_msg_list_final)})")
             else:
-                self.tabfile.write(f"{qc_msg_multiblast_hit}\t")
+                self.tabfile.write(f"{utilities.add_check_manually_str(qc_msg_list_final)}\t")
 
             self.file.write("\n" + seq2)
 
@@ -2337,6 +2350,10 @@ class MixedSeq(object):
             self.tabfile.write(str(accession2)+"\n")
 
         elif species2 == "":# or query_coverage2 < 50:
+            if utilities.SSU_final_result_qc_checker(self.name, species, percent_identity,query_coverage, query_length,subject_length) == False:
+                self.tabfile.write("\t\t\t" +f"Species 1 failed final QC criteria. See logs for more info. Check manually."+"\t\t\t\t\t\t\t\n")
+                self.tabfile.write("Species 1 failed final QC criteria. See logs for more info. Check manually.\n")
+                return
             self.file.write(species.split("|")[0])
 
             self.tabfile.write("No\t")
@@ -2347,10 +2364,11 @@ class MixedSeq(object):
             #    self.tabfile.write(f"Poor sequence quality. Average Phred Quality < 13, could be other potential mixed seqs. {qc_msg_multiblast_hit}.Check manually.\t")
             #    self.file.write(f"  (Note: Poor sequence quality. Average Phred Quality < 13, could be other potential mixed seqs. {qc_msg_multiblast_hit}.Check manually.)")
             if self.mixed:
-                self.tabfile.write(f"Could be other potential mixed seqs. {qc_msg_multiblast_hit} Check manually.\t")
-                self.file.write(f"  (Note: Could be other potential mixed seqs. {qc_msg_multiblast_hit} Check manually.)")
+                qc_msg_list_final.append("Could be other potential mixed seqs.")
+                self.tabfile.write(f"{utilities.add_check_manually_str(qc_msg_list_final)}\t")
+                self.file.write(f"  (Note: {utilities.add_check_manually_str(qc_msg_list_final)})")
             else:
-                self.tabfile.write(f"{qc_msg_multiblast_hit}\t")
+                self.tabfile.write(f"{utilities.add_check_manually_str(qc_msg_list_final)}\t")
 
             self.file.write("\n" + str(seq))
 
@@ -2365,10 +2383,17 @@ class MixedSeq(object):
             #if query_coverage < 50 and query_coverage2 < 50:
             #    self.tabfile.write("\t\t\t" + "Could not analyze input file. Please check manually." + "\t\t\t\t\t\t\t\n")
             #    return
-            self.file.write(species.split("|")[0])
-            self.tabfile.write("No\t")
-            self.tabfile.write(species.split("|")[0] + "\t")
 
+            if utilities.SSU_final_result_qc_checker(self.name, species, percent_identity,query_coverage,query_length,subject_length) == False and \
+                utilities.SSU_final_result_qc_checker(self.name, species2, percent_identity2,query_coverage2,query_length2,subject_length2) == False:
+                self.tabfile.write("\t\t\t" +f"Both species 1 and 2 failed final QC criteria. See logs for more info. Check manually."+"\t\t\t\t\t\t\t\n")
+                self.file.write("Both species 1 and 2 failed final QC criteria. See logs for more info. Check manually.")
+                return
+            else:    
+                self.file.write(species.split("|")[0])
+                self.tabfile.write("No\t")
+                self.tabfile.write(species.split("|")[0] + "\t")
+            
             if percent_identity >= percent_identity2:
                 self.tabfile.write(str(seq) + "\t")
      
@@ -2376,11 +2401,12 @@ class MixedSeq(object):
                 #    self.tabfile.write(f"Poor sequence quality. Average Phred Quality < 13, could be other potential mixed seqs. {qc_msg_multiblast_hit} Check manually.\t")
                 #    self.file.write(f"  (Note: Poor sequence quality. Average Phred Quality < 13, could be other potential mixed seqs. {qc_msg_multiblast_hit} Check manually.)")
                 if self.mixed:
-                    self.tabfile.write(f"Could be other potential mixed seqs. {qc_msg_multiblast_hit}. Check manually.\t")
-                    self.file.write(f"  (Note: Could be other potential mixed seqs. {qc_msg_multiblast_hit}. Check manually.)")
+                    qc_msg_list_final.append("Could be other potential mixed seqs.")
+                    self.tabfile.write(f"{utilities.add_check_manually_str(qc_msg_list_final)}\t")
+                    self.file.write(f"  (Note: {utilities.add_check_manually_str(qc_msg_list_final)})")
                 else:
-                    self.tabfile.write(f"{qc_msg_multiblast_hit}\t")
-
+                    self.tabfile.write(f"{utilities.add_check_manually_str(qc_msg_list_final)}\t")
+                
                 self.file.write("\n" + str(seq))
                 self.tabfile.write(str(bitscore)+"\t")
                 self.tabfile.write(str(query_length)+"\t")
@@ -2394,12 +2420,14 @@ class MixedSeq(object):
                 #    self.tabfile.write("Poor sequence quality. Average Phred Quality < 13, could be other potential mixed seqs. Check manually \t")
                 #    self.file.write("  (Note: Poor sequence quality. Average Phred Quality < 13, could be other potential mixed seqs. Check manually.)")
                 if self.mixed:
-                    self.tabfile.write(f"Poor sequence quality. {qc_msg_multiblast_hit}. Check manually\t")
-                    self.file.write(f"  (Note: Poor sequence quality. {qc_msg_multiblast_hit}. Check manually.)")
+                    qc_msg_list_final.append("Poor sequence quality.")
+                    self.tabfile.write(f"{utilities.add_check_manually_str(qc_msg_list_final)}\t")
+                    self.file.write(f"  (Note: {utilities.add_check_manually_str(qc_msg_list_final)})")
                 else:
-                    self.tabfile.write(f"{qc_msg_multiblast_hit}\t")
+                    self.tabfile.write(f"{utilities.add_check_manually_str(qc_msg_list_final)}\t")
 
-                self.file.write("\n" + seq2)
+                self.file.write("\n")
+                
                 self.tabfile.write(str(bitscore2)+"\t")
                 self.tabfile.write(str(query_length2)+"\t")
                 self.tabfile.write(f"{query_coverage2:.2f}%\t")
@@ -2409,13 +2437,14 @@ class MixedSeq(object):
 
         # C. parvum TGA paralogs when the insertion causes garbled chromotogram
         elif "C.parvum" in species and "C.parvum" in species2 and seq2 != "":
- 
+            qc_msg_list_final.append("Check for C. parvum TGA paralogs.")
+
             self.file.write(species.split("|")[0]+"\t")
             self.file.write("\n" + str(seq))
             self.file.write("\n" + str(seq2))
 
             self.tabfile.write("Yes\t"+species.split("|")[0] + "\t")
-            self.tabfile.write(str(seq) + f"\tCheck for C. parvum TGA paralogs.{qc_msg_multiblast_hit}.\t") # QC comments
+            self.tabfile.write(str(seq) + f"\t{utilities.add_check_manually_str(qc_msg_list_final)}\t") # QC comments
             self.tabfile.write(str(bitscore)+"\t")
             self.tabfile.write(str(query_length)+"\t")
             self.tabfile.write(str(query_coverage) + "%\t")
@@ -2426,7 +2455,7 @@ class MixedSeq(object):
         
             self.tabfile.write("\t\tYes\t")
             self.tabfile.write(species.split("|")[0] + "\t")
-            self.tabfile.write(str(seq2) + f"\tCheck for C. parvum TGA paralogs.{qc_msg_multiblast_hit}.\t") #QC comments
+            self.tabfile.write(str(seq2) + f"\t{utilities.add_check_manually_str(qc_msg_list_final)}\t") #QC comments
         
             
             self.tabfile.write(str(bitscore2)+"\t")
@@ -2449,7 +2478,7 @@ class MixedSeq(object):
                 for i in range (1, len(lines)):
                     refseq += lines[i].strip('\n')
 
-                bitscore,evalue,query_coverage,query_length,percent_identity, accession, species, seq = self.blast(refseq,False)
+                bitscore,evalue,query_coverage,query_length,subject_length,percent_identity, accession, species, seq = self.blast(refseq,False)
 
 
 
@@ -2464,32 +2493,38 @@ class MixedSeq(object):
                 for i in range (1, len(lines)):
                     refseq += lines[i].strip("\n")
 
-                bitscore2,evalue2,query_coverage2,query_length2,percent_identity2, accession2, species2, seq2 = self.blast(refseq,False)
+                bitscore2,evalue2,query_coverage2,query_length2,subject_length2,percent_identity2, accession2, species2, seq2 = self.blast(refseq,False)
 
 
-            
-          
-            self.tabfile.write(f"Yes\t")
+            if utilities.SSU_final_result_qc_checker(self.name, species, percent_identity,query_coverage, query_length,subject_length) == False:
+                self.tabfile.write("\t\t\t" +f"Species1 failed QC criteria. See logs for more info. Check manually."+"\t\t\t\t\t\t\t\n")
+                self.file.write("Species1 failed QC criteria. See logs for more info. Check manually.\n")
+            else:
+                self.tabfile.write(f"Yes\t")
 
-            self.tabfile.write(species.split("|")[0] + "\t")
-            self.tabfile.write(seq + f"\t{qc_msg_multiblast_hit}\t")
-            self.tabfile.write(str(bitscore)+"\t")
-            self.tabfile.write(str(query_length)+"\t")
-            self.tabfile.write(str(query_coverage) + "%\t")
-            self.tabfile.write(str(evalue) +"\t")
-            self.tabfile.write(f"{percent_identity:.2f}%\t")
-            self.tabfile.write(str(accession)+"\n")
+                self.tabfile.write(species.split("|")[0] + "\t")
+                self.tabfile.write(seq + f"\t{utilities.add_check_manually_str(qc_msg_list_final)}\t")
+                self.tabfile.write(str(bitscore)+"\t")
+                self.tabfile.write(str(query_length)+"\t")
+                self.tabfile.write(str(query_coverage) + "%\t")
+                self.tabfile.write(str(evalue) +"\t")
+                self.tabfile.write(f"{percent_identity:.2f}%\t")
+                self.tabfile.write(str(accession)+"\n")
 
             if seq2 and seq != seq2:
-                self.tabfile.write(f"\t\tYes\t")
-                self.tabfile.write(species2.split("|")[0] + "\t")
-                self.tabfile.write(seq2 + f"\t{qc_msg_multiblast_hit}\t")
-                self.tabfile.write(str(bitscore2)+"\t")
-                self.tabfile.write(str(query_length2)+"\t")
-                self.tabfile.write(str(query_coverage2) + "%\t")
-                self.tabfile.write(str(evalue2) +"\t")
-                self.tabfile.write(f"{percent_identity2:.2f}%\t")
-                self.tabfile.write(str(accession2)+"\n")
+                if utilities.SSU_final_result_qc_checker(self.name, species2, percent_identity2,query_coverage2, query_length2,subject_length2) == False:
+                    self.tabfile.write("\t\t\t" +f"Species 2 failed final QC criteria. See logs for more info. Check manually."+"\t\t\t\t\t\t\t\t\n")
+                    self.file.write("Species 2 failed final QC criteria. See logs for more info. Check manually.\n")
+                else:    
+                    self.tabfile.write(f"\t\tYes\t")
+                    self.tabfile.write(species2.split("|")[0] + "\t")
+                    self.tabfile.write(seq2 + f"\t{utilities.add_check_manually_str(qc_msg_list_final)}\t")
+                    self.tabfile.write(str(bitscore2)+"\t")
+                    self.tabfile.write(str(query_length2)+"\t")
+                    self.tabfile.write(str(query_coverage2) + "%\t")
+                    self.tabfile.write(str(evalue2) +"\t")
+                    self.tabfile.write(f"{percent_identity2:.2f}%\t")
+                    self.tabfile.write(str(accession2)+"\n")
 
 
 def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customdatabsename, noheader, verbose):       
@@ -2578,9 +2613,9 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
 
             forward.fixN()
             reverse.fixN()
-
-            f_bitscore,f_evalue,f_query_coverage,f_query_length,f_percent_identity, f_accession, f_species, f_seq = forward.blast(str(''.join(forward.oldseq)),False)
-            r_bitscore,r_evalue,r_query_coverage,r_query_length,r_percent_identity, r_accession, r_species, r_seq = reverse.blast(str(''.join(reverse.oldseq)),False)
+           
+            f_bitscore,f_evalue,f_query_coverage,f_query_length,f_subject_length,f_percent_identity, f_accession, f_species, f_seq = forward.blast(str(''.join(forward.oldseq)),False)
+            r_bitscore,r_evalue,r_query_coverage,r_query_length,r_subject_length, r_percent_identity, r_accession, r_species, r_seq = reverse.blast(str(''.join(reverse.oldseq)),False)
             LOG.debug(f"Forward sequence is good = {f_goodSeq}? Reverse is good = {r_goodSeq}?")
             if f_goodSeq and r_goodSeq:
                 
@@ -2599,19 +2634,19 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                     LOG.info(f"Foward sequence {len(forward.seq)}bp species1Seq={len(forward.species1Seq)}bp species2Seq={len(forward.species2Seq)}bp")
                     LOG.info(f"Reverse {len(reverse.seq)}bp. species1Seq={len(reverse.species1Seq)}bp species2Seq={len(forward.species2Seq)}bp")
                     
-                    f_bitscore,f_evalue,f_query_coverage,f_query_length,f_percent_identity, f_accession, f_species, f_seq = forward.blast(forward.species1Seq,False)
-                    f_bitscore2,f_evalue2,f_query_coverage2,f_query_length2,f_percent_identity2, f_accession2, f_species2, f_seq2 = forward.blast(forward.species2Seq,False)
+                    f_bitscore,f_evalue,f_query_coverage,f_query_length,f_subject_length, f_percent_identity, f_accession, f_species, f_seq = forward.blast(forward.species1Seq,False)
+                    f_bitscore2,f_evalue2,f_query_coverage2,f_query_length2,f_subject_length2, f_percent_identity2, f_accession2, f_species2, f_seq2 = forward.blast(forward.species2Seq,False)
 
                     if f_species == "" and f_species2 == "":
-                        f_bitscore,f_evalue,f_query_coverage,f_query_length,f_percent_identity, f_accession, f_species, f_seq = forward.blast(str(''.join(forward.fixedSeq)),False)
+                        f_bitscore,f_evalue,f_query_coverage,f_query_length,f_subject_length, f_percent_identity, f_accession, f_species, f_seq = forward.blast(str(''.join(forward.fixedSeq)),False)
                         forward.species1Seq = str(''.join(forward.oldseq))
                         forward.species2Seq = str(''.join(forward.oldseq))
 
-                    r_bitscore,r_evalue,r_query_coverage,r_query_length,r_percent_identity, r_accession, r_species, r_seq = reverse.blast(reverse.species1Seq,False)
-                    r_bitscore2,r_evalue2,r_query_coverage2,r_query_length2,r_percent_identity2, r_accession2, r_species2, r_seq2 = reverse.blast(reverse.species2Seq,False)
+                    r_bitscore,r_evalue,r_query_coverage,r_query_length,r_subject_length, r_percent_identity, r_accession, r_species, r_seq = reverse.blast(reverse.species1Seq,False)
+                    r_bitscore2,r_evalue2,r_query_coverage2,r_query_length2,r_subject_length2, r_percent_identity2, r_accession2, r_species2, r_seq2 = reverse.blast(reverse.species2Seq,False)
 
                     if r_species == "" and r_species2 == "":
-                        r_bitscore,r_evalue,r_query_coverage,r_query_length,r_percent_identity, r_accession, r_species, r_seq = reverse.blast(str(''.join(reverse.fixedSeq)),False)
+                        r_bitscore,r_evalue,r_query_coverage,r_query_length,r_subject_length,r_percent_identity, r_accession, r_species, r_seq = reverse.blast(str(''.join(reverse.fixedSeq)),False)
                         reverse.species1Seq = str(''.join(reverse.oldseq))
                         reverse.species2Seq = str(''.join(reverse.oldseq))
 

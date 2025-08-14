@@ -375,7 +375,7 @@ def checkInputOrientation(sequence,  blastdbpath):
 
     total_alignments = sum(len(blast_record.alignments) for blast_record in NCBIXML.parse(result_handle))
 
-    LOG.info(f"Found total alignments {total_alignments}")
+    LOG.info(f"Found {total_alignments} alignments")
     if total_alignments == 0:
         LOG.warning("No BLAST records found in the XML output.")
         return ""
@@ -436,3 +436,38 @@ def checkInputOrientation(sequence,  blastdbpath):
             LOG.info("No clear orientation could be determined from significant BLASTN hits.")
             return ""
 
+def add_check_manually_str(string_list):
+    msg_check = "Check manually."
+   
+    if string_list == []:
+        return "-"
+    if msg_check not in string_list:
+        string_list.append(msg_check)
+    return " ".join(string_list)
+
+def SSU_final_result_qc_checker(filename, species, percent_identity,query_coverage,query_length,subject_length): 
+    LOG.debug(f"Analyzing {filename} file by final result QC checker species={species}, %id={percent_identity}, %query_cov={query_coverage} ...")
+    is_good_result = True; #qc_failure_reasons = []
+    #need to have extra QC for C.hominis as it is the most represented species and similar to C.parvum
+    if "C.hominis" in species:
+        if percent_identity < 95:
+            LOG.debug(f'Failed {filename} sequence predicted as {species} on identity < 95%')
+            is_good_result=False
+            #qc_failure_reasons.append("Percent identity is less than 95.")
+        elif query_coverage < 90:
+            LOG.debug(f'Failed {filename} sequence predicted as {species} on coverage < 90%')
+            is_good_result=False
+            #qc_failure_reasons.append("Percent query coverage is less than 60%.")
+        else:
+            is_good_result=True
+    else:
+       if query_coverage < 60 and query_length <= subject_length:
+        LOG.debug(f'Failed {filename} sequence predicted as {species} on coverage < 60% ({query_coverage})')
+        is_good_result=False
+       elif percent_identity < 90: 
+        LOG.debug(f'Failed {filename} sequence predicted as {species} on identity < 90%')
+        is_good_result=False   
+                    
+ 
+
+    return is_good_result
