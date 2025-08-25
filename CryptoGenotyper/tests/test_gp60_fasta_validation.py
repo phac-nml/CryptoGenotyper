@@ -115,7 +115,61 @@ def test_very_shot_gp60_sequence_blast_identical_hits(input_fasta_file=os.path.j
 
     lines=read_report_file("very_short_identical_blast_hits_validation_gp60_cryptogenotyper_report.txt")
   
-    print(lines)
+ 
     secondrow = lines[1].split("\t")
     assert 'C.hominis' in secondrow 
     assert any('Check manually' in s for s in secondrow), secondrow
+
+#provide two sequences in reverse orientation in contig mode and test sequence orientation detection algorithm
+def test_both_sequences_in_reverse_orientation_contig_mode(input_fasta_file=TEST_DATA_DIR):
+    args = [
+        "-i", input_fasta_file ,
+        "-m", "gp60",
+        "-f", "Cmortiferum_gp60_r2",
+        "-r", "Cmortiferum_gp60_r3",
+        "-t", "contig",
+        "-o", "Cmortiferum_gp60_both_reverse"
+    ]
+    sys.argv[1:] = args
+    cryptogenotyper_main()
+
+    lines=read_report_file("Cmortiferum_gp60_both_reverse_cryptogenotyper_report.txt")
+    secondrow = lines[1].split("\t")
+    assert 'C.mortiferum' in secondrow 
+    assert "XIVaA16G2T2a" in secondrow
+
+def test_both_sequences_in_forward_orientation_contig_mode(input_fasta_file=TEST_DATA_DIR):
+    args = [
+        "-i", input_fasta_file ,
+        "-m", "gp60",
+        "-f", "Cmortiferum_gp60_f2",
+        "-r", "Cmortiferum_gp60_f3",
+        "-t", "contig",
+        "-o", "Cmortiferum_gp60_both_forward"
+    ]
+    sys.argv[1:] = args
+    cryptogenotyper_main()
+
+    lines=read_report_file("Cmortiferum_gp60_both_forward_cryptogenotyper_report.txt")
+    secondrow = lines[1].split("\t")
+    assert 'C.mortiferum' in secondrow 
+    assert "XIVaA16G2T2a" in secondrow
+
+
+def test_typical_contig_mode(input_fasta_file=TEST_DATA_DIR):
+    args = [
+        "-i", input_fasta_file ,
+        "-m", "gp60",
+        "-f", "Cmortiferum_gp60_f2",
+        "-r", "Cmortiferum_gp60_r3",
+        "-t", "contig",
+        "-o", "Cmortiferum_gp60_typical_contig",
+        "--verbose"
+    ]
+    sys.argv[1:] = args
+    cryptogenotyper_main()
+
+    lines=read_report_file("Cmortiferum_gp60_both_reverse_cryptogenotyper_report.txt")
+    secondrow = lines[1].split("\t")
+    assert 'C.mortiferum' in secondrow 
+    assert "XIVaA16G2T2a" in secondrow

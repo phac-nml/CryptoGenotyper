@@ -323,8 +323,8 @@ def pair_files(file_paths, forward_suffix: str = "", reverse_suffix: str = ""):
             "\n".join(highlighted_unpaired_lines) +
             "\n"
         )
-    LOG.info("Will start analyzing files in 2 seconds ...")    
-    time.sleep(3)
+    LOG.info("Will start analyzing files in 10 seconds ...")    
+    time.sleep(10)
     return sorted(file_pairs), sorted(unpaired_files)
 
 def filter_files_by_suffix(pathlist, suffix):
@@ -445,29 +445,40 @@ def add_check_manually_str(string_list):
         string_list.append(msg_check)
     return " ".join(string_list)
 
-def SSU_final_result_qc_checker(filename, species, percent_identity,query_coverage,query_length,subject_length): 
-    LOG.debug(f"Analyzing {filename} file by final result QC checker species={species}, %id={percent_identity}, %query_cov={query_coverage} ...")
+def add_to_string_if_missing(self, str2add):
+    if str2add not in self.qcMsgsStr:
+        self.qcMsgsStr += f"{str2add}"
+
+def SSU_final_result_qc_checker(self, species, percent_identity,query_coverage,query_length,subject_length): 
+    LOG.debug(f"Analyzing {self.name} file by final result QC checker species={species}, %id={percent_identity}, %query_cov={query_coverage} {query_length} {subject_length} ...")
     is_good_result = True; #qc_failure_reasons = []
     #need to have extra QC for C.hominis as it is the most represented species and similar to C.parvum
     if "C.hominis" in species:
         if percent_identity < 95:
-            LOG.debug(f'Failed {filename} sequence predicted as {species} on identity < 95%')
+            msg=f'Identity < 95% ({percent_identity}%).'
+            LOG.debug(msg)
+            add_to_string_if_missing(self, msg)
             is_good_result=False
             #qc_failure_reasons.append("Percent identity is less than 95.")
         elif query_coverage < 90:
-            LOG.debug(f'Failed {filename} sequence predicted as {species} on coverage < 90%')
+            msg=f'Coverage < 90% ({query_coverage}%)'
+            LOG.debug(msg)
+            add_to_string_if_missing(self, msg)
             is_good_result=False
             #qc_failure_reasons.append("Percent query coverage is less than 60%.")
         else:
             is_good_result=True
     else:
-       if query_coverage < 60 and query_length <= subject_length:
-        LOG.debug(f'Failed {filename} sequence predicted as {species} on coverage < 60% ({query_coverage})')
-        is_good_result=False
-       elif percent_identity < 90: 
-        LOG.debug(f'Failed {filename} sequence predicted as {species} on identity < 90%')
-        is_good_result=False   
+       if query_coverage < 60 and query_length <= subject_length*1.05: #add 5% to the subject length for gaps and alignments 
+            msg=f'Coverage < 60% ({query_coverage}%)'
+            LOG.debug(msg)
+            add_to_string_if_missing(self, msg)
+            is_good_result=False
+       elif percent_identity < 90:
+            msg=f'Identity < 90% ({percent_identity}%)'
+            LOG.debug(msg)
+            add_to_string_if_missing(self, msg)
+            is_good_result=False   
                     
  
-
     return is_good_result

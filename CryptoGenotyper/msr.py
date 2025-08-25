@@ -770,6 +770,16 @@ def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None):
     LOG.info(f"Building 18S contig from forward {len(forwardseq)}bp and reverse {len(reverseseq)}bp sequences")
     contig = ""
     if forwardObj and reverseObj:
+        #check that forward object is actually in forward orientation and reverse object in reverse orientation and if not fix it
+        if forwardObj.forwardSeq == False:
+            forwardseq = str(Seq(forwardseq).reverse_complement())
+            forwardObj.seq  = list(forwardseq)
+
+        if reverseObj.forwardSeq == True:
+            reverseseq = str(Seq(reverseseq).reverse_complement())
+            reverseObj.seq  = list(reverseseq)
+
+
         with open("forward_original_tmp.fasta", "w") as fp:
             fp.write("".join(forwardObj.seq))
         with open("forward_tmp.fasta", "w") as fp:
@@ -793,7 +803,7 @@ def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None):
             LOG.error("No BLAST alignments found during contig building for forward sequence ...")
             return ""
         else:
-            LOG.info(f"Found {len(blast_records)} hit(s) and {len(flat_alignments_list)} for forward sequence")
+            LOG.info(f"Found {len(blast_records)} BLAST record and {len(flat_alignments_list)} alignment for forward sequence")
         
         
         start_pos = min([(a.hsps[0].sbjct_end, a.hsps[0].sbjct_start) for a in blast_records[0].alignments][0])-1 
@@ -842,7 +852,7 @@ def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None):
         blastn_cline()   
         blast_records = list(NCBIXML.parse(open("blastn_contig_results.xml"))) 
         QUERY_LEN = len(forwardseq)
-        SBJCT_LEN = len(reverseseq) # Length of the original reverse sequenc
+        SBJCT_LEN = len(reverseseq) # Length of the original reverse sequence
 
         for record in blast_records:
             if record.alignments:
@@ -850,15 +860,10 @@ def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None):
                 is_subject_reversed = hsp.sbjct_start > hsp.sbjct_end
 
                 if is_subject_reversed:
-                    LOG.info(f"Note: Subject sequence was reverse-complemented for assembly.")
+                    LOG.info(f"Note: reverse sequence was reverse-complemented for final contig assembly.")
             
-            
-            
-                # --- FIX for UnboundLocalError: Initialize working_reverseseq here ---
-                # It must be initialized outside the if/else block to ensure it's always defined.
                 working_reverseseq = Seq(reverseseq) 
-                # ---------------------------------------------------------------------
-            
+      
                 # Recalculate 0-based subject coordinates based on strand
                 if is_subject_reversed:
                     working_reverseseq = working_reverseseq.reverse_complement()
@@ -870,8 +875,8 @@ def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None):
                     
                     # Convert these remapped 1-based coordinates to 0-based for slicing.
                     # Use min/max because after RC, the new start/end might be inverted.
-                    sbjct_start_0based = min(rc_sbjct_start_1based, rc_sbjct_end_1based) - 1
-                    sbjct_end_0based = max(rc_sbjct_start_1based, rc_sbjct_end_1based)
+                    sbjct_start_0based = min(rc_sbjct_start_1based, rc_sbjct_end_1based) - 1 #reverse seq
+                    sbjct_end_0based = max(rc_sbjct_start_1based, rc_sbjct_end_1based) #reverse seq
                     
                 else:
                     # If subject is not reversed, use original hsp coordinates
@@ -879,8 +884,8 @@ def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None):
                     sbjct_end_0based = hsp.sbjct_end
                 
                 # Query coordinates are always interpreted on the forward strand
-                query_start_0based = hsp.query_start - 1
-                query_end_0based = hsp.query_end 
+                query_start_0based = hsp.query_start - 1  #forward seq
+                query_end_0based = hsp.query_end  #forward seq
                 
                 LOG.info(f"Avg PHRED score forward {phred_scores_forewardseq_avg:.2f}, reverse {phred_scores_reverseseq_avg:.2f}")
                 
@@ -889,12 +894,12 @@ def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None):
                     # Prioritize forwardseq (query) for the overlap region (higher/equal Phred score).
                     # Contig = (prefix of forwardseq) + (forwardseq's overlap) + (suffix of working_reverseseq)
                     contig = forwardseq[0 : query_end_0based] + str(working_reverseseq[sbjct_end_0based : ])
-                    LOG.info(f"Contig formed: Prioritizing Forward (higher/equal Phred score). Overlap region used from Forward.")
+                    LOG.info(f"Contig formed: Prioritizing Forward (higher/equal PHRED score). The {abs(query_end_0based-query_start_0based)}bp overlap region ({query_start_0based}-{query_end_0based}) used from Forward sequence.")
                 else:
                     # Prioritize working_reverseseq (subject) for the overlap region (higher Phred score).
                     # Contig = (prefix of forwardseq) + (working_reverseseq's overlap) + (suffix of working_reverseseq)
                     contig = forwardseq[0 : query_start_0based] + str(working_reverseseq[sbjct_start_0based : ])
-                    LOG.info(f"Contig formed: Prioritizing Reverse (higher Phred score). Overlap region used from Reverse (now in forward orientation).")
+                    LOG.info(f"Contig formed: Prioritizing Reverse (higher PHRED score). The {abs(sbjct_end_0based-sbjct_start_0based)}bp overlap region ({sbjct_start_0based}-{sbjct_end_0based}) used from Reverse sequence (now in forward orientation).")
 
                 # --- General logging for the formed contig ---
                 LOG.info(f"A contig of {len(contig)}bp was formed.")
@@ -972,6 +977,8 @@ class MixedSeq(object):
         self.avgPhredQuality = 0
         self.avgPhred = 0
 
+        self.qcMsgsStr="" #quality control messages string
+
 
 
     def readFiles(self, dataFile, forw, filetype="abi"):
@@ -998,13 +1005,31 @@ class MixedSeq(object):
         if filetype == "abi" or filetype == "ab1":
             handle=open(dataFile,"rb")
             record=SeqIO.read(handle, "abi")
+            LOG.debug(f"Initial sequence from {self.name} ({len(record.seq)}bp) {record.seq}")
 
         elif filetype == "fasta" or filetype == "fa":
             handle=open(dataFile,"r")   
             record=SeqIO.read(handle, "fasta")
-            raw_seq = list(record.seq.upper()) #making sure all bases converted to upper case so matching works
-            self.seq = raw_seq
-            self.phred_qual = [60] * len(raw_seq)
+            #raw_seq = list(record.seq.upper()) #making sure all bases converted to upper case so matching works
+            #self.seq = raw_seq
+            #self.phred_qual = [60] * len(raw_seq)
+            
+
+            sequence_orientation_check_result  = utilities.checkInputOrientation(record.seq, os.path.dirname(__file__)+"/reference_database/msr_ref.fa")
+            LOG.info(f"Input {self.name} sequence orientation is {sequence_orientation_check_result}")
+            if sequence_orientation_check_result  == "Reverse":
+                self.forwardSeq = False 
+            elif sequence_orientation_check_result  == "Forward":
+                self.forwardSeq = True
+
+            #if forw == True and self.forwardSeq == False:
+            #   self.seq  = list(record.reverse_complement().seq.upper())
+            #else:
+            #   self.seq  = list(record.seq.upper())
+            self.seq = list(record.seq.upper())
+            self.phred_qual = [60] * len(self.seq)      
+            LOG.debug(f"Initial sequence from {self.name} ({len(self.seq )}bp) {''.join(self.seq )}") 
+
             return True
 
         
@@ -1113,12 +1138,14 @@ class MixedSeq(object):
     #   the maximum amplitude of all four bases at that position
     #   **Not yet implemented double peaks
     def fixN(self):
+        #x=0 #start position
+         
         if self.avgPhredQuality > 20:
             qual_cutOff = self.avgPhredQuality
         else:
             qual_cutOff = 20 #99% base calling certainty
         foundBegin = False
-
+ 
         for x in range(0, self.seqLength):
             if self.phred_qual[x] >= qual_cutOff and self.oldseq[x]!='N':
                 self.beginSeq = x
@@ -1230,6 +1257,7 @@ class MixedSeq(object):
         else:
             self.avgLRI = 0
 
+        
         #print(self.backgroundA,self.backgroundC, self.backgroundG,self.backgroundT)
 
 
@@ -2283,7 +2311,6 @@ class MixedSeq(object):
             bitscore2,evalue2,query_coverage2,query_length2,subject_length2,percent_identity2, accession2, species2, seq2 = self.blast(self.species2Seq,False)
         elif filetype == "fasta" or filetype == "fna"  or filetype == "fa":
             self.avgPhredQuality = 60
-            
             bitscore,evalue,query_coverage,query_length,subject_length,percent_identity, accession, species, seq = self.blast("".join(self.seq), customdatabsename)
             bitscore2=bitscore; query_length2=query_length; subject_length2=subject_length; query_coverage2=query_coverage; species2 = species; 
             percent_identity2 = percent_identity; evalue2=evalue; accession2=accession
@@ -2318,9 +2345,9 @@ class MixedSeq(object):
         
        
         if species == "" and seq2 != "":# or query_coverage < 50:
-            if utilities.SSU_final_result_qc_checker(self.name, species2, percent_identity2,query_coverage2, query_length2,subject_length2) == False:
-                self.tabfile.write("\t\t\t" +f"Species 2 failed final QC criteria. See logs for more info. Check manually."+"\t\t\t\t\t\t\t\n")
-                self.tabfile.write("Species 2 failed final QC criteria. See logs for more info. Check manually.\n")
+            if utilities.SSU_final_result_qc_checker(self, species2, percent_identity2,query_coverage2, query_length2,subject_length2) == False:
+                self.tabfile.write("\t\t\t" +f"Species 2 failed final QC criteria ({self.qcMsgsStr}). See logs for more info. Check manually."+"\t\t\t\t\t\t\t\n")
+                self.tabfile.write(f"Species 2 failed final QC criteria ({self.qcMsgsStr}). See logs for more info. Check manually.\n")
                 return
 
             self.file.write(species2.split("|")[0])
@@ -2349,9 +2376,9 @@ class MixedSeq(object):
             self.tabfile.write(str(accession2)+"\n")
 
         elif species2 == "":# or query_coverage2 < 50:
-            if utilities.SSU_final_result_qc_checker(self.name, species, percent_identity,query_coverage, query_length,subject_length) == False:
-                self.tabfile.write("\t\t\t" +f"Species 1 failed final QC criteria. See logs for more info. Check manually."+"\t\t\t\t\t\t\t\n")
-                self.tabfile.write("Species 1 failed final QC criteria. See logs for more info. Check manually.\n")
+            if utilities.SSU_final_result_qc_checker(self, species, percent_identity,query_coverage, query_length,subject_length) == False:
+                self.tabfile.write("\t\t\t" +f"Species 1 failed final QC criteria ({self.qcMsgsStr}). See logs for more info. Check manually."+"\t\t\t\t\t\t\t\n")
+                self.tabfile.write(f"Species 1 failed final QC criteria ({self.qcMsgsStr}). See logs for more info. Check manually.\n")
                 return
             self.file.write(species.split("|")[0])
 
@@ -2383,10 +2410,10 @@ class MixedSeq(object):
             #    self.tabfile.write("\t\t\t" + "Could not analyze input file. Please check manually." + "\t\t\t\t\t\t\t\n")
             #    return
 
-            if utilities.SSU_final_result_qc_checker(self.name, species, percent_identity,query_coverage,query_length,subject_length) == False and \
-                utilities.SSU_final_result_qc_checker(self.name, species2, percent_identity2,query_coverage2,query_length2,subject_length2) == False:
-                self.tabfile.write("\t\t\t" +f"Both species 1 and 2 failed final QC criteria. See logs for more info. Check manually."+"\t\t\t\t\t\t\t\n")
-                self.file.write("Both species 1 and 2 failed final QC criteria. See logs for more info. Check manually.")
+            if utilities.SSU_final_result_qc_checker(self, species, percent_identity,query_coverage,query_length,subject_length) == False and \
+                utilities.SSU_final_result_qc_checker(self, species2, percent_identity2,query_coverage2,query_length2,subject_length2) == False:
+                self.tabfile.write("\t\t\t" +f"Both species 1 and 2 failed final QC criteria ({self.qcMsgsStr}). See logs for more info. Check manually."+"\t\t\t\t\t\t\t\n")
+                self.file.write(f"Both species 1 and 2 failed final QC criteria ({self.qcMsgsStr}). See logs for more info. Check manually.")
                 return
             else:    
                 self.file.write(species.split("|")[0])
@@ -2495,9 +2522,9 @@ class MixedSeq(object):
                 bitscore2,evalue2,query_coverage2,query_length2,subject_length2,percent_identity2, accession2, species2, seq2 = self.blast(refseq,False)
 
 
-            if utilities.SSU_final_result_qc_checker(self.name, species, percent_identity,query_coverage, query_length,subject_length) == False:
-                self.tabfile.write("\t\t\t" +f"Species1 failed QC criteria. See logs for more info. Check manually."+"\t\t\t\t\t\t\t\n")
-                self.file.write("Species1 failed QC criteria. See logs for more info. Check manually.\n")
+            if utilities.SSU_final_result_qc_checker(self, species, percent_identity,query_coverage, query_length,subject_length) == False:
+                self.tabfile.write("\t\t\t" +f"Species1 failed QC criteria ({self.qcMsgsStr}). See logs for more info. Check manually."+"\t\t\t\t\t\t\t\n")
+                self.file.write(f"Species1 failed QC criteria ({self.qcMsgsStr}). See logs for more info. Check manually.\n")
             else:
                 self.tabfile.write(f"Yes\t")
 
@@ -2511,9 +2538,9 @@ class MixedSeq(object):
                 self.tabfile.write(str(accession)+"\n")
 
             if seq2 and seq != seq2:
-                if utilities.SSU_final_result_qc_checker(self.name, species2, percent_identity2,query_coverage2, query_length2,subject_length2) == False:
-                    self.tabfile.write("\t\t\t" +f"Species 2 failed final QC criteria. See logs for more info. Check manually."+"\t\t\t\t\t\t\t\t\n")
-                    self.file.write("Species 2 failed final QC criteria. See logs for more info. Check manually.\n")
+                if utilities.SSU_final_result_qc_checker(self, species2, percent_identity2,query_coverage2, query_length2,subject_length2) == False:
+                    self.tabfile.write("\t\t\t" +f"Species 2 failed final QC criteria ({self.qcMsgsStr}). See logs for more info. Check manually."+"\t\t\t\t\t\t\t\t\n")
+                    self.file.write(f"Species 2 failed final QC criteria ({self.qcMsgsStr}). See logs for more info. Check manually.\n")
                 else:    
                     self.tabfile.write(f"\t\tYes\t")
                     self.tabfile.write(species2.split("|")[0] + "\t")
@@ -2599,7 +2626,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
         tabfile.write("Error: Need to include both forward and reverse sequences of ALL samples to produce contig.\t\t\t\t\t\t\t\t\t\t\t\n")
 
     elif typeSeq == "contig":
-        LOG.info(f"Processing {len(pathlist)} file(s) in {typeSeq} mode:\n{pathlist}")
+        LOG.info(f"Processing {len(pathlist)} file(s) in {typeSeq} mode.")
         for idx in range(0,len(pathlist),2):
             LOG.info(f"\n{idx}: *** Working now on pair {pathlist[idx]} and {pathlist[idx+1]} ***")
             forward = MixedSeq(file, tabfile, 'contig')
@@ -2607,8 +2634,28 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
         
 
             filetype = utilities.getFileType(pathlist[idx])
-            f_goodSeq = forward.readFiles(pathlist[idx], True)
-            r_goodSeq = reverse.readFiles(pathlist[idx+1], False)
+            LOG.debug(f"For {pathlist[idx]} filetype is {filetype}")
+            f_goodSeq = forward.readFiles(pathlist[idx], True, filetype)
+            filetype = utilities.getFileType(pathlist[idx+1])
+            LOG.debug(f"For {pathlist[idx+1]} filetype is {filetype}")
+            r_goodSeq = reverse.readFiles(pathlist[idx+1], False, filetype)
+
+            if filetype == "fasta" or filetype == "fna"  or filetype == "fa":
+                forward.origLength = len(forward.seq)
+                reverse.origLength = len(reverse.seq)
+                contig = buildContig("".join(forward.seq), "".join(reverse.seq), forward, reverse)
+                #contig=""
+                if contig != "": #contig is formed successfully
+                    forward.seq=contig
+                    forward.avgPhredQuality = round((forward.avgPhredQuality + reverse.avgPhredQuality), 2)
+                    forward.outputResults(customdatabsename, typeSeq, filetype)
+                else:
+                    typeSeq = "forward" 
+                    forward.outputResults(customdatabsename, typeSeq, filetype)
+                    typeSeq = "reverse" 
+                    reverse.outputResults(customdatabsename, typeSeq, filetype)
+                continue
+
 
             forward.fixN()
             reverse.fixN()
@@ -2714,7 +2761,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                         else:
                             contig = buildContig(forwardseq, reverseseq, forward, reverse)
                             if contig != "":
-                                forward.species1Seq = contig
+                                forward.seq = contig
                                 forward.species2Seq = contig    
                             else:
                                 typeSeq = "forward" #default to forward object if contig was not formed
@@ -2795,7 +2842,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
 
 
     elif typeSeq=="forward":
-        LOG.info(f"Processing {len(pathlist)} file(s) in {typeSeq} mode:\n{pathlist}")
+        LOG.info(f"Processing {len(pathlist)} file(s) in {typeSeq} mode:\n")
         for idx, path in enumerate(pathlist):
             filetype = utilities.getFileType(path)
             forward = MixedSeq(file, tabfile, 'forward')
@@ -2811,17 +2858,21 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                 forward.outputResults(customdatabsename, typeSeq, filetype)
             
     elif typeSeq=="reverse":
-        LOG.info(f"Processing {len(pathlist)} file(s) in {typeSeq} mode:\n{pathlist}")
+        LOG.info(f"Processing {len(pathlist)} file(s) in {typeSeq} mode:\n")
         for idx, path in enumerate(pathlist):
             filetype = utilities.getFileType(path)
             reverse=MixedSeq(file,tabfile, 'reverse')
-            goodSeq = reverse.readFiles(pathlist[idx], False)
-            reverse.fixN()
-
-            if goodSeq:
+            goodSeq = reverse.readFiles(pathlist[idx], False, filetype)
+            
+            if goodSeq and filetype == "abi":
+                reverse.fixN()
                 reverse.findHeteroBases(2.0)
                 reverse.determineAllTypes(customdatabsename)
                 reverse.outputResults(customdatabsename, typeSeq, filetype)
+            elif filetype == "fasta" or filetype == "fna"  or filetype == "fa":
+                reverse.origLength = len(reverse.seq)
+                reverse.outputResults(customdatabsename, typeSeq, filetype)
+
 
 
     experimentName = expName + "_"

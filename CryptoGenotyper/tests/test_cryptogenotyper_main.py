@@ -141,37 +141,51 @@ def test_default_singlefile(input_dir=os.path.abspath(os.path.join(os.path.dirna
 
 def test_gp60_fasta_single_sequence(input_dir = os.path.join(TEST_DATA_DIR) ):
     args = [
+        ["-i", os.path.join(input_dir,"P17705_gp60-Crypt16-1F-20170927_gp60F_G08_052.fasta"),
+        "-m", "gp60",
+        "-t", "forward",
+        "-o", "P17705_gp60_fasta"],
+        [
         "-i", os.path.join(input_dir,"P17705_gp60-Crypt16-1F-20170927_gp60F_G08_052.fasta"),
         "-m", "gp60",
+        "-t", "reverse",
         "-o", "P17705_gp60_fasta"
-
+        ]
     ]
 
-    sys.argv[1:] = args
+    for arg in args:
+        sys.argv[1:] = arg
+        cryptogenotyper_main()
 
-    cryptogenotyper_main()
+        lines=read_report_file("P17705_gp60_fasta_cryptogenotyper_report.txt")  
+        secondrow = lines[1].split("\t")
 
-    lines=read_report_file("P17705_gp60_fasta_cryptogenotyper_report.txt")  
-    secondrow = lines[1].split("\t")
+        assert "C.parvum" in secondrow
+        assert "IIaA15G2R1" in secondrow
 
-    assert "C.parvum" in secondrow
-    assert "IIaA15G2R1" in secondrow
+
 
 
 def test_18S_fasta_single_sequence(input_dir = os.path.join(TEST_DATA_DIR) ):
     args = [
-        "-i", os.path.join(input_dir,"P17705_Crypto16-20170927_SSUR.fasta"),
+        ["-i", os.path.join(input_dir,"P17705_Crypto16-20170927_SSUR.fasta"),
+        "-t", "forward",
         "-m", "18S",
-        "-o", "P17705_Crypto16_18S_fasta"
+        "-o", "P17705_Crypto16_18S_fasta"],
+        ["-i", os.path.join(input_dir,"P17705_Crypto16-20170927_SSUR.fasta"),
+        "-t", "reverse",
+        "-m", "18S",
+        "-o", "P17705_Crypto16_18S_fasta"]
+
     ]        
 
-    sys.argv[1:] = args
+    for arg in args:
+        sys.argv[1:] = arg
+        cryptogenotyper_main()
+        lines=read_report_file("P17705_Crypto16_18S_fasta_cryptogenotyper_report.txt")  
+        secondrow = lines[1].split("\t")
 
-    cryptogenotyper_main()
-    lines=read_report_file("P17705_Crypto16_18S_fasta_cryptogenotyper_report.txt")  
-    secondrow = lines[1].split("\t")
-
-    assert "C.parvum" in secondrow
+        assert "C.parvum" in secondrow
 
 
 def test_18S_fasta_single_sequence_сustom_database(input_dir = os.path.join(TEST_DATA_DIR) ):

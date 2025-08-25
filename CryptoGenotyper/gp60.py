@@ -95,13 +95,14 @@ class analyzingGp60(object):
 
         self.file = output
         self.tabfile = tabFile
+        
 
         #**********Beginning to work with the ab1 file given:**********#
 
         #retrieves the sample file name (removes directory pathway)
         self.name = dataFile.split("/")[len(dataFile.split("/"))-1]
 
-        LOG.debug(f"Sequence: {self.name}") #Lets user know which sequence the program is on
+        LOG.debug(f"Reading file {self.name} ...") #Lets user know which sequence the program is on
 
         #opens the ab1 file
         if  filetype == "abi" or filetype == "ab1":
@@ -150,6 +151,11 @@ class analyzingGp60(object):
         self.b = 0
         self.e = 0
 
+        #calculate inital average quality taking into account entire sequence and later update value with selected region (if not failing condition is hit)
+        self.averagePhredQuality = round(sum(self.phred_qual) / len(self.phred_qual),2) 
+
+        
+
         
 
 
@@ -164,7 +170,8 @@ class analyzingGp60(object):
         filename = f"query_vs_blast_gp60.txt"
         myfile = open(filename, 'w')
 
-        LOG.debug(f"Sequence FASTA {self.name} ({len(self.seq)}bp) "+''.join(self.seq)) #debug
+        LOG.debug(f"Initial sequence from {self.name} ({len(self.seq)}bp) "+''.join(self.seq)) #debug
+        myfile.write(f">{self.name}\n")
         myfile.write(''.join(self.seq))
 
         # Close the file
@@ -196,6 +203,7 @@ class analyzingGp60(object):
             blast_record = next(blast_records)
 
             if len(blast_record.alignments) == 0:
+                LOG.warning(f"Found 0 alignments for {self.name}")
                 return False
 
             blast_record.alignments = utilities.sort_blast_hits_by_id_and_bitscore(blast_record, "bitscore") 
@@ -217,6 +225,7 @@ class analyzingGp60(object):
             myfile = open(filename, 'w')
 
             t = round(len(self.seq)*0.5)
+            myfile.write(f">{self.name}\n")
             myfile.write(''.join(self.seq[0:t]))
 
             # Close the file
@@ -279,8 +288,8 @@ class analyzingGp60(object):
 
         quality = quality / len(self.phred_qual[b:e])
         self.averagePhredQuality = round(quality,2)
-        LOG.info(f"Average PHRED {self.name} sequence quality is {self.averagePhredQuality}")
-      
+        LOG.info(f"Average PHRED {self.name} sequence quality in selected range ({b} - {e}) is {self.averagePhredQuality}")
+
         if quality < 20 or full_quality < 10:
             #self.file.write("\n")
             #self.file.write("\n;>Sequence: " + self.name.split(".ab1")[0])
@@ -537,6 +546,7 @@ class analyzingGp60(object):
             temp = Seq(forwSeq, IUPAC.ambiguous_dna)
             self.seq = copy.copy(temp)
         
+
         return goodRepeatFind
 
 
@@ -676,7 +686,6 @@ class analyzingGp60(object):
                     repeatStart  = index - (maxCount*3)
                     
                    
-                LOG.debug(f"Repeat detection algorithm i={index} inRepeat={inRepeat} maxCount={maxCount} candidate_repeat {candidate_repeat} and {before_repeat_2codons}")
                 
 
                 index+=1
@@ -770,7 +779,7 @@ class analyzingGp60(object):
                 break
             
         if goodQuality:
-            LOG.info(f"Sequence {self.name} of good quality to deterime repeats")
+            LOG.info(f"Sequence {self.name} of good quality to detect repeats")
             numAcatca = 0   #C. parvum R
             numACA = 0 # for C. cuniculus Vb that has ACA repeats
             numHomR = 0     #C. hominis R= A(A/G)(A/G)ACGGTGGTAAGG (15bp minisatellite)
@@ -900,6 +909,7 @@ class analyzingGp60(object):
         #if self.repeatEnds != 0:
         #    myfile.write(''.join(self.seq[self.repeatEnds:]))
         #else:
+        myfile.write(f">{self.name}\n")
         myfile.write(''.join(self.seq))
 
 
@@ -1018,6 +1028,7 @@ class analyzingGp60(object):
         myfile = open(filename, 'w')
 
         # Write a line to the file
+        myfile.write(f">{self.name}\n")
         myfile.write(sequence)
 
         # Close the file
@@ -1030,11 +1041,12 @@ class analyzingGp60(object):
         
         LOG.info(f"Running BLAST on {len(sequence)}bp sequence from {self.name} on {os.path.basename(blastn_cline.db)} and contig value is {contig}")
         stdout, stderr = blastn_cline()
-
+         
         if (os.stat("gp60result.xml").st_size == 0):
             LOG.warning("No BLAST hits found! Check database blast_gp60.fasta or input")
             return "","","","","","","",""
-
+        
+        
         elif not contig:
             result_handle = open("gp60result.xml", 'r')
             blast_records = NCBIXML.parse(result_handle)
@@ -1285,12 +1297,13 @@ class analyzingGp60(object):
             
             self.findRepeatRegion()
             # Write a line to the file
-            myfile.write(''.join(self.seq[self.repeatEnds:]))
-
-
+            #myfile.write(''.join(self.seq[self.repeatEnds:])) #original only align from repeat onwards
+            myfile.write(''.join(self.seq))
+       
+                         
             # Close the file
             myfile.close()
-            
+            LOG.debug(f"Running BLAST on {len(self.seq)}bp sequence ...")
             blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn', query="query.txt", dust='yes',
                                                  db=blastdbpath, reward=1, penalty=-2,gapopen=5, gapextend=2,
                                                  evalue=0.00001, outfmt=5, out="gp60result.xml")
@@ -1317,6 +1330,7 @@ class analyzingGp60(object):
                 blast_record = blast_records[0]
                 blast_record.alignments = utilities.sort_blast_hits_by_id_and_bitscore(blast_record)
 
+
                 br_alignment = blast_record.alignments[0]
                 hsp = br_alignment.hsps[0]
                 
@@ -1334,8 +1348,8 @@ class analyzingGp60(object):
                     LOG.warning("The reverse complement query is being submitted (3'->5'). Performing reverse complement of the sequence (5'->3')")
                     sequence = str(Seq(sequence).reverse_complement())
                     self.seq=sequence
-
-                percent_identity = round((hsp.identities/hsp.align_length)*100, 1)
+                
+                percent_identity = round(hsp.identities/hsp.align_length*100,2)
                 evalue = hsp.expect
                 bitscore = hsp.score
 
@@ -1412,12 +1426,13 @@ class analyzingGp60(object):
 
             # Open the file with writing permission
             myfile = open(filename, 'w')
-
+       
             self.seq = sequence
             self.findRepeatRegion()
+          
             # Write a line to the file
-            myfile.write(''.join(sequence[self.repeatEnds:]))
-
+            #myfile.write(''.join(sequence[self.repeatEnds:]))
+            myfile.write("".join(sequence))
 
             # Close the file
             myfile.close()
@@ -1442,7 +1457,7 @@ class analyzingGp60(object):
             br_alignment = blast_record.alignments[0]
             hsp = br_alignment.hsps[0]
 
-            percent_identity = round(hsp.identities/hsp.align_length,3)*100
+            percent_identity = round((hsp.identities/hsp.align_length)*100,2)
             evalue = hsp.expect
             bitscore = hsp.score
             if hsp.align_length <= blast_record.query_length :
@@ -1455,7 +1470,7 @@ class analyzingGp60(object):
 
             if "|" in accession:
                 accession = accession.split("|")[-1].split("(")[1].split(")")[0]
-            LOG.info(f"{self.name} BLAST results on {len(sequence[self.repeatEnds:])} bp sequence after repeat region {query_coverage}% coverage, {percent_identity}% identity, top hit accession {accession}")    
+            LOG.info(f"{self.name} BLAST results on {query_length} bp {query_coverage}% coverage, {percent_identity}% identity, top hit accession {accession}")    
 
             return bitscore,evalue,query_coverage,query_length,percent_identity, accession, sequence, species
 
@@ -1475,6 +1490,7 @@ class analyzingGp60(object):
         seq = ""
         species = ""
         self.file.write("\n>" + sampleName)
+        
 
         #Output sample name
         #self.tabfile.write(self.name.split(".ab1")[0] + "\t")
@@ -1493,15 +1509,23 @@ class analyzingGp60(object):
                 if self.species != species:
                     LOG.warning(f"Species mismatch w.r.t to accession number {self.species} vs {species}. Fixing it")
                     self.species = species #making sure the accession number matches the species
+            else:
+                LOG.info("Poor Sequence Quality. BLAST would not be run")
+
         else:
             sequence = contig
 
             if sequence != "Poor Sequence Quality":
-                LOG.info("Running BLAST on contig of acceptable quality and getting top hit accession ...")
+                LOG.info(f"Running BLAST on acceptable quality {len(sequence)}bp contig and getting top hit accession ...")
                 bitscore,evalue,query_coverage,query_length,percent_identity, accession, seq, species = self.blast(sequence, True, customdatabasename) 
+                
                 if self.species != species:
                     LOG.warning(f"Species mismatch w.r.t to accession number {self.species} vs {species}. Fixing it")
                     self.species = species #making sure the accession number matches the species
+            else:
+                LOG.info("Poor Sequence Quality. BLAST would not be run")
+                
+            
         
 
         if self.seq == "Poor Sequence Quality":
@@ -1619,7 +1643,7 @@ class analyzingGp60(object):
             self.tabfile.write(str(self.averagePhredQuality) + "\t")
             self.tabfile.write(str(bitscore)+"\t")
             self.tabfile.write(str(query_length)+"\t")
-            self.tabfile.write(str(query_coverage) + "%\t")
+            self.tabfile.write(str(round(query_coverage,2)) + "%\t")
             self.tabfile.write(str(evalue) +"\t")
             self.tabfile.write(str(percent_identity) + "%\t")
             self.tabfile.write(str(accession)+"\n")
@@ -1752,7 +1776,7 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
     pathlist.sort()
     pathlistEnumerated = [f"{idx+1}: {i}" for idx, i in enumerate(pathlist)]
     list_of_files_str = "\n".join(pathlistEnumerated)
-    LOG.info(f"Processing {len(pathlist)} file(s) in {typeSeq} mode:\n{list_of_files_str}")
+    LOG.info(f"Processing {len(pathlist)} file(s) in {typeSeq} mode.")
 
     contig = False
     onlyForwards = False
@@ -1796,6 +1820,7 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
 
 
     if contig:
+        LOG.info(f"{typeSeq.upper()} only read input only mode started ...")
         if len(pathlist)%2 == 0:
             for idx, path in enumerate(pathlist):
                 filetype = utilities.getFileType(path)
@@ -1908,14 +1933,13 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
             file.write("\nCannot find all paired forward and reverse files.  Make sure all files are included to produce the contig.")
 
     else:
-        LOG.info("Forward or Reverse only read input only mode started ...")
+        LOG.info(f"{typeSeq.upper()} only read input only mode started ...")
         for idx, path in enumerate(pathlist):
             filetype = utilities.getFileType(path)
             LOG.info(f"\n\n*** {idx+1}: Running sample {os.path.basename(path)} as {filetype} file type ***")
             forward = analyzingGp60()
 
             #check if a given path is indeed in forward or reverse orientation
-
             #foward only mode 
             if onlyForwards:
                 read_ok = forward.readFiles(path, True, file, tabfile, filetype, customdatabasename)
