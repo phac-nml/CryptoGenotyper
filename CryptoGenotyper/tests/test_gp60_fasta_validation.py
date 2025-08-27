@@ -163,13 +163,35 @@ def test_typical_contig_mode(input_fasta_file=TEST_DATA_DIR):
         "-f", "Cmortiferum_gp60_f2",
         "-r", "Cmortiferum_gp60_r3",
         "-t", "contig",
-        "-o", "Cmortiferum_gp60_typical_contig",
-        "--verbose"
+        "-o", "Cmortiferum_gp60_typical_contig"
+
     ]
     sys.argv[1:] = args
     cryptogenotyper_main()
 
-    lines=read_report_file("Cmortiferum_gp60_both_reverse_cryptogenotyper_report.txt")
+    lines=read_report_file("Cmortiferum_gp60_typical_contig_cryptogenotyper_report.txt")
     secondrow = lines[1].split("\t")
     assert 'C.mortiferum' in secondrow 
     assert "XIVaA16G2T2a" in secondrow
+
+
+def test_multifasta_contig_mode_illumina(input_fasta_file=TEST_DATA_DIR):
+    args = [
+        "-i", input_fasta_file ,
+        "-m", "gp60",
+        "-f", "test_illumina_gp60_F",
+        "-r", "test_illumina_gp60_R",
+        "-t", "contig",
+        "-o", "test_illumina_gp60_contig"
+     
+    ]
+    sys.argv[1:] = args
+    cryptogenotyper_main()
+
+    lines=read_report_file("test_illumina_gp60_contig_cryptogenotyper_report.txt")
+    secondrow = lines[1].split("\t")
+    thirdrow = lines[2].split("\t")
+    assert 'C.parvum' in secondrow 
+    assert "IIaA16G3R1" in secondrow
+    assert 'C.parvum' in thirdrow 
+    assert "IIaA15G2R2" in thirdrow

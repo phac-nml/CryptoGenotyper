@@ -1,5 +1,6 @@
 import os, shutil, glob, itertools, subprocess, datetime, logging, re, time, itertools
 from Bio.Blast.Applications import NcbiblastnCommandline
+from Bio import SeqIO
 from Bio.Blast import NCBIXML
 from CryptoGenotyper import definitions
 from collections import defaultdict
@@ -15,7 +16,6 @@ LOG = logging.getLogger(__name__)
 DATABASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__),"reference_database"))
 
 def createTempFastaFiles(experiment_prefix="", record=None):
-    LOG.debug("Creating temporary FASTA files from multi-FASTA file ...")
     temp_dir = os.path.join("./",f"tmp_fasta_files_{experiment_prefix}")
     if os.path.exists(temp_dir == False):
         os.makedirs(temp_dir, exist_ok=True)
@@ -201,7 +201,14 @@ def pair_files(file_paths, forward_suffix: str = "", reverse_suffix: str = ""):
         """Removes the given suffix and preceding text from a filename."""
         match = re.search(re.escape(suffix), filename)
         if match:
-            return filename[:match.start()]
+            common_name_before = filename[:match.start()]
+            common_name_after = filename[match.end():]
+            if common_name_before:
+                return common_name_before
+            if common_name_after:
+                return common_name_after
+            else:
+                filename
         return filename
 
     # --- Step 0: Check for Direct File Mode ---
@@ -257,13 +264,15 @@ def pair_files(file_paths, forward_suffix: str = "", reverse_suffix: str = ""):
 
     for path in sorted(forward_reads):
         name_no_ext = os.path.splitext(os.path.basename(path))[0]
+        
         sample_id = strip_suffix(name_no_ext, forward_suffix)
+        
         if 'F' in grouped_files[sample_id]:
             LOG.warning(f"Duplicate forward read for sample ID '{sample_id}'. Keeping first, discarding {os.path.basename(path)}")
             unpaired_files.append(path)
         else:
             grouped_files[sample_id]['F'] = path
-
+    
     for path in sorted(reverse_reads):
         name_no_ext = os.path.splitext(os.path.basename(path))[0]
         sample_id = strip_suffix(name_no_ext, reverse_suffix)
@@ -272,6 +281,7 @@ def pair_files(file_paths, forward_suffix: str = "", reverse_suffix: str = ""):
             unpaired_files.append(path)
         else:
             grouped_files[sample_id]['R'] = path
+          
 
     # --- Step 4: Create pairs and identify remaining unpaired files ---
     file_pairs = []
@@ -482,3 +492,57 @@ def SSU_final_result_qc_checker(self, species, percent_identity,query_coverage,q
                     
  
     return is_good_result
+
+def slice_multifasta(typeSeq, fasta_paths, pathlist, expName):
+    # fasta file slicing
+    if typeSeq == "contig":
+        step_size = 2
+    else:
+        step_size = 1
+            
+    for i in range(0, len(fasta_paths), step_size):
+        if step_size == 1:
+            fasta_path = fasta_paths[i]
+            with open(fasta_path,"r") as handle:
+                records=list(SeqIO.parse(handle, "fasta"))
+                LOG.info(f"File {handle.name} has {len(records)} sequences")
+                #this is multifasta format as multiple records in fasta file
+                if len(records) > 1:
+                    for fasta_record in records:
+                        tempFastaFilePath = createTempFastaFiles(expName,fasta_record)
+                        pathlist.append(tempFastaFilePath)
+                    pathlist.remove(fasta_path) #remove original fasta path that was split       
+        elif step_size == 2:
+            forward_path = fasta_paths[i]
+            reverse_path = fasta_paths[i + 1]
+           
+            with open(forward_path,"r") as handle_fwd, open(reverse_path,"r") as handle_rev:
+                records_fwd=list(SeqIO.parse(handle_fwd, "fasta"))
+                records_rev=list(SeqIO.parse(handle_rev, "fasta"))
+                LOG.info(f"Forward file {handle_fwd.name} has {len(records_fwd)} sequences and reverse file {handle_rev.name} has {len(records_rev)} sequences")
+                
+                if len(records_fwd) > 1 and len(records_rev) > 1 :
+                    for fasta_record_fwd, fasta_record_rev in zip(records_fwd, records_rev):
+                        tempFastaFilePath = createTempFastaFiles(expName+"_1",fasta_record_fwd)
+                        pathlist.append(tempFastaFilePath)
+                        tempFastaFilePath = createTempFastaFiles(expName+"_2",fasta_record_rev)
+                        pathlist.append(tempFastaFilePath)
+                    pathlist.remove(forward_path) #remove original fasta path that was split
+                    pathlist.remove(reverse_path) #remove original fasta path that was split
+            if pathlist:
+                width_col = 60
+                LOG.info(f"{os.path.basename(handle_fwd.name)} and {os.path.basename(handle_rev.name)} ..." )
+                table_lines = [
+                    f"\n{'Idx':<3} │ {'Forward':<{width_col}} │ {'Reverse':<{width_col}}",
+                    "─" * (width_col*2+3)
+                ]
+                for i in range(0, len(pathlist), 2):
+                    if i + 1 < len(pathlist):
+                        fwd = pathlist[i]
+                        rev = pathlist[i+1]
+                        # Corrected line: use {width_col} instead of width_col
+                        table_lines.append(f"{int(i/2) + 1:<3} │ {os.path.basename(fwd):<{width_col}} │ {os.path.basename(rev):<{width_col}}")
+                    else:
+                        fwd = pathlist[i]
+                        table_lines.append(f"{int(i/2) + 1:<3} │ {os.path.basename(fwd):<{width_col}} │ {'':<{width_col}}")
+                LOG.info("\n".join(table_lines))     

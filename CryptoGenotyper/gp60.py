@@ -1502,7 +1502,7 @@ class analyzingGp60(object):
         #for forward or reverse inputs
 
         if contig == "":
-            sequence=str(self.seq)
+            sequence=str("".join(self.seq))
             if sequence != "Poor Sequence Quality":
                 LOG.info(f"Running BLAST on {len(sequence)}bp sequence of acceptable quality and getting top hit accession ...")
                 bitscore,evalue,query_coverage,query_length,percent_identity, accession, seq, species = self.blast(sequence,False, filetype, customdatabasename)
@@ -1751,21 +1751,16 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
         pathlist = [path for path in pathlist if re.search(fPrimer, path) or re.search(rPrimer, path)]  # select only files matching the primers
     elif fPrimer:
         pathlist = [path for path in pathlist if re.search(fPrimer, path)]
+        pathlist.sort()
     elif rPrimer:
         pathlist = [path for path in pathlist if re.search(rPrimer, path)]
+        pathlist.sort()
 
     
     #if multi-FASTA file is present in the list slice it up into individual files https://www.metagenomics.wiki/tools/fastq/multi-fasta-format 
     fasta_paths = [path for path in pathlist for fasta_extension in definitions.FASTA_FILETYPES if path.endswith(fasta_extension)]
-    for fasta_path in fasta_paths:
-        with open(fasta_path,"r") as handle:
-            records=list(SeqIO.parse(handle, "fasta"))
-            LOG.info(f"File {handle.name} has {len(records)} sequences {[r.name for r in records]}")
-            if len(records) > 1:
-                for fasta_record in records:
-                    tempFastaFilePath = utilities.createTempFastaFiles(expName,fasta_record)
-                    pathlist.append(tempFastaFilePath)
-                pathlist.remove(fasta_path)     
+    utilities.slice_multifasta(typeSeq,fasta_paths,pathlist,expName)
+
     
     if pathlist == []:
         msg=f"No supported input file(s) found in pathlist {pathlist_unfiltered}. Supported input filetypes are {definitions.FILETYPES}"
@@ -1773,9 +1768,7 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
         raise Exception(msg)
   
     
-    pathlist.sort()
-    pathlistEnumerated = [f"{idx+1}: {i}" for idx, i in enumerate(pathlist)]
-    list_of_files_str = "\n".join(pathlistEnumerated)
+    
     LOG.info(f"Processing {len(pathlist)} file(s) in {typeSeq} mode.")
 
     contig = False
@@ -1832,11 +1825,10 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
                 filetypeF = utilities.getFileType(path)
                 filetypeR = utilities.getFileType(pathlist[idx+1])
              
-                #for i in range(0, len(fPrimers)):
-                #if fPrimer in path:
+                
                 forwSeqbool = forward.readFiles(path, True, file, tabfile, filetypeF,customdatabasename)
                 revSeqbool = reverse.readFiles(pathlist[idx+1], False, file, tabfile,filetypeR, customdatabasename)
-                pathlist.remove(pathlist[idx+1])    
+                pathlist.remove(pathlist[idx+1])   
 
 
                 forwardPhred = forward.averagePhredQuality

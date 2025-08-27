@@ -2301,7 +2301,7 @@ class MixedSeq(object):
         
         if (self.species1 == ";>No blast hits." and self.species2 == ";>No blast hits."):
             if self.avgPhredQuality < 13:
-                self.tabfile.write("\t\t\t" + f"Could not analyze input file. No BLAST hits for potential species 1 and 2. Average Phred Quality < 13 ({self.avgPhredQuality}).  Check manually." + "\t\t\t\t\t\t\t\n")
+                self.tabfile.write("\t\t\t" + f"Could not analyze. No BLAST hits for potential species 1 and 2. Average Phred Quality < 13 ({self.avgPhredQuality}).  Check manually." + "\t\t\t\t\t\t\t\n")
             else:
                 self.tabfile.write("\t\t\t" + "No blast hits." + "\t\t\t\t\t\t\t\n")
             return None
@@ -2335,7 +2335,7 @@ class MixedSeq(object):
     
         #if any of the qc messages, terminate output as those are critical and we do not want mislead user with non-reliable results        
         if qc_critical_msgs:
-            self.tabfile.write("\t\t\t" +f"Could not analyze input file. {'. '.join(qc_critical_msgs)}. Check manually."+"\t\t\t\t\t\t\t\n")
+            self.tabfile.write("\t\t\t" +f"Could not analyze. {'. '.join(qc_critical_msgs)}. Check manually."+"\t\t\t\t\t\t\t\n")
             return None
         
         qc_msg_list_final = []
@@ -2407,7 +2407,7 @@ class MixedSeq(object):
 
         elif species == species2 or ("C.hominis" in species and "C.hominis" in species2) and seq2 != "":
             #if query_coverage < 50 and query_coverage2 < 50:
-            #    self.tabfile.write("\t\t\t" + "Could not analyze input file. Please check manually." + "\t\t\t\t\t\t\t\n")
+            #    self.tabfile.write("\t\t\t" + "Could not analyze. Please check manually." + "\t\t\t\t\t\t\t\n")
             #    return
 
             if utilities.SSU_final_result_qc_checker(self, species, percent_identity,query_coverage,query_length,subject_length) == False and \
@@ -2561,37 +2561,30 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
     reverseP= reverseP.replace(' ', '')
 
     pathlist = [path for path in pathlist_unfiltered if re.search("$|".join(definitions.FILETYPES),path)]
+    
 
     if forwardP and reverseP:
         pathlist = [path for path in pathlist if re.search(forwardP, path) or re.search(reverseP, path)]  # select only files matching the primers
     elif forwardP:
         pathlist = [path for path in pathlist if re.search(forwardP, path)]
+        pathlist.sort()
     elif reverseP:
         pathlist = [path for path in pathlist if re.search(reverseP, path)]
+        pathlist.sort()
 
     #if a multi-FASTA file is present in the list, slice it up into individual files https://www.metagenomics.wiki/tools/fastq/multi-fasta-format 
-    fasta_paths = [path for path in pathlist for fasta_extension in definitions.FASTA_FILETYPES if path.endswith(fasta_extension)]
-    for fasta_path in fasta_paths:
-        with open(fasta_path,"r") as handle:
-            records=list(SeqIO.parse(handle, "fasta"))
-            LOG.info(f"File {handle.name} has {len(records)} sequences {[r.name for r in records]}")
-            if len(records) > 1:
-                for fasta_record in records:
-                    tempFastaFilePath = utilities.createTempFastaFiles(expName,fasta_record)
-                    pathlist.append(tempFastaFilePath)
-                pathlist.remove(fasta_path)     
-    
+    fasta_paths = [path for path in pathlist for fasta_extension in definitions.FASTA_FILETYPES if path.endswith(fasta_extension)]    
+    utilities.slice_multifasta(typeSeq, fasta_paths, pathlist, expName)   
     
     if pathlist == []:
         msg = f"Found 0 files. Not supported input file(s) found in pathlist {pathlist_unfiltered}. Supported input filetypes are {definitions.FILETYPES}"
         LOG.error(msg)
         raise Exception(msg)
-   
-    pathlist.sort()
+
+    LOG.info(f"Total {len(pathlist)} files to process {pathlist} ...")
 
     if not noheader:
         tabfile.write("Sample Name\tType of Sequences\tMixed?\tSpecies\tSequence\tComments\tBit Score\tQuery Length (bp)\tQuery Coverage\tE-value\tPercent Identity\tAccession Number\n")
-
 
     file = io.StringIO()
     file.write("\n;>****************************************************************************")
@@ -2605,8 +2598,6 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
     file.write("\n;>****************************************************************************")
     file.write("\n;>Program Results:\n")
     #**************************************************************
-
-
 
 
     if len(pathlist) == 0:
@@ -2628,7 +2619,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
     elif typeSeq == "contig":
         LOG.info(f"Processing {len(pathlist)} file(s) in {typeSeq} mode.")
         for idx in range(0,len(pathlist),2):
-            LOG.info(f"\n{idx}: *** Working now on pair {pathlist[idx]} and {pathlist[idx+1]} ***")
+            LOG.info(f"\n{idx}: *** Working now on pair {os.path.basename(pathlist[idx])} and {os.path.basename(pathlist[idx+1])} ***")
             forward = MixedSeq(file, tabfile, 'contig')
             reverse = MixedSeq(file, tabfile, 'contig')
         
@@ -2644,16 +2635,14 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                 forward.origLength = len(forward.seq)
                 reverse.origLength = len(reverse.seq)
                 contig = buildContig("".join(forward.seq), "".join(reverse.seq), forward, reverse)
-                #contig=""
+              
                 if contig != "": #contig is formed successfully
                     forward.seq=contig
                     forward.avgPhredQuality = round((forward.avgPhredQuality + reverse.avgPhredQuality), 2)
                     forward.outputResults(customdatabsename, typeSeq, filetype)
                 else:
-                    typeSeq = "forward" 
-                    forward.outputResults(customdatabsename, typeSeq, filetype)
-                    typeSeq = "reverse" 
-                    reverse.outputResults(customdatabsename, typeSeq, filetype)
+                    forward.outputResults(customdatabsename, "forward" , filetype)
+                    reverse.outputResults(customdatabsename, "reverse", filetype)
                 continue
 
 
