@@ -17,8 +17,6 @@ def test_validation_gp60_dataset(input_fasta_file=os.path.join(TEST_DATA_DIR,"da
         "-i", input_fasta_file ,
         "-m", "gp60",
         "-o", "test_validation_gp60"
-       
-
     ]
 
     sys.argv[1:] = args
@@ -155,8 +153,8 @@ def test_both_sequences_in_forward_orientation_contig_mode(input_fasta_file=TEST
     assert 'C.mortiferum' in secondrow 
     assert "XIVaA16G2T2a" in secondrow
 
-
-def test_typical_contig_mode(input_fasta_file=TEST_DATA_DIR):
+# test contig mode given a single read fasta files in correct orientation (forward and reverse)
+def test_typical_fasta_single_read_contig_mode(input_fasta_file=TEST_DATA_DIR):
     args = [
         "-i", input_fasta_file ,
         "-m", "gp60",
@@ -174,7 +172,7 @@ def test_typical_contig_mode(input_fasta_file=TEST_DATA_DIR):
     assert 'C.mortiferum' in secondrow 
     assert "XIVaA16G2T2a" in secondrow
 
-
+# test contig mode for multifasta file with 3 reads each from Illumina MiSeq
 def test_multifasta_contig_mode_illumina(input_fasta_file=TEST_DATA_DIR):
     args = [
         "-i", input_fasta_file ,

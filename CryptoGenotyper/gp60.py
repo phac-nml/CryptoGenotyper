@@ -130,7 +130,7 @@ class analyzingGp60(object):
             self.seq = raw_seq
             self.phred_qual = [60] * len(raw_seq)
 
-        
+        # check input sequence orientation
         sequence_orientation_check_result  = utilities.checkInputOrientation(self.seq, os.path.dirname(__file__)+"/reference_database/gp60_ref.fa")
      
         if sequence_orientation_check_result:
@@ -170,7 +170,7 @@ class analyzingGp60(object):
         filename = f"query_vs_blast_gp60.txt"
         myfile = open(filename, 'w')
 
-        LOG.debug(f"Initial sequence from {self.name} ({len(self.seq)}bp) "+''.join(self.seq)) #debug
+        LOG.debug(f"Initial {len(self.seq)}bp long input sequence from {self.name}:"+''.join(self.seq)) #debug
         myfile.write(f">{self.name}\n")
         myfile.write(''.join(self.seq))
 
@@ -184,38 +184,46 @@ class analyzingGp60(object):
                                              reward=1, penalty=-2,gapopen=5, gapextend=2, 
                                              evalue=0.00001, outfmt=5, out="gp60result2.xml")
         input_seq_length = len(self.seq)
-        LOG.info(f"Querying {self.name} seq of {input_seq_length}bp against the {os.path.basename(blastn_cline.db)} gp60 database ...")
+        LOG.info(f"Querying {self.name} seq of {input_seq_length}bp against global {os.path.basename(blastn_cline.db)} gp60 database ...")
         stdout, stderr = blastn_cline()
         LOG.debug(f"BLASTN stdout={stdout} and stderr={stderr}")
       
         
 
         if (os.stat("gp60result2.xml").st_size == 0):
-            LOG.error(f"Generated an empty gp60 BLAST result for {self.name}")
+            LOG.error(f"Generated an empty gp60 BLAST result for {self.name}. Maybe not be a gp60 Crypto sequence?")
             return False
-        #use full sequence length in FASTA format (no sequence trimming)
-        elif filetype == "fasta":
-            b=0
-            e=self.seqLength-1
+        
+        result_handle = open("gp60result2.xml", 'r')
+        blast_records = NCBIXML.parse(result_handle)
+        blast_record = next(blast_records)
+        if len(blast_record.alignments) == 0:
+            LOG.warning(f"Found 0 alignments for {self.name}. Maybe not be a gp60 Crypto sequence?")
+            return False
+        blast_record.alignments = utilities.sort_blast_hits_by_id_and_bitscore(blast_record, "bitscore") 
+        br_alignment = blast_record.alignments[0]
+        hsp = br_alignment.hsps[0]
+        self.species = br_alignment.hit_id
+       
+
+
+        # use full sequence length in FASTA format (no sequence trimming) except if sequence is larger then 1000 bp
+        # trim input seqeunce to the top reference in case user supplies entire genome or large sequence that could negatively impact repeat region determination
+        if filetype == "fasta":
+            if self.seqLength < 1000:
+                b=0
+                e=self.seqLength-1
+            else: #sequence larger then 1000 bp then it can be trimmed if a top reference is > 700 bp, otherwise do nothing
+                if abs(e-b) > 700:
+                    b = hsp.query_start-1 #trim index
+                    e = hsp.query_end #trim index
+                else:
+                    b=0
+                    e=self.seqLength-1
+
         else:
-            result_handle = open("gp60result2.xml", 'r')
-            blast_records = NCBIXML.parse(result_handle)
-            blast_record = next(blast_records)
-
-            if len(blast_record.alignments) == 0:
-                LOG.warning(f"Found 0 alignments for {self.name}")
-                return False
-
-            blast_record.alignments = utilities.sort_blast_hits_by_id_and_bitscore(blast_record, "bitscore") 
-            br_alignment = blast_record.alignments[0]
-            hsp = br_alignment.hsps[0]
-    
             #works even if sequence is in reverse orientation as results are always given with respect to the query sequence so
             #trimming coordinates are always valid
-            self.species = br_alignment.hit_id
-            b = hsp.query_start-1
-            e = hsp.query_end
-
             dbpath = os.path.join(os.path.dirname(__file__),"reference_database/gp60_ref.fa")
             LOG.info(f"Querying {self.name} against the {dbpath} gp60 database ...")
 
@@ -241,6 +249,8 @@ class analyzingGp60(object):
             LOG.info(f"Querying {self.name} against the {blastn_cline.db} gp60 database ...")
             stdout, stderr = blastn_cline()
             
+            b = hsp.query_start-1 #trim index
+            e = hsp.query_end #trim index
  
             if b > (len(self.seq)*0.25):
                 LOG.debug(f"Position b={b} and is GREATER than 25% of the original sequence length ({len(self.seq)}). Threshold: {len(self.seq)*0.25:.2f}")
@@ -726,6 +736,7 @@ class analyzingGp60(object):
         quality_cutOff=15
         goodQuality=False
         self.checkRepeatManually = False
+
         for i in range(self.repeatStarts, self.repeatEnds):
             if i < len(self.a):
                 a= self.a[i]
@@ -752,7 +763,7 @@ class analyzingGp60(object):
             
             if lri <= 2.0:
                 self.doublePeaksinRepeat = True
-
+            
             if self.phred_qual[i] < quality_cutOff:  
                 self.checkRepeatManually = True
                 for x in range(0, 3):
@@ -1021,48 +1032,45 @@ class analyzingGp60(object):
         else:    
             blastdbpath=os.path.dirname(__file__)+"/reference_database/gp60_ref.fa"
 
-        # Filename to write
-        filename = "query.txt"
+        
+        if not contig:
+            # Filename to write
+            filename = "query.txt"
 
-        # Open the file with writing permission
-        myfile = open(filename, 'w')
+            # Open the file with writing permission
+            myfile = open(filename, 'w')
 
-        # Write a line to the file
-        myfile.write(f">{self.name}\n")
-        myfile.write(sequence)
+            # Write a line to the file
+            myfile.write(f">{self.name}\n")
+            myfile.write(sequence)
 
-        # Close the file
-        myfile.close()
+            # Close the file
+            myfile.close()
 
         
-        blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn', query="query.txt", dust='yes',
+            blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn', query="query.txt", dust='yes',
                                              db=os.path.dirname(__file__)+"/reference_database/blast_gp60.fasta", 
                                              reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result.xml")
         
-        LOG.info(f"Running BLAST on {len(sequence)}bp sequence from {self.name} on {os.path.basename(blastn_cline.db)} and contig value is {contig}")
-        stdout, stderr = blastn_cline()
-         
-        if (os.stat("gp60result.xml").st_size == 0):
-            LOG.warning("No BLAST hits found! Check database blast_gp60.fasta or input")
-            return "","","","","","","",""
-        
-        
-        elif not contig:
+            LOG.info(f"Running BLAST on {len(sequence)}bp sequence from {self.name} on {os.path.basename(blastn_cline.db)} and contig value is {contig}")
+            blastn_cline()
+            if (os.stat("gp60result.xml").st_size == 0):
+                LOG.warning("No BLAST hits found! Check database global blast_gp60.fasta and if input sequence belongs to Cryptosporidium species")
+                return "","","","","","","",""
+
             result_handle = open("gp60result.xml", 'r')
             blast_records = NCBIXML.parse(result_handle)
             blast_record = next(blast_records)
 
        
             if len(blast_record.alignments) == 0:
-                LOG.warning("No BLAST hits found! Check database blast_gp60.fasta or inputs")
+                LOG.warning("No BLAST hits found! Check database global blast_gp60.fasta and if input sequence belongs to Cryptosporidium species")
                 #return "","","","","","",""
             else:
                 blast_record.alignments = utilities.sort_blast_hits_by_id_and_bitscore(blast_record)    
                 br_alignment = blast_record.alignments[0]
                 hsp = br_alignment.hsps[0]
-                
-                
-        
+            
                 subjectSeq = hsp.sbjct
 
                 file = open("align.fa", 'w')
@@ -1071,10 +1079,10 @@ class analyzingGp60(object):
                 file.write("\n>Seq2\n")
                 file.write(subjectSeq)
                 file.close()
-
+                
                 if len(sequence) < 10000: #do not run more than 10000bp on ClustalW as it will be slow
                     clustalw_cline = ClustalwCommandline("clustalw", infile="align.fa")
-                    stdout, stderr = clustalw_cline()
+                    clustalw_cline()
 
                     align = AlignIO.read("align.aln", "clustal")
 
@@ -1084,6 +1092,7 @@ class analyzingGp60(object):
                         else:
                             subject = record.seq
                 else:
+                    LOG.warning(f"Submitted sequence is larger that 10000 bp ({len(sequence)}bp) so ClustalW protein alignment will be skipped")
                     query = sequence
                     subject = subjectSeq    
 
@@ -1293,8 +1302,6 @@ class analyzingGp60(object):
 
             # Open the file with writing permission
             myfile = open(filename, 'w')
-
-            
             self.findRepeatRegion()
             # Write a line to the file
             #myfile.write(''.join(self.seq[self.repeatEnds:])) #original only align from repeat onwards
@@ -1308,7 +1315,7 @@ class analyzingGp60(object):
                                                  db=blastdbpath, reward=1, penalty=-2,gapopen=5, gapextend=2,
                                                  evalue=0.00001, outfmt=5, out="gp60result.xml")
 
-            stdout, stderr = blastn_cline()
+            blastn_cline()
 
             if (os.stat("gp60result.xml").st_size == 0):
                 LOG.warning(f"BLAST result file is empty (zero size)! Check database {blastdbpath} or inputs!")

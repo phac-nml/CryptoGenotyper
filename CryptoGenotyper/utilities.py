@@ -105,11 +105,12 @@ def quantile(data, q):
 def sort_blast_hits_by_id_and_bitscore(blast_record, mode="default"):
     if len(blast_record.alignments) > 1:
         # Calculate coverage for each alignment
-        coverages = {a: a.hsps[0].align_length / blast_record.query_length for a in blast_record.alignments}
+        #coverages = {a: a.hsps[0].align_length / blast_record.query_length for a in blast_record.alignments} #query coverage
+        coverages = {a: a.hsps[0].align_length / a.length for a in blast_record.alignments} #subject reference allele
         identities = {a: a.hsps[0].identities / a.hsps[0].align_length for a in blast_record.alignments}
         scores = {a: a.hsps[0].score for a in blast_record.alignments}
         
-        # Compute %identity and %coverage (reference allele)
+        # Compute %identity and %coverage of the query
         coverage_values = list(coverages.values())
         identity_values = list(identities.values())
         threshold_coverage = quantile(coverage_values,0.75)
@@ -446,6 +447,7 @@ def checkInputOrientation(sequence,  blastdbpath):
             LOG.info("No clear orientation could be determined from significant BLASTN hits.")
             return ""
 
+# Add check manually  string if QC message is missing it
 def add_check_manually_str(string_list):
     msg_check = "Check manually."
    

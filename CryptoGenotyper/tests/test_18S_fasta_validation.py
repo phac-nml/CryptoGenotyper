@@ -121,5 +121,44 @@ def test_typical_contig_mode(input_fasta_file=TEST_DATA_DIR):
 
     lines=read_report_file("Chominis_18S_typical_contig_cryptogenotyper_report.txt")
     secondrow = lines[1].split("\t")
-    assert "C.parvum" in lines[1].split("\t")
-    assert "1746" in lines[1].split("\t")
+    assert "C.parvum" in secondrow
+    assert "1746" in secondrow
+
+
+# test contig mode for multifasta file with several reads from Illumina MiSeq sequencer
+def test_multifasta_contig_mode_illumina(input_fasta_file=TEST_DATA_DIR):
+    args = [
+        "-i", input_fasta_file ,
+        "-m", "18S",
+        "-f", "test_illumina_18S_F",
+        "-r", "test_illumina_18S_R",
+        "-t", "contig",
+        "-o", "test_illumina_18S_contig"
+     
+    ]
+    sys.argv[1:] = args
+    cryptogenotyper_main()
+
+    lines=read_report_file("test_illumina_18S_contig_cryptogenotyper_report.txt")
+    for line in lines[1:]:
+        assert 'C.hominis' in line 
+        assert "L16997" in line or "GQ983348.1" in line
+
+# test contig mode for multifasta file with several reads each from MinIon sequencer
+def test_multifasta_contig_mode_nanopore(input_fasta_file=TEST_DATA_DIR):
+    args = [
+        "-i", input_fasta_file ,
+        "-m", "18S",
+        "-f", "test_nanopore_18S_forward.fasta",
+        "-t", "forward",
+        "-o", "test_nanopore_18S_forward"
+     
+    ]
+    sys.argv[1:] = args
+    cryptogenotyper_main()
+
+    lines=read_report_file("test_nanopore_18S_forward_cryptogenotyper_report.txt")
+    for line in lines[1:]:
+        assert 'C.parvum' in line 
+        assert "KM012040.1" in line
+    

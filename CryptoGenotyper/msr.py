@@ -979,6 +979,8 @@ class MixedSeq(object):
 
         self.qcMsgsStr="" #quality control messages string
 
+        self.isCrypto=False #check if the initial input sequence is valid 18S Crypto
+
 
 
     def readFiles(self, dataFile, forw, filetype="abi"):
@@ -1010,6 +1012,19 @@ class MixedSeq(object):
         elif filetype == "fasta" or filetype == "fa":
             handle=open(dataFile,"r")   
             record=SeqIO.read(handle, "fasta")
+            self.origLength = len(record.seq)
+            self.blast(record.seq, None)
+            if len(record.seq) < 1000:
+                self.seq = list(record.seq.upper())
+            else:
+                if abs(self.e-self.b) > 700:    
+                    self.seq = list(record.seq[self.b:self.e].upper())
+                    LOG.info(f"Trimming input sequence to {len(self.seq)} bp from {len(record.seq)}bp ...")
+                else:
+                    self.seq = list(record.seq.upper())    
+           
+         
+
             #raw_seq = list(record.seq.upper()) #making sure all bases converted to upper case so matching works
             #self.seq = raw_seq
             #self.phred_qual = [60] * len(raw_seq)
@@ -1026,7 +1041,7 @@ class MixedSeq(object):
             #   self.seq  = list(record.reverse_complement().seq.upper())
             #else:
             #   self.seq  = list(record.seq.upper())
-            self.seq = list(record.seq.upper())
+            #self.seq = list(record.seq.upper())
             self.phred_qual = [60] * len(self.seq)      
             LOG.debug(f"Initial sequence from {self.name} ({len(self.seq )}bp) {''.join(self.seq )}") 
 
@@ -2165,6 +2180,29 @@ class MixedSeq(object):
 
         # Close the file
         myfile.close()
+
+        #check if input is 18S using global database
+        if self.isCrypto == False:
+            blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn', query="query.txt", dust='yes',
+                                                db=os.path.dirname(__file__)+"/reference_database/blast_SSU.fa", 
+                                                reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="SSUresult.xml")
+            blastn_cline()
+            if (os.stat("SSUresult.xml").st_size == 0):
+                    LOG.warning("No BLAST hits found! Maybe not be an 18S Crypto sequence or outdated database??")
+                    return "","",0,"","",0,"","",sequence
+            result_handle = open("SSUresult.xml", 'r')
+            blast_records = NCBIXML.parse(result_handle)
+            blast_record = next(blast_records)
+            if len(blast_record.alignments) == 0:
+                LOG.warning("No BLAST hits found! Maybe not be an 18S Crypto sequence or outdated database?")
+                return "","",0,"","",0,"","",sequence
+            else:
+                br_alignment = blast_record.alignments[0]
+                hsp = br_alignment.hsps[0]
+                LOG.info("Global 18S database (blast_SSU.fa) indicates that a valid 18S Crypto sequence provided ...")
+                self.isCrypto = True #set the boolean flag that this is likely a valid 18 Crypto sequence and no need to check again
+                self.b = hsp.query_start-1 #trim index
+                self.e = hsp.query_end #trim index
         
         if customdatabsename:
             LOG.info(f"Running BLAST on {len(sequence)}bp query from {self.name} on {customdatabsename}")
@@ -2176,6 +2214,7 @@ class MixedSeq(object):
                                              db=os.path.dirname(__file__)+"/reference_database/msr_ref.fa", reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="SSUresult.xml")
 
         stdout, stderr = blastn_cline()
+        LOG.debug(f"BLASTN stdout={stdout} and stderr={stderr}")
 
         if (os.stat("SSUresult.xml").st_size == 0):
             return "","",0,"","",0,"","",sequence
@@ -2341,7 +2380,7 @@ class MixedSeq(object):
         qc_msg_list_final = []
         if self.ambigSpeciesBlast != []:
             LOG.warning(f"BLAST equally likely hits found {self.ambigSpeciesBlast}")
-            qc_msg_list_final.append("Check manually.")
+            qc_msg_list_final.append("BLAST equally likely hits found. Check manually.")
         
        
         if species == "" and seq2 != "":# or query_coverage < 50:

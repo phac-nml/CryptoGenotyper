@@ -8,7 +8,7 @@ def read_report_file(report_file_path):
          lines = [line.rstrip() for line in outfp.readlines()]
          return lines
 
-#test the main function
+#test the contig gp60 typing with a pair of sanger files
 def test_default_database_gp60_contig_input(input_dir=os.path.abspath(os.path.join(os.path.dirname(__file__),"..","example"))):
 
     args = [
@@ -31,7 +31,8 @@ def test_default_database_gp60_contig_input(input_dir=os.path.abspath(os.path.jo
     assert 'AY262034' in secondrow, secondrow[::-1]
     assert 'C.parvum' in secondrow
     assert 'IIaA15G2R1' in secondrow
-
+    
+#test the contig gp60 typing with a pair of sanger files with a custom database
 def test_custom_database_gp60_contig_input(input_dir=os.path.abspath(os.path.join(os.path.dirname(__file__),"..","example"))):
     args = [
         "-i", input_dir,
@@ -55,7 +56,7 @@ def test_custom_database_gp60_contig_input(input_dir=os.path.abspath(os.path.joi
     assert any('C.parvum' in item for item in secondrow), "C.parvum not found in any field."
     assert any('IIa' in item for item in secondrow), "IIa not found in any field."
 
-
+# test contig mode with sanger file with default 18S database
 def test_default_database_18S(input_dir=os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "example"))):
     args = [
         "-i", input_dir,
@@ -84,7 +85,7 @@ def test_default_database_18S(input_dir=os.path.abspath(os.path.join(os.path.dir
     assert 'C.parvum' in thirdrow
 
 
-
+# test contig mode for sanger files if user supplies a custom database 
 def test_custom_database_18S(input_dir=os.path.abspath(os.path.join(os.path.dirname(__file__),"..","example"))):
 
     args = [
@@ -110,7 +111,7 @@ def test_custom_database_18S(input_dir=os.path.abspath(os.path.join(os.path.dirn
     assert 'KM012040.1'  in thirdrow, thirdrow[::-1]
     assert 'C.parvum' in thirdrow
 
-
+# test sanger 18S file in forward orientation
 def test_default_singlefile(input_dir=os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "example"))):
    
 
@@ -138,7 +139,7 @@ def test_default_singlefile(input_dir=os.path.abspath(os.path.join(os.path.dirna
    
             
  
-
+# test if the same fasta file can be correctly 18S typed provided in the forward and reverse orientation
 def test_gp60_fasta_single_sequence(input_dir = os.path.join(TEST_DATA_DIR) ):
     args = [
         ["-i", os.path.join(input_dir,"P17705_gp60-Crypt16-1F-20170927_gp60F_G08_052.fasta"),
@@ -165,7 +166,7 @@ def test_gp60_fasta_single_sequence(input_dir = os.path.join(TEST_DATA_DIR) ):
 
 
 
-
+# test if the same fasta file can be correctly 18S typed provided in the forward and reverse orientation
 def test_18S_fasta_single_sequence(input_dir = os.path.join(TEST_DATA_DIR) ):
     args = [
         ["-i", os.path.join(input_dir,"P17705_Crypto16-20170927_SSUR.fasta"),
@@ -186,8 +187,9 @@ def test_18S_fasta_single_sequence(input_dir = os.path.join(TEST_DATA_DIR) ):
         secondrow = lines[1].split("\t")
 
         assert "C.parvum" in secondrow
+        assert "KT948751.1" in secondrow
 
-
+# test if single read fasta file in reverse orientation correctly
 def test_18S_fasta_single_sequence_сustom_database(input_dir = os.path.join(TEST_DATA_DIR) ):
     args = [
         "-i", os.path.join(input_dir,"P17705_Crypto16-20170927_SSUR.fasta"),
@@ -204,6 +206,7 @@ def test_18S_fasta_single_sequence_сustom_database(input_dir = os.path.join(TES
 
     assert "C.parvum" in secondrow
 
+#test if multi-fasta file with several sequences can by typed well in forward mode
 def test_18S_fasta_multi_sequence(input_dir = os.path.join(TEST_DATA_DIR) ):
     args = [
         "-i", os.path.join(input_dir,"18S_multifasta.fasta"),
