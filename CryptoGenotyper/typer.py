@@ -78,9 +78,7 @@ def parse_cli_arguments():
 #in command line: sequences, marker, contig/f/r, fname, rname, expName
 def main():
     args= parse_cli_arguments()
-    LOG.debug(args)
-
-    
+    LOG.debug(args)    
 
     if args.verbose:
         for handler in logging.getLogger().handlers:
@@ -125,6 +123,8 @@ def main():
             full_path = os.path.join(seq_dir, file)
             if os.path.isfile(full_path) and any(file.endswith(file_ext) for file_ext in definitions.FILETYPES):
                 pathlist.append(full_path)
+            else:
+                LOG.debug(f"Warning: The file '{full_path}' is not a valid file type. Supported extensions are: {', '.join(definitions.FILETYPES)}")    
         pathlist = utilities.filter_files_by_suffix(pathlist,args.suffix)        
         #try to pair any ab1 files
         if typeSeq == "contig":
@@ -135,6 +135,9 @@ def main():
         #get absolute path of a single file provided
         if any([seq_dir.endswith(file_ext) for file_ext in definitions.FILETYPES]):
             pathlist.append(os.path.abspath(seq_dir)) 
+        else:
+            LOG.info(f"Warning: The file '{full_path}' is not a valid file type. Supported extensions are: {', '.join(definitions.FILETYPES)}")    
+            
         pathlist = utilities.filter_files_by_suffix(pathlist,args.suffix)    
     
     

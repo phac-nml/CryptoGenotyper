@@ -89,7 +89,7 @@ def quantile(data, q):
     - The quantile value
     """
     if not 0 <= q <= 1:
-        raise ValueError("q must be between 0 and 1")
+        raise ValueError(f"q must be between 0 and 1 but provided q={q}")
 
     sorted_data = sorted(data)
     n = len(sorted_data)
@@ -117,7 +117,7 @@ def sort_blast_hits_by_id_and_bitscore(blast_record, mode="default"):
         threshold_identity = quantile(identity_values,0.25)
         threshold_score = quantile(scores.values(),0.95)
 
-        LOG.debug(f"HSP score threshold 95th quantile {int(threshold_score)}")
+        LOG.debug(f"HSP score threshold 95th quantile {int(threshold_score)} bp")
         # Filter alignments (only alignment objects)
         kept_alignments = [a for a in blast_record.alignments if scores[a] >= threshold_score]
         # Fallback: if no alignments pass the threshold, keep the top-scoring alignment

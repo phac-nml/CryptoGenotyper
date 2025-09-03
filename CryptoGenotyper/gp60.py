@@ -9,7 +9,7 @@
 
 
 import io
-import os
+import os, sys
 import re
 import logging
 from CryptoGenotyper.logging import create_logger
@@ -105,7 +105,7 @@ class analyzingGp60(object):
         LOG.debug(f"Reading file {self.name} ...") #Lets user know which sequence the program is on
 
         #opens the ab1 file
-        if  filetype == "abi" or filetype == "ab1":
+        if  filetype in definitions.SANGER_FILETYPES:
             handle=open(dataFile,"rb")
             record=SeqIO.read(handle, "abi")
             #retrieving base amplitude data
@@ -123,12 +123,14 @@ class analyzingGp60(object):
             #phred quality of the bases
             self.phred_qual=record.letter_annotations['phred_quality']
             self.seq = raw_seq
-        elif filetype == "fasta" or filetype == "fa":
+        elif filetype in definitions.FASTA_FILETYPES:
             handle=open(dataFile,"r")   
             record=SeqIO.read(handle, "fasta")
             raw_seq = list(record.seq.upper()) #making sure all bases converted to upper case so matching works
             self.seq = raw_seq
             self.phred_qual = [60] * len(raw_seq)
+        else:
+            sys.exit(f"Unsupported file type: '{filetype}'. Please provide a valid file. Supported extensions are: {', '.join(definitions.FILETYPES)}")
 
         # check input sequence orientation
         sequence_orientation_check_result  = utilities.checkInputOrientation(self.seq, os.path.dirname(__file__)+"/reference_database/gp60_ref.fa")
@@ -207,14 +209,15 @@ class analyzingGp60(object):
        
 
 
-        # use full sequence length in FASTA format (no sequence trimming) except if sequence is larger then 1000 bp
+        # use full sequence length in FASTA format (no sequence trimming) except if sequence is larger then 2000 bp 
+        # Long gp sequences C.fayeri|IVc(FJ490069), Length: 1505, Sequence ID: C.suis|XXVa(MH187874), Length: 1338)
         # trim input seqeunce to the top reference in case user supplies entire genome or large sequence that could negatively impact repeat region determination
-        if filetype == "fasta":
-            if self.seqLength < 1000:
+        if filetype in definitions.FASTA_FILETYPES:
+            if self.seqLength <= 2000:
                 b=0
                 e=self.seqLength-1
-            else: #sequence larger then 1000 bp then it can be trimmed if a top reference is > 700 bp, otherwise do nothing
-                if abs(e-b) > 700:
+            else: #sequence larger then 2000 bp then it can be trimmed if a top reference is > 700 bp, otherwise do nothing
+                if abs(e-b) > 2000:
                     b = hsp.query_start-1 #trim index
                     e = hsp.query_end #trim index
                 else:
@@ -335,7 +338,7 @@ class analyzingGp60(object):
     #   never clear (usually messy) at the beginning and the end.  Trims based
     #   on phred_quality (10 bases in a row with 99% base calling accuracy)
     def trimSeq(self, filetype="ab1"):
-        if filetype == "fasta" or filetype == "fa":
+        if filetype in definitions.FASTA_FILETYPES:
             self.seq = list(self.seq)
             self.findRepeatRegion()
             return True
@@ -1099,7 +1102,7 @@ class analyzingGp60(object):
 
             
 
-            if filetype == "ab1" or filetype == "abi":
+            if filetype in definitions.SANGER_FILETYPES:
                 newseq=""
                 tempA = []
                 tempC = []
@@ -1772,7 +1775,7 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
     if pathlist == []:
         msg=f"No supported input file(s) found in pathlist {pathlist_unfiltered}. Supported input filetypes are {definitions.FILETYPES}"
         LOG.error(msg)
-        raise Exception(msg)
+        sys.exit(msg)
   
     
     

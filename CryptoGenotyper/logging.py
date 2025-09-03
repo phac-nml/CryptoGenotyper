@@ -21,12 +21,13 @@ def create_logger(level=logging.INFO):
         console.setLevel(level)
         root_logger.addHandler(console)
 
-        # Create a file handler for log messages in the output directory for the root thread
-        if os.path.exists("cryptogenotyper.log"):
-            os.remove("cryptogenotyper.log")
-        fh = logging.FileHandler("cryptogenotyper.log", 'a', 'utf-8')
-        fh.setLevel(logging.DEBUG)  # Set the file handler's level to DEBUG
-        fh.setFormatter(logging.Formatter(LOG_FORMAT))
-        root_logger.addHandler(fh)
-
+        
+        try:
+            fh = logging.FileHandler("cryptogenotyper.log", 'a', 'utf-8')
+            fh.setLevel(logging.DEBUG)  # Set the file handler's level to DEBUG
+            fh.setFormatter(logging.Formatter(LOG_FORMAT))
+            root_logger.addHandler(fh)
+        except Exception as e:
+            root_logger.warning(f"Failed to create log file cryptogenotyper.log: {e}")    
+    
     return root_logger

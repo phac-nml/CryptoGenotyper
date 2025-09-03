@@ -1,5 +1,5 @@
 import io
-import os
+import os, sys
 import re
 import logging
 from CryptoGenotyper import definitions, utilities
@@ -1004,12 +1004,12 @@ class MixedSeq(object):
             print("\nSequence: ", self.name) #Lets user know which sequence the program is on
 
         #opens the ab1 file
-        if filetype == "abi" or filetype == "ab1":
+        if filetype in definitions.SANGER_FILETYPES:
             handle=open(dataFile,"rb")
             record=SeqIO.read(handle, "abi")
             LOG.debug(f"Initial sequence from {self.name} ({len(record.seq)}bp) {record.seq}")
 
-        elif filetype == "fasta" or filetype == "fa":
+        elif filetype in definitions.FASTA_FILETYPES:
             handle=open(dataFile,"r")   
             record=SeqIO.read(handle, "fasta")
             self.origLength = len(record.seq)
@@ -1048,7 +1048,8 @@ class MixedSeq(object):
             return True
 
         
-        
+        else:
+            sys.exit(f"Unsupported file type: '{filetype}'. Please provide a valid file. Supported extensions are: {', '.join(definitions.FILETYPES)}")
 
         #retrieving base amplitude data
         self.g=np.array(record.annotations['abif_raw']['DATA9'])
@@ -1552,7 +1553,7 @@ class MixedSeq(object):
         
         
        
-        if self.counter < int(len(self.seq)*0.2) and filetype == "abi":
+        if self.counter < int(len(self.seq)*0.2) and filetype in definitions.SANGER_FILETYPES:
             s1=""
             s2=""
 
@@ -2345,16 +2346,16 @@ class MixedSeq(object):
                 self.tabfile.write("\t\t\t" + "No blast hits." + "\t\t\t\t\t\t\t\n")
             return None
        
-        if filetype == "abi" or filetype == "ab1":
+        if filetype in definitions.SANGER_FILETYPES:
             bitscore,evalue,query_coverage,query_length,subject_length,percent_identity, accession, species, seq = self.blast(self.species1Seq,False)
             bitscore2,evalue2,query_coverage2,query_length2,subject_length2,percent_identity2, accession2, species2, seq2 = self.blast(self.species2Seq,False)
-        elif filetype == "fasta" or filetype == "fna"  or filetype == "fa":
+        elif filetype in definitions.FASTA_FILETYPES:
             self.avgPhredQuality = 60
             bitscore,evalue,query_coverage,query_length,subject_length,percent_identity, accession, species, seq = self.blast("".join(self.seq), customdatabsename)
             bitscore2=bitscore; query_length2=query_length; subject_length2=subject_length; query_coverage2=query_coverage; species2 = species; 
             percent_identity2 = percent_identity; evalue2=evalue; accession2=accession
         else:
-            raise TypeError(f"Unsupported filetype '{filetype}' for {self.name}. Aborting")
+            sys.exit(f"Unsupported filetype '{filetype}' for {self.name}. Aborting")
 
         if self.avgPhred >= 20 and query_coverage < 50 and query_coverage2 < 50:
             bitscore,evalue,query_coverage,query_length,subject_length,percent_identity, accession, species, seq = self.blast(''.join(self.fixedSeq),False)
@@ -2618,7 +2619,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
     if pathlist == []:
         msg = f"Found 0 files. Not supported input file(s) found in pathlist {pathlist_unfiltered}. Supported input filetypes are {definitions.FILETYPES}"
         LOG.error(msg)
-        raise Exception(msg)
+        sys.exit(msg)
 
     LOG.info(f"Total {len(pathlist)} files to process {pathlist} ...")
 
@@ -2640,7 +2641,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
 
 
     if len(pathlist) == 0:
-        exit("No files in the input are matching the forward or reverse primer. Aborting.")
+        sys.exit("No files in the input are matching the forward or reverse primer. Aborting.")
 
 
     if len(pathlist)%2 != 0 and typeSeq == 'contig':
@@ -2670,7 +2671,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
             LOG.debug(f"For {pathlist[idx+1]} filetype is {filetype}")
             r_goodSeq = reverse.readFiles(pathlist[idx+1], False, filetype)
 
-            if filetype == "fasta" or filetype == "fna"  or filetype == "fa":
+            if filetype in definitions.FASTA_FILETYPES:
                 forward.origLength = len(forward.seq)
                 reverse.origLength = len(reverse.seq)
                 contig = buildContig("".join(forward.seq), "".join(reverse.seq), forward, reverse)
@@ -2861,7 +2862,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
                         forward.outputResults(customdatabsename, typeSeq, filetype)
 
                     else:
-                        LOG.info(f"Did not build a contig but analyzed forward and reverse as separate sequences as species are not identical (forward species:{f_species} {f_species2}, reverse species: {r_species} {r_species2})")
+                        LOG.info(f"Did not build a contig, but analyzed forward and reverse sequences separately, because the species were not identical. (forward species:{f_species} {f_species2}, reverse species: {r_species} {r_species2})")
                         forward.outputResults(customdatabsename, "forward", filetype)    
                         reverse.outputResults(customdatabsename, "reverse", filetype)
                       
@@ -2876,12 +2877,12 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
             forward = MixedSeq(file, tabfile, 'forward')
             goodSeq = forward.readFiles(pathlist[idx], True, filetype)
             
-            if goodSeq and filetype == "abi":
+            if goodSeq and filetype in definitions.SANGER_FILETYPES:
                 forward.fixN()
                 forward.findHeteroBases(2.0)
                 forward.determineAllTypes(customdatabsename)
                 forward.outputResults(customdatabsename, typeSeq, filetype)
-            elif filetype == "fasta" or filetype == "fna"  or filetype == "fa":
+            elif filetype in definitions.FASTA_FILETYPES:
                 forward.origLength = len(forward.seq)
                 forward.outputResults(customdatabsename, typeSeq, filetype)
             
@@ -2892,12 +2893,12 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
             reverse=MixedSeq(file,tabfile, 'reverse')
             goodSeq = reverse.readFiles(pathlist[idx], False, filetype)
             
-            if goodSeq and filetype == "abi":
+            if goodSeq and filetype in definitions.SANGER_FILETYPES:
                 reverse.fixN()
                 reverse.findHeteroBases(2.0)
                 reverse.determineAllTypes(customdatabsename)
                 reverse.outputResults(customdatabsename, typeSeq, filetype)
-            elif filetype == "fasta" or filetype == "fna"  or filetype == "fa":
+            elif filetype in definitions.FASTA_FILETYPES:
                 reverse.origLength = len(reverse.seq)
                 reverse.outputResults(customdatabsename, typeSeq, filetype)
 
