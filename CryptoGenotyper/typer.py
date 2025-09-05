@@ -56,7 +56,7 @@ def parse_cli_arguments():
     parser.add_argument('-o', '--outputprefix', type=str, required=False, default="cryptorun",
                         help="Output name prefix for the results (e.g. test results in test_report.fa)")
     parser.add_argument('-d', '--databasefile',type=str, required=False, default=None,
-                        help="Path to custom database reference FASTA file")
+                        help="Path to your custom, highly curated database of 18S or gp60 marker reference sequences in FASTA format")
     parser.add_argument('-v', '--version', action='version', version='%(prog)s {}'.format(__version__))
     parser.add_argument('--noheaderline',action='store_true',dest='header',help='Display header on tab-delimited file [False]', required=False)
     

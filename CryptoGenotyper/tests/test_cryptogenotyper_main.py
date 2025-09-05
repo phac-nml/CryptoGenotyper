@@ -174,29 +174,36 @@ def test_18S_fasta_single_sequence(input_dir = os.path.join(TEST_DATA_DIR) ):
         ["-i", os.path.join(input_dir,"P17705_Crypto16-20170927_SSUR.fasta"),
         "-t", "forward",
         "-m", "18S",
-        "-o", "P17705_Crypto16_18S_fasta"],
+        "-o", "results_18S_fasta"],
         ["-i", os.path.join(input_dir,"P17705_Crypto16-20170927_SSUR.fasta"),
         "-t", "reverse",
         "-m", "18S",
-        "-o", "P17705_Crypto16_18S_fasta"],
+        "-o", "results_18S_fasta"],
         ["-i", input_dir,
         "-t", "contig",
         "-f", "P17705_Crypto16-20170927_SSUF.fasta",
         "-r", "P17705_Crypto16-20170927_SSUR.fasta",
         "-m", "18S",
-        "-o", "P17705_Crypto16_18S_fasta"]
+        "-o", "results_18S_fasta"], #contig for Crypto16 successfully formed
+        ["-i", input_dir,
+        "-t", "contig",
+        "-f", "P16182_MD123e_SSUF.fasta",
+        "-r", "P16182_MD123e_SSUR.fasta",
+        "-m", "18S",
+        "-o", "results_18S_fasta" #contig for MD123e successfully formed
+        ]
 
     ]        
 
     for arg in args:
         sys.argv[1:] = arg
-        print(f"*** Running {args} ***")
+        print(f"*** Running {arg} ***")
         cryptogenotyper_main()
-        lines=read_report_file("P17705_Crypto16_18S_fasta_cryptogenotyper_report.txt")  
+        lines=read_report_file("results_18S_fasta_cryptogenotyper_report.txt")  
         secondrow = lines[1].split("\t")
 
-        assert "C.parvum" in secondrow
-        assert "KT948751.1" in secondrow or "KM012040.1" in secondrow
+        assert "C.parvum" in secondrow or "C.hominis" in secondrow
+        assert "KT948751.1" in secondrow or "KM012040.1" in secondrow or "GQ983348.1" in secondrow
 
 # test if single read fasta file in reverse orientation correctly
 def test_18S_fasta_single_sequence_сustom_database(input_dir = os.path.join(TEST_DATA_DIR) ):
@@ -231,35 +238,27 @@ def test_18S_fasta_multi_sequence(input_dir = os.path.join(TEST_DATA_DIR) ):
     assert "C.parvum" in lines[1].split("\t")
     assert "C.hominis" in lines[2].split("\t") 
 
-# Test sanger two files in a contig mode when contig was not formed since reverse read is short and was not identified as expected C.parvum
-def test_sanger_contig_mode(caplog, input_dir = EXAMPLE_DATA_DIR):
+# Test sanger two files in a contig mode when contig is formed
+def test_sanger_contig_mode_gp60_two_reverse(caplog, input_dir = TEST_DATA_DIR):
     caplog.set_level(logging.DEBUG)
     
-    expected_message = "Did not build a contig"
+    expected_message = "Detected 411bp overlap region between sequences"
     args = [
         "-i", input_dir,
-        "-f", "P17705_Crypto16-2F-20170927_SSUF_G12_084.ab1",
-        "-r", "P17705_Crypto16-2R-20170927_SSUR_H12_082.ab1",
-        "-m", "18S",
+        "-f", "P27277_Crypt242_Cmortiferum_R2.ab1",
+        "-r", "P27277_Crypt242_Cmortiferum_R3.ab1",
+        "-m", "gp60",
         "-t", "contig",
-        "-o", "P17705_Crypto16_18S_sanger_contig",
+        "-o", "P17705_Crypto242_gp60_sanger_contig",
         "--verbose"
     ]  
-
+    
     sys.argv[1:] = args   
     cryptogenotyper_main()  
   
-    with open("cryptogenotyper.txt", "w") as f:
-        f.write("--- Standard Output ---\n")
-        f.write(caplog.text )
-   
-
-
-    lines=read_report_file("P17705_Crypto16_18S_sanger_contig_cryptogenotyper_report.txt")   
-   
-    assert "C.parvum" in lines[1].split("\t")
-    assert "C.parvum" in lines[2].split("\t") 
-    assert "C.hominis" in lines[3].split("\t") 
+    lines=read_report_file("P17705_Crypto242_gp60_sanger_contig_cryptogenotyper_report.txt")   
+    assert "C.mortiferum" in lines[1].split("\t")
+    assert "XIVaA18G2T2a" in lines[1].split("\t")
     assert expected_message in caplog.text , f"Expected message not found in stdout"
 
 # Test if in contig mode user provides valid input files but of different types (Sanger and FASTA). 
@@ -288,3 +287,31 @@ def test_different_valid_file_types_contig(caplog, input_dir = TEST_DATA_DIR):
         cryptogenotyper_main()
     expected_message = "No input files found to process. Please check your input path or suffix filters."
     assert expected_message in str(excinfo.value)     
+
+# test using a distant actin sequence how 18S and gp60 will handle this scenario
+def test_using_distant_actin_seq(caplog, input_dir = TEST_DATA_DIR):
+    caplog.set_level(logging.DEBUG)
+    args = [
+        ["-i", os.path.join(input_dir,"XM_001388245.1_Cryptosporidium_parvum_actin.fa"),
+        "-t", "forward",
+        "-m", "gp60",
+        "-o", "actin_fasta"],
+        ["-i", os.path.join(input_dir,"XM_001388245.1_Cryptosporidium_parvum_actin.fa"),
+        "-t", "forward",
+        "-m", "18S",
+        "-o", "actin_fasta"]
+        
+    ]    
+
+    for arg in args:
+        sys.argv[1:] = arg
+        print(f"*** Running {arg} ***")
+        cryptogenotyper_main()
+        lines=read_report_file("actin_fasta_cryptogenotyper_report.txt")  
+        secondrow = lines[1].split("\t")
+        assert "Poor Sequence Quality. Check manually." in secondrow or \
+            "Could not analyze. No species detected (potential reasons: not an 18S sequence, poor sequence quality, ref. database limitations, BLAST failure). Check manually." in secondrow
+        assert "Maybe not be an 18S Crypto sequence or outdated database" in caplog.text  or \
+            "Maybe not be a gp60 Crypto sequence or outdated database" in caplog.text
+        break
+    

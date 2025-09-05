@@ -34,13 +34,22 @@ def getFileType(path):
     else:
         return None
     
+# sef filetype in fileType object variable to better render the output    
+def setFileType(self, filetype):
+    if filetype in definitions.FASTA_FILETYPES:
+        self.fileType = "fasta"
+    elif filetype in definitions.SANGER_FILETYPES:
+        self.fileType = "sanger"
+    else:
+        self.fileType = ""          
+    
 def cleanTempFastaFilesDir(temp_dir="tmp_fasta_files"):
     LOG.debug("Cleaning temporary files after the run")
     if os.path.exists(temp_dir):
         shutil.rmtree(temp_dir, ignore_errors=True)
     tmpfiles2remove = list(itertools.chain.from_iterable([glob.glob(e) for e in 
-                                                          ["align.*","custom_db.*", "query*.txt", "result*.txt", "SSUresult*",
-                                                          "result*.xml", "refseq.fa","blast*.xml", "*_tmp.fasta", "*_tmp.xml"]]))
+                                                          ["align.*","custom_db.*", "SSUresult*",
+                                                           "refseq.fa","blast*.xml", "*_tmp.fasta", "*_tmp.xml"]]))
     for file in tmpfiles2remove:
         try:
             os.remove(file)
@@ -453,7 +462,8 @@ def add_check_manually_str(string_list):
    
     if string_list == []:
         return "-"
-    if msg_check not in string_list:
+    if all(msg_check not in item for item in string_list):
+        LOG.debug(f"Added {msg_check} to QC message ...")
         string_list.append(msg_check)
     return " ".join(string_list)
 
@@ -467,7 +477,7 @@ def SSU_final_result_qc_checker(self, species, percent_identity,query_coverage,q
     #need to have extra QC for C.hominis as it is the most represented species and similar to C.parvum
     if "C.hominis" in species:
         if percent_identity < 95:
-            msg=f'Identity < 95% ({percent_identity}%).'
+            msg=f'Identity < 95% ({percent_identity :.2f}%).'
             LOG.debug(msg)
             add_to_string_if_missing(self, msg)
             is_good_result=False

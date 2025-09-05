@@ -843,8 +843,10 @@ def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None):
 
         #overlap detection BLAST   
         with open("forwardseq_tmp.fasta", "w") as fp:
+            fp.write(">forward\n")
             fp.write(forwardseq)
         with open("reverseseq_tmp.fasta", "w") as fp:
+            fp.write(">reverse\n")
             fp.write(reverseseq)
         blastn_cline = NcbiblastnCommandline(query="forwardseq_tmp.fasta", subject="reverseseq_tmp.fasta",
                                             reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5,
@@ -890,21 +892,27 @@ def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None):
                 LOG.info(f"Avg PHRED score forward {phred_scores_forewardseq_avg:.2f}, reverse {phred_scores_reverseseq_avg:.2f}")
                 
                 # --- Splicing logic is now uniform regardless of original subject strand ---
+                #For forward sequence prioritized contig
                 if phred_scores_forewardseq_avg >= phred_scores_reverseseq_avg:
                     # Prioritize forwardseq (query) for the overlap region (higher/equal Phred score).
                     # Contig = (prefix of forwardseq) + (forwardseq's overlap) + (suffix of working_reverseseq)
                     contig = forwardseq[0 : query_end_0based] + str(working_reverseseq[sbjct_end_0based : ])
-                    LOG.info(f"Contig formed: Prioritizing Forward (higher/equal PHRED score). The {abs(query_end_0based-query_start_0based)}bp overlap region ({query_start_0based}-{query_end_0based}) used from Forward sequence.")
+                    overlap_length = hsp.align_length
+                    LOG.info(f"Prioritizing FORWARD (higher/equal PHRED score)") 
+                    LOG.info(f"A {len(contig)}bp contig formed (used {len(forwardseq[0 : query_end_0based])}bp of forward (incl. overlap region) + non-overlap {len(working_reverseseq[sbjct_end_0based : ])}bp of reverse)")
+                    LOG.info(f"Detected {overlap_length}bp overlap region between sequences ({overlap_length/len(contig)*100 :.1f}% of contig length) (forward sequence coordinates: {query_start_0based}:{query_end_0based})")
+                #For reverse sequence prioritized contig
                 else:
                     # Prioritize working_reverseseq (subject) for the overlap region (higher Phred score).
                     # Contig = (prefix of forwardseq) + (working_reverseseq's overlap) + (suffix of working_reverseseq)
                     contig = forwardseq[0 : query_start_0based] + str(working_reverseseq[sbjct_start_0based : ])
-                    LOG.info(f"Contig formed: Prioritizing Reverse (higher PHRED score). The {abs(sbjct_end_0based-sbjct_start_0based)}bp overlap region ({sbjct_start_0based}-{sbjct_end_0based}) used from Reverse sequence (now in forward orientation).")
-
-                # --- General logging for the formed contig ---
-                LOG.info(f"A contig of {len(contig)}bp was formed.")
+                    overlap_length = hsp.align_length
+                    LOG.info(f"Prioritizing REVERSE sequence (higher PHRED score)")
+                    LOG.info(f"A {len(contig)}bp contig formed (used non-overlap {len(forwardseq[0 : query_start_0based])}bp of forward + {len(working_reverseseq[sbjct_end_0based : ])}bp of reverse (inlc. overlap region))")
+                    LOG.info(f"Detected {overlap_length}bp overlap region between sequences ({overlap_length/len(contig)*100 :.1f}% of contig length) (reverse sequence coordinates: {sbjct_start_0based}:{sbjct_end_0based})")
+                  
             else:
-                LOG.warning("Was not able to form a contig as no valid alignments ...")
+                LOG.warning(f"Was not able to form a contig as no valid alignments ({len(record.alignments)} alignments) ...")
             
             break # Exit the loop after processing the first valid alignment        
     else:
@@ -978,6 +986,9 @@ class MixedSeq(object):
         self.avgPhred = 0
 
         self.qcMsgsStr="" #quality control messages string
+
+        self.b = 0 #start selected range position of the query sequence
+        self.e = 0 #end selected range position of the query sequence
 
         self.isCrypto=False #check if the initial input sequence is valid 18S Crypto
 
@@ -2177,25 +2188,26 @@ class MixedSeq(object):
             #print(sequence)
         else:
            LOG.warning(f"Input sequence from {self.name} is empty, returning empty BLAST output")
-           return "","",0,"","",0,"","",sequence      
+           return "","",0,"","",0,"","",sequence   #bitscore,evalue,query_coverage,query_length, subject_length,percent_identity, accession, species,sequence   
 
         # Close the file
         myfile.close()
 
         #check if input is 18S using global database
+        global_db_path = os.path.dirname(__file__)+"/reference_database/blast_SSU.fa"
         if self.isCrypto == False:
             blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn', query="query.txt", dust='yes',
-                                                db=os.path.dirname(__file__)+"/reference_database/blast_SSU.fa", 
+                                                db= global_db_path , 
                                                 reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="SSUresult.xml")
             blastn_cline()
             if (os.stat("SSUresult.xml").st_size == 0):
-                    LOG.warning("No BLAST hits found! Maybe not be an 18S Crypto sequence or outdated database??")
+                    LOG.warning(f"No BLAST hits found! Maybe not be an 18S Crypto sequence or outdated database at {global_db_path}?")
                     return "","",0,"","",0,"","",sequence
             result_handle = open("SSUresult.xml", 'r')
             blast_records = NCBIXML.parse(result_handle)
             blast_record = next(blast_records)
             if len(blast_record.alignments) == 0:
-                LOG.warning("No BLAST hits found! Maybe not be an 18S Crypto sequence or outdated database?")
+                LOG.warning(f"No BLAST hits found! Maybe not be an 18S Crypto sequence or outdated database at {global_db_path}?")
                 return "","",0,"","",0,"","",sequence
             else:
                 br_alignment = blast_record.alignments[0]
@@ -2263,12 +2275,13 @@ class MixedSeq(object):
             evalue = hsp.expect
             bitscore = hsp.score
             query_coverage = min(round(hsp.align_length/blast_record.query_length,3)*100,100) #make sure coverage not higher than 100 due to alignment gaps, etc.
+            subject_coverage = round( (hsp.sbjct_end - hsp.sbjct_start) / br_alignment.length, 3) * 100
             query_length = blast_record.query_length
             subject_length = br_alignment.length
             species = br_alignment.hit_id
             accession = blast_record.alignments[0].hit_id
             
-
+            
             LOG.debug(f"TOP hit species={species} query_length={query_length} subject_length={br_alignment.length} originalLength={self.origLength} percent_identity={percent_identity} evalue {evalue}")
             # Check and log each condition separately for clarity
             failed_conditions = []
@@ -2278,22 +2291,25 @@ class MixedSeq(object):
                 LOG.info(f"Alignment length {hsp.align_length}bp < 60% of the original length {self.origLength}bp ({int(0.6 * self.origLength)}bp)")
             if percent_identity < 80:
                 failed_conditions.append(f"Top hit percent identity ({int(percent_identity)}%) < 90%")
-            #if  query_coverage < 60:
-            #    failed_conditions.append(f"Top hit percent query coverage by top reference hit is < 60% ({int(percent_identity)}%)")   
+            #if  subject_coverage < 60:
+            #    failed_conditions.append(f"Subject coverage is < 60% ({int(subject_coverage)}%)")   
             if evalue > 1e-100:
                 failed_conditions.append(f"E-value ({evalue}) > 1e-100")
 
             
             if failed_conditions:
                 LOG.warning(f"BLAST hit failed criteria: {'; '.join(failed_conditions)}. Returning empty values.")
-                return "", "", 0, "","", 0, "", "", ""
+                return "", "", 0, "","", 0, "", "", "" #bitscore,evalue,query_coverage,query_length, subject_length,percent_identity, accession, species,sequence
 
             # This is a separate, less critical warning
             if percent_identity < 95:
                 LOG.warning(f"The %identity of the top hit ({accession}) for query of length {query_length}bp  is less than 95% ({int(percent_identity)}%) which may lead to incorrect species identification. Check reference database and input.")
                 # Based on your original code, this warning doesn't cause a return,
                 # so the function would continue if only this condition is met.
-
+            if  subject_coverage < 60:
+                msg = f"Reference allele coverage is < 60% ({subject_coverage :.1f}%)."
+                LOG.warning(msg)
+                self.qcMsgsStr = msg
             
             if "|" in accession:
                 accession = accession.split("|")[1]
@@ -2369,7 +2385,7 @@ class MixedSeq(object):
         if self.avgPhredQuality < 13:
             qc_critical_msgs.append(f"Average Phred Quality < 13 ({self.avgPhredQuality})")       
         if (species == "" and species2 == ""): #or (query_coverage < 50 and query_coverage2 < 50):
-            qc_critical_msgs.append("No species detected (potential reasons: poor sequence quality, reference database limitations, BLAST failure)")
+            qc_critical_msgs.append("No species detected (potential reasons: not an 18S sequence, poor sequence quality, ref. database limitations, BLAST failure)")
         #if ("C.hominis" in species and percent_identity < 95) or ("C.hominis" in species)   
         LOG.info(f"Average PHRED quality is {self.avgPhredQuality} for {self.name}")
     
@@ -2379,9 +2395,12 @@ class MixedSeq(object):
             return None
         
         qc_msg_list_final = []
+        if self.qcMsgsStr:
+            qc_msg_list_final.append(self.qcMsgsStr)
+
         if self.ambigSpeciesBlast != []:
-            LOG.warning(f"BLAST equally likely hits found {self.ambigSpeciesBlast}")
-            qc_msg_list_final.append("BLAST equally likely hits found. Check manually.")
+            LOG.warning(f"Found {len(self.ambigSpeciesBlast)} equally likely BLAST hits ({self.ambigSpeciesBlast})")
+            qc_msg_list_final.append(f"Found {len(self.ambigSpeciesBlast)} equally likely BLAST hits. Check manually.")
         
        
         if species == "" and seq2 != "":# or query_coverage < 50:
@@ -2906,17 +2925,19 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
 
     experimentName = expName + "_"
     output_report_file_name = experimentName + 'cryptogenotyper_report.fa'
-    filename = os.path.join('.', output_report_file_name )
+    filename = os.path.join('.', output_report_file_name)
 
     with open(filename, 'w') as resultFile:
         resultFile.write(file.getvalue())
 
     output_tabreport_file_name = experimentName + 'cryptogenotyper_report.txt'
-    tabfilename = os.path.join('.', output_tabreport_file_name )
-
+    tabfilename = os.path.join('.', output_tabreport_file_name)
+  
+    print(tabfile.getvalue())
     with open(tabfilename, 'w') as resultFile:
-        resultFile.write (tabfile.getvalue())
-    
+        resultFile.write(tabfile.getvalue())
+        print(resultFile)
+
     print("\n>>>18S RESULTS  REPORT (only first 10 lines are printed)")
     tabfile.seek(0)
     for idx, line in enumerate(tabfile.read().split("\n")):
@@ -2927,7 +2948,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
 
     print(">>> FASTA report written to " + os.getcwd()+"/"+output_report_file_name)
     print(">>> Tab-delimited report written to " + os.getcwd() + "/" + output_tabreport_file_name + "\nThe 18S run completed successfully")
-
+    LOG.info("Tab-delimited report written to " + os.getcwd() + "/" + output_tabreport_file_name)
     
     #remove files that were made during the analysis
     

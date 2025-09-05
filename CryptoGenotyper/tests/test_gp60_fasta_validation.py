@@ -193,3 +193,21 @@ def test_multifasta_contig_mode_illumina(input_fasta_file=TEST_DATA_DIR):
     assert "IIaA16G3R1" in secondrow
     assert 'C.parvum' in thirdrow 
     assert "IIaA15G2R2" in thirdrow
+
+def test_short_gp60_with_bad_ref_coverage(input_fasta_file=TEST_DATA_DIR):
+    args = [
+        "-i", input_fasta_file ,
+        "-m", "gp60",
+        "-f", "Cparvum_IIa_gp60_AY262034.fa",
+        "-t", "forward",
+        "-o", "Cparvum_IIa_gp60_AY262034_short_gp60_forward"
+     
+    ]
+    sys.argv[1:] = args
+    cryptogenotyper_main()
+
+    lines=read_report_file("Cparvum_IIa_gp60_AY262034_short_gp60_forward_cryptogenotyper_report.txt")
+    for line in lines[1:]:
+        assert 'C.parvum' in line 
+        assert "IIaA15G2R1" in line
+        assert "Reference allele coverage is < 60%" in line

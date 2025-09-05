@@ -80,6 +80,7 @@ class analyzingGp60(object):
         self.averagePhredQuality = 0
         self.doublePeaksinRepeat = False
         self.ambigSpeciesBlast = [] #multiple BLAST hits with identical ranking making typing ambiguous
+        self.fileType = "" # filetype (sanger or fasta) that determines QC messages displayed and final report
 
 
 
@@ -193,14 +194,14 @@ class analyzingGp60(object):
         
 
         if (os.stat("gp60result2.xml").st_size == 0):
-            LOG.error(f"Generated an empty gp60 BLAST result for {self.name}. Maybe not be a gp60 Crypto sequence?")
+            LOG.error(f"Generated an empty gp60 BLAST result for {self.name}. Maybe not be a gp60 Crypto sequence or outdated database at {dbpath}?")
             return False
         
         result_handle = open("gp60result2.xml", 'r')
         blast_records = NCBIXML.parse(result_handle)
         blast_record = next(blast_records)
         if len(blast_record.alignments) == 0:
-            LOG.warning(f"Found 0 alignments for {self.name}. Maybe not be a gp60 Crypto sequence?")
+            LOG.warning(f"Found 0 alignments for {self.name}. Maybe not be a gp60 Crypto sequence or outdated database at {dbpath}?")
             return False
         blast_record.alignments = utilities.sort_blast_hits_by_id_and_bitscore(blast_record, "bitscore") 
         br_alignment = blast_record.alignments[0]
@@ -210,7 +211,7 @@ class analyzingGp60(object):
 
 
         # use full sequence length in FASTA format (no sequence trimming) except if sequence is larger then 2000 bp 
-        # Long gp sequences C.fayeri|IVc(FJ490069), Length: 1505, Sequence ID: C.suis|XXVa(MH187874), Length: 1338)
+        # E.g. longest gp60 sequences such as C.fayeri|IVc(FJ490069), Length: 1505, Sequence ID: C.suis|XXVa(MH187874), Length: 1338)
         # trim input seqeunce to the top reference in case user supplies entire genome or large sequence that could negatively impact repeat region determination
         if filetype in definitions.FASTA_FILETYPES:
             if self.seqLength <= 2000:
@@ -1059,7 +1060,7 @@ class analyzingGp60(object):
             blastn_cline()
             if (os.stat("gp60result.xml").st_size == 0):
                 LOG.warning("No BLAST hits found! Check database global blast_gp60.fasta and if input sequence belongs to Cryptosporidium species")
-                return "","","","","","","",""
+                return "","","","","","","","",""
 
             result_handle = open("gp60result.xml", 'r')
             blast_records = NCBIXML.parse(result_handle)
@@ -1322,7 +1323,7 @@ class analyzingGp60(object):
 
             if (os.stat("gp60result.xml").st_size == 0):
                 LOG.warning(f"BLAST result file is empty (zero size)! Check database {blastdbpath} or inputs!")
-                return "","","","","","","",""
+                return "","","","","","","","",""
 
             else:
                 result_handle = open("gp60result.xml", 'r')
@@ -1331,11 +1332,11 @@ class analyzingGp60(object):
                 
                 if not blast_records:
                     LOG.warning(f"No BLAST hits found! Check database {blastdbpath} or inputs")
-                    return "","","","","","","",""
+                    return "","","","","","","","",""
                 
                 if len(blast_records[0].alignments) == 0:
                     LOG.warning(f"No BLAST hits found! Check database {blastdbpath} or inputs")
-                    return "","","","","","","",""
+                    return "","","","","","","","",""
 
                 blast_record = blast_records[0]
                 blast_record.alignments = utilities.sort_blast_hits_by_id_and_bitscore(blast_record)
@@ -1369,67 +1370,16 @@ class analyzingGp60(object):
                 else:
                     query_coverage = 100
                 query_length = blast_record.query_length
+                subject_coverage = round( abs(hsp.sbjct_end - hsp.sbjct_start) / br_alignment.length, 3) * 100
                 accession = blast_record.alignments[0].hit_id
                 species = br_alignment.hit_id.split("|")[0]
 
                 if "|" in accession:
                     accession = accession.split("|")[-1].split("(")[1].split(")")[0]
 
-                return bitscore,evalue,query_coverage,query_length,percent_identity, accession, self.seq, species
+                return bitscore,evalue,query_coverage,query_length,percent_identity, accession, self.seq, species, subject_coverage
 
-                '''if evalue > 1e-60 or query_coverage < 80:
-                    s = newseq[hsp.query_start:hsp.query_end]
-
-                    # Filename to write
-                    filename = "query.txt"
-
-                    # Open the file with writing permission
-                    myfile = open(filename, 'w')
-
-                    # Write a line to the file
-                    myfile.write(s)
-                    print("S")
-                    print(s)
-
-                    # Close the file
-                    myfile.close()
-
-                    blastn_cline = NcbiblastnCommandline(cmd='blastn', task='blastn',query="query.txt", dust='yes',
-                                                         db=os.path.dirname(__file__)+"/reference_database/gp60_ref.fa", reward=1, penalty=-2,gapopen=5, gapextend=2,evalue=0.00001, outfmt=5, out="gp60result.xml")
-
-                    stdout, stderr = blastn_cline()
-
-                    if (os.stat("gp60result.xml").st_size == 0):
-                        return "","","","","","",""
-
-                    else:
-                        result_handle = open("gp60result.xml", 'r')
-                        blast_records = NCBIXML.parse(result_handle)
-                        blast_record = next(blast_records)
-
-                        if len(blast_record.alignments) == 0:
-                            return "","","","","","",""
-
-                        br_alignment = blast_record.alignments[0]
-                        hsp = br_alignment.hsps[0]
-
-                        percent_identity = round(hsp.identities/hsp.align_length,3)*100
-                        evalue = hsp.expect
-                        bitscore = hsp.score
-
-                        query_coverage = round(hsp.align_length/blast_record.query_length*100)
-                        query_length = blast_record.query_length
-                        accession = blast_record.alignments[0].hit_id
-
-                        if "|" in accession:
-                            accession = accession.split("|")[1].split("(")[1].split(")")[0]
-
-                        return bitscore,evalue,query_coverage,query_length,percent_identity, accession, newseq
-                else:
-                    return bitscore,evalue,query_coverage,query_length,percent_identity, accession, newseq'''
-
-
-
+    
         else:
             # Filename to write
             filename = "query.txt"
@@ -1455,14 +1405,14 @@ class analyzingGp60(object):
             stdout, stderr = blastn_cline()
 
             if (os.stat("gp60result.xml").st_size == 0):
-                return "","","","","","","",""
+                return "","","","","","","","",""
 
             result_handle = open("gp60result.xml", 'r')
             blast_records = NCBIXML.parse(result_handle)
             blast_record = next(blast_records)
 
             if len(blast_record.alignments) == 0:
-                return "","","","","","","",""
+                return "","","","","","","","",""
 
             br_alignment = blast_record.alignments[0]
             hsp = br_alignment.hsps[0]
@@ -1474,6 +1424,7 @@ class analyzingGp60(object):
                 query_coverage = round(hsp.align_length/blast_record.query_length*100)
             else:
                 query_coverage = 100
+            subject_coverage = round( abs(hsp.sbjct_end - hsp.sbjct_start) / br_alignment.length, 3) * 100    
             query_length = blast_record.query_length
             accession = blast_record.alignments[0].hit_id
             species = br_alignment.hit_id.split("|")[0]
@@ -1482,7 +1433,7 @@ class analyzingGp60(object):
                 accession = accession.split("|")[-1].split("(")[1].split(")")[0]
             LOG.info(f"{self.name} BLAST results on {query_length} bp {query_coverage}% coverage, {percent_identity}% identity, top hit accession {accession}")    
 
-            return bitscore,evalue,query_coverage,query_length,percent_identity, accession, sequence, species
+            return bitscore,evalue,query_coverage,query_length,percent_identity, accession, sequence, species, subject_coverage
 
 
 
@@ -1494,6 +1445,7 @@ class analyzingGp60(object):
         bitscore = 0.0
         evalue = 0.0
         query_coverage = 0.0
+        subject_coverage = 0.0 #ref allele coverage
         query_length = 0
         percent_identity = 0.0
         accession = ""
@@ -1515,7 +1467,7 @@ class analyzingGp60(object):
             sequence=str("".join(self.seq))
             if sequence != "Poor Sequence Quality":
                 LOG.info(f"Running BLAST on {len(sequence)}bp sequence of acceptable quality and getting top hit accession ...")
-                bitscore,evalue,query_coverage,query_length,percent_identity, accession, seq, species = self.blast(sequence,False, filetype, customdatabasename)
+                bitscore,evalue,query_coverage,query_length,percent_identity, accession, seq, species, subject_coverage = self.blast(sequence,False, filetype, customdatabasename)
                 if self.species != species:
                     LOG.warning(f"Species mismatch w.r.t to accession number {self.species} vs {species}. Fixing it")
                     self.species = species #making sure the accession number matches the species
@@ -1527,7 +1479,7 @@ class analyzingGp60(object):
 
             if sequence != "Poor Sequence Quality":
                 LOG.info(f"Running BLAST on acceptable quality {len(sequence)}bp contig and getting top hit accession ...")
-                bitscore,evalue,query_coverage,query_length,percent_identity, accession, seq, species = self.blast(sequence, True, customdatabasename) 
+                bitscore,evalue,query_coverage,query_length,percent_identity, accession, seq, species, subject_coverage = self.blast(sequence, True, customdatabasename) 
                 
                 if self.species != species:
                     LOG.warning(f"Species mismatch w.r.t to accession number {self.species} vs {species}. Fixing it")
@@ -1539,8 +1491,11 @@ class analyzingGp60(object):
         
 
         if self.seq == "Poor Sequence Quality":
-            self.tabfile.write("\t\t\tPoor Sequence Quality. Check manually.\t Average PHRED Quality = " + str(self.averagePhredQuality) + "\t\t\t\t\t\t\n")
-            self.file.write(" | Poor Sequence Quality (Average PHRED Quality = " + str(self.averagePhredQuality) + "). Check manually.")
+            avg_phred_msg = ""
+            if self.fileType == "sanger":
+                avg_phred_msg = f"Average PHRED Quality = {str(self.averagePhredQuality)}" 
+            self.tabfile.write("\t\t\tPoor Sequence Quality. Check manually.\t " + str(avg_phred_msg) + "\t\t\t\t\t\t\n")
+            self.file.write(" | Poor Sequence Quality (" + avg_phred_msg + "). Check manually.")
         
         #elif evalue > 1e-75 or query_coverage < 50:
         #    self.tabfile.write("\t\t\tCould not determine species from chromatogram. Check manually.\t" + str(self.averagePhredQuality)+ "\t\t\t\t\t\t\n")
@@ -1634,16 +1589,18 @@ class analyzingGp60(object):
                 qc_messages.append("Check repeat region manually. Not all bases in repeat region had phred quality >= 20.")
             if percent_identity < 99.1:
                 qc_messages.append("BLAST percent identity less than 99.1%. Check manually in case of new gp60 family.")
+            if subject_coverage < 60:
+                qc_messages.append(f"Reference allele coverage is < 60% ({subject_coverage :.1f}%).")    
             if foundRepeat == False:
                 qc_messages.append("Could not classify repeat region.")   
             
             if not qc_messages:
-                final_comment = "N/A"
+                final_comment = "-"
             else:
                 if "Check manually." not in qc_messages:
                     qc_messages.append("Check manually.")
-                # Join all collected messages with a dot and a space
-                final_comment = ". ".join(qc_messages)
+                # Join all collected messages with a space
+                final_comment = " ".join(qc_messages)
             
             # Write the final consolidated comment to the tabfile, followed by a single tab
             self.tabfile.write(f"\t{final_comment}\t")
@@ -1688,7 +1645,15 @@ def buildContig(s1, s2):
             else:
                 seq2 = record.seq
 
+        # Calculate the length of the overlap based on the alignment
+        overlap_length = 0
+        for i in range(len(seq1)):
+            if seq1[i] != "-" and seq2[i] != "-":
+                overlap_length += 1
         
+        # Log the overlap length and other info
+        
+
         l = len(seq1)
 
         for i in range(0, l):
@@ -1702,7 +1667,8 @@ def buildContig(s1, s2):
                 contig += seq1[i]
             else:
                 contig += seq2[i]
-        LOG.debug(f"Formed a contig of {len(contig)}b long from s1={len(s1)}bp and s2={len(s2)}bp")
+        LOG.info(f"A {len(contig)}bp contig formed ({len(s1)}bp of forward + {len(s2)}bp reverse)")
+        LOG.info(f"Detected {overlap_length}bp overlap region between sequences ({overlap_length/len(contig)*100 :.1f}% of contig length).")
         return contig
 
 
@@ -1879,8 +1845,8 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
                         #forward.determineFamily(customdatabasename)
                         #reverse.determineFamily(customdatabasename)
                       
-                        Fbitscore,Fevalue,Fquery_coverage,Fquery_length,Fpercent_identity, Faccession, Fnewseq, species = forward.blast(str(forward.seq), False, customdatabasename)
-                        Rbitscore,Revalue,Rquery_coverage,Rquery_length,Rpercent_identity, Raccession, Rnewseq, species = reverse.blast(str(reverse.seq), False, customdatabasename)
+                        Fbitscore,Fevalue,Fquery_coverage,Fquery_length,Fpercent_identity, Faccession, Fnewseq, Fspecies, Fsubject_coverage = forward.blast(str(forward.seq), False, customdatabasename)
+                        Rbitscore,Revalue,Rquery_coverage,Rquery_length,Rpercent_identity, Raccession, Rnewseq, Rspecies, Rsubject_coverage = reverse.blast(str(reverse.seq), False, customdatabasename)
                         LOG.info(f"Build contig from forward and reverse extracted sequences of {len(Fnewseq)}bp and {len(Rnewseq)}bp")
                         contig = buildContig(Fnewseq, Rnewseq)
                         
@@ -1940,6 +1906,7 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
             filetype = utilities.getFileType(path)
             LOG.info(f"\n\n*** {idx+1}: Running sample {os.path.basename(path)} as {filetype} file type ***")
             forward = analyzingGp60()
+            utilities.setFileType(forward,filetype)  
 
             #check if a given path is indeed in forward or reverse orientation
             #foward only mode 

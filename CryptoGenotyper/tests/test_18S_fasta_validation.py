@@ -111,8 +111,8 @@ def test_typical_contig_mode(input_fasta_file=TEST_DATA_DIR):
     args = [
         "-i", input_fasta_file ,
         "-m", "18S",
-        "-f", "Chominis_18S_f2",
-        "-r", "Chominis_18S_r3",
+        "-f", "Chominis_18S_f2.fasta",
+        "-r", "Chominis_18S_r3.fasta",
         "-t", "contig",
         "-o", "Chominis_18S_typical_contig"
     ]
@@ -162,3 +162,21 @@ def test_multifasta_contig_mode_nanopore(input_fasta_file=TEST_DATA_DIR):
         assert 'C.parvum' in line 
         assert "KM012040.1" in line
     
+def test_short_18S_with_bad_ref_coverage(input_fasta_file=TEST_DATA_DIR):
+
+    args = [
+        "-i", input_fasta_file ,
+        "-m", "18S",
+        "-f", "C.parvum_AF093492_short.fa",
+        "-t", "forward",
+        "-o", "Cparvum_AF093492_short_18S_forward"
+     
+    ]
+    sys.argv[1:] = args
+    cryptogenotyper_main()
+
+    lines=read_report_file("Cparvum_AF093492_short_18S_forward_cryptogenotyper_report.txt")
+    for line in lines[1:]:
+        assert 'C.parvum' in line 
+        assert "Reference allele coverage is < 60%" in line
+
