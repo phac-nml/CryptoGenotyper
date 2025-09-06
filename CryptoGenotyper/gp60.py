@@ -216,14 +216,14 @@ class analyzingGp60(object):
         if filetype in definitions.FASTA_FILETYPES:
             if self.seqLength <= 2000:
                 b=0
-                e=self.seqLength-1
+                e=self.seqLength
             else: #sequence larger then 2000 bp then it can be trimmed if a top reference is > 700 bp, otherwise do nothing
                 if abs(e-b) > 2000:
                     b = hsp.query_start-1 #trim index
-                    e = hsp.query_end #trim index
+                    e = hsp.query_end     #trim index
                 else:
                     b=0
-                    e=self.seqLength-1
+                    e = self.seqLength-1
 
         else:
             #works even if sequence is in reverse orientation as results are always given with respect to the query sequence so
@@ -323,10 +323,13 @@ class analyzingGp60(object):
 
             self.b = b
             self.e = e
-         
+
+
+
             LOG.info(f"Final sequence length {self.seqLength}bp (coordinates {b}:{e}) selected from raw {len(raw_seq)} bp sequence ({round(self.seqLength/len(raw_seq)*100,1)}% left)")
             #calling trimSeq to trim the ends of the Sanger sequence
             #goodTrim = self.trimSeq()
+            
             return True
 
 
@@ -353,6 +356,7 @@ class analyzingGp60(object):
         self.fixN()
         #finding the repeat region
         self.findRepeatRegion()
+     
 
         goodRepeatFind = True
 
@@ -505,7 +509,7 @@ class analyzingGp60(object):
 
 
         LOG.debug(f"Cut new sequence length {cutSeqLength}bp  cut from position {self.beginSeq} and ending at {self.endSeq} removing {len(self.seq)-cutSeqLength} bp")
-
+      
         #copy all temporary variables for analysis and store for that class
         self.seq = copy.copy(tempSeq)
         self.peakLoc = copy.copy(tempPeakLoc)
@@ -545,7 +549,7 @@ class analyzingGp60(object):
             start = len(self.seq) - self.repeatEnds
             end = len(self.seq) - self.repeatStarts
 
-
+            
             self.repeatStarts = start
             self.repeatEnds = end
             self.forwardSeq = True
@@ -605,7 +609,7 @@ class analyzingGp60(object):
     #   track of where the longest TC_ (or AG_ for reverse) repeat is
     def findRepeatRegion(self):
         LOG.info(f"Trying to find repeat region in the sequence {len(self.seq)}bp ...")
-       
+      
         seq = list(self.seq)
     
 
@@ -709,7 +713,13 @@ class analyzingGp60(object):
                 index+=1
         
         self.repeatStarts = repeatStart
-        self.repeatEnds = repeatStart + (maxCount*3)
+
+        #can not exceed the length of the entire sequence
+        if repeatStart + (maxCount*3) > self.seqLength:
+            self.repeatEnds = self.seqLength
+        else:    
+            self.repeatEnds = repeatStart + (maxCount*3)
+
 
         #if it's the reverse sequence, want to subtract one since the reverse sequence
         #  reads _GA and looking for the 'GA' portions (meaning you want to start at the
@@ -740,7 +750,7 @@ class analyzingGp60(object):
         quality_cutOff=15
         goodQuality=False
         self.checkRepeatManually = False
-
+  
         for i in range(self.repeatStarts, self.repeatEnds):
             if i < len(self.a):
                 a= self.a[i]
@@ -767,7 +777,7 @@ class analyzingGp60(object):
             
             if lri <= 2.0:
                 self.doublePeaksinRepeat = True
-            
+ 
             if self.phred_qual[i] < quality_cutOff:  
                 self.checkRepeatManually = True
                 for x in range(0, 3):
@@ -986,10 +996,10 @@ class analyzingGp60(object):
 
                     if hsp1.score == hsp2.score or hsp2.align_length-hsp1.align_length >=25:
                         query_from1 = hsp1.query_start - 1
-                        query_to1 = hsp1.query_end - 1
+                        query_to1 = hsp1.query_end
                         sbjctseq1 = hsp1.sbjct
                         sbjct_from1 = hsp1.sbjct_start - 1
-                        sbjct_to1 = hsp1.sbjct_end - 1
+                        sbjct_to1 = hsp1.sbjct_end
                         num_identities1 = hsp1.identities
                         align_len1 = hsp1.align_length
                         identity1 = num_identities1/align_len1
@@ -1489,12 +1499,24 @@ class analyzingGp60(object):
                 
             
         
-
+        #1.Sample Name
+        #2.Type of Sequences
+        #3.Species
+        #4.Subtype
+        #5.Sequence
+        #6.Comments
+        #7.Avg. Phred Quality
+        #8.Bit Score
+        #9.Query Length (bp)
+        #10.Query Coverage
+        #11.E-value
+        #12.Percent Identity
+        #13. Accession Number
         if self.seq == "Poor Sequence Quality":
             avg_phred_msg = ""
             if self.fileType == "sanger":
-                avg_phred_msg = f"Average PHRED Quality = {str(self.averagePhredQuality)}" 
-            self.tabfile.write("\t\t\tPoor Sequence Quality. Check manually.\t " + str(avg_phred_msg) + "\t\t\t\t\t\t\n")
+                avg_phred_msg = f"Average PHRED Quality = {self.averagePhredQuality}" 
+            self.tabfile.write("\t\t\tPoor Sequence Quality. Check manually." + avg_phred_msg + "\t\t\t\t\t\t\t\n")
             self.file.write(" | Poor Sequence Quality (" + avg_phred_msg + "). Check manually.")
         
         #elif evalue > 1e-75 or query_coverage < 50:
@@ -1502,8 +1524,11 @@ class analyzingGp60(object):
         #    self.file.write("\n;Could not determine species from chromatogram. Check manually. Sequence Phred Quality is "+ str(self.averagePhredQuality))    
         
         elif seq == "" or self.species == "No blast hits.":
-            self.tabfile.write("\t\t\tNo blast hits. Check manually. Average PHRED score \t" + str(self.averagePhredQuality)+ "\t\t\t\t\t\t\n")
-            self.file.write("\n;No blast hits. Check manually. Sequence PHRED Quality is " + str(self.averagePhredQuality))
+            avg_phred_msg = ""
+            if self.fileType == "sanger":
+                avg_phred_msg = f"Average PHRED Quality = {self.averagePhredQuality}"
+            self.tabfile.write("\t\t\tNo blast hits. Check manually." + avg_phred_msg + "\t\t\t\t\t\t\t\n")
+            self.file.write("\n;No blast hits. Check manually. Sequence PHRED Quality is " + avg_phred_msg)
 
         else:
             self.seq = seq
@@ -1699,6 +1724,8 @@ def writeResults(expName, file, tabfile):
 
     print(">>> FASTA report written to " + os.getcwd()+"/"+output_report_file_name + "")
     print(">>> Tab-delimited report written to " + os.getcwd() + "/" + output_tabreport_file_name + "")
+    LOG.info("FASTA report written to " + os.getcwd()+"/"+output_report_file_name)
+    LOG.info("Tab-delimited report written to " + os.getcwd() + "/" + output_tabreport_file_name)
 
 
 
@@ -1799,7 +1826,9 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
 
 
                 filetypeF = utilities.getFileType(path)
+                utilities.setFileType(forward,filetypeF)
                 filetypeR = utilities.getFileType(pathlist[idx+1])
+                utilities.setFileType(forward,filetypeR)
              
                 
                 forwSeqbool = forward.readFiles(path, True, file, tabfile, filetypeF,customdatabasename)
@@ -1920,11 +1949,13 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
                 forward.seq = "Poor Sequence Quality"
                 forward.printFasta("", typeSeq, forward.name.split(f".{filetype}")[0], customdatabasename)
             else:
+                
                 goodTrim = forward.trimSeq(filetype)
 
                 if goodTrim == False:
                     forward.repeats="Could not classify repeat region. Check manually."
                 else:
+                   
                     forward.determineFamily(customdatabasename)  
                     forward.determineRepeats()
                     
@@ -1934,9 +1965,9 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
     
     if verbose == False:
         LOG.info("Cleaning the temporary FASTA and BLAST database files (if any)")
-        utilities.cleanTempFastaFilesDir()
         utilities.cleanTempFastaFilesDir("tmp_fasta_files_"+expName)
     LOG.info("The gp60 run completed successfully")
+    
    # os.system("rm gp60result.xml gp60result2.xml")
     #os.system("rm query.txt")
     #os.system("rm align.fa align.dnd align.aln")

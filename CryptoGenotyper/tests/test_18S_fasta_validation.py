@@ -67,8 +67,7 @@ def test_both_sequences_in_forward_orientation_contig_mode(input_fasta_file=TEST
         "-f", "Chominis_18S_f2",
         "-r", "Chominis_18S_f3",
         "-t", "contig",
-        "-o", output_name,
-        "--verbose"
+        "-o", output_name
     ]
     sys.argv[1:] = args
     cryptogenotyper_main()
@@ -91,8 +90,7 @@ def test_both_sequences_in_reverse_orientation_contig_mode(input_fasta_file=TEST
         "-f", "Chominis_18S_r2",
         "-r", "Chominis_18S_r3",
         "-t", "contig",
-        "-o", output_name,
-        "--verbose"
+        "-o", output_name
     ]
     sys.argv[1:] = args
     cryptogenotyper_main()
@@ -128,7 +126,7 @@ def test_typical_contig_mode(input_fasta_file=TEST_DATA_DIR):
 # test contig mode for multifasta file with several reads from Illumina MiSeq sequencer
 def test_multifasta_contig_mode_illumina(input_fasta_file=TEST_DATA_DIR):
     args = [
-        "-i", input_fasta_file ,
+        "-i", input_fasta_file,
         "-m", "18S",
         "-f", "test_illumina_18S_F",
         "-r", "test_illumina_18S_R",

@@ -2933,7 +2933,6 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
     output_tabreport_file_name = experimentName + 'cryptogenotyper_report.txt'
     tabfilename = os.path.join('.', output_tabreport_file_name)
   
-    print(tabfile.getvalue())
     with open(tabfilename, 'w') as resultFile:
         resultFile.write(tabfile.getvalue())
         print(resultFile)
@@ -2948,6 +2947,8 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
 
     print(">>> FASTA report written to " + os.getcwd()+"/"+output_report_file_name)
     print(">>> Tab-delimited report written to " + os.getcwd() + "/" + output_tabreport_file_name + "\nThe 18S run completed successfully")
+  
+    LOG.info("FASTA report written to " + os.getcwd()+"/"+output_report_file_name)
     LOG.info("Tab-delimited report written to " + os.getcwd() + "/" + output_tabreport_file_name)
     
     #remove files that were made during the analysis

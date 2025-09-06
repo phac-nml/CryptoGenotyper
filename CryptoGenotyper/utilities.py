@@ -44,12 +44,23 @@ def setFileType(self, filetype):
         self.fileType = ""          
     
 def cleanTempFastaFilesDir(temp_dir="tmp_fasta_files"):
-    LOG.debug("Cleaning temporary files after the run")
-    if os.path.exists(temp_dir):
-        shutil.rmtree(temp_dir, ignore_errors=True)
+    LOG.debug(f"Cleaning temporary files after the run and temporary directories with pattern {temp_dir}*")
+    
+    dirs_to_remove = glob.glob(temp_dir+'*')
+    #delete dirs
+    for dir in dirs_to_remove:
+        if os.path.exists(dir) and os.path.isdir(dir):
+            LOG.debug(f"Attempting to delete directory: {dir}")
+            shutil.rmtree(dir, ignore_errors=True)
+
+    #delete files
     tmpfiles2remove = list(itertools.chain.from_iterable([glob.glob(e) for e in 
-                                                          ["align.*","custom_db.*", "SSUresult*",
-                                                           "refseq.fa","blast*.xml", "*_tmp.fasta", "*_tmp.xml"]]))
+                                                          ["align.*","custom_db.*", "SSUresult.xml", "gp60result1.xml", "gp60result.xml",
+                                                           "query*.txt", "result1.xml", "result2.xml", "forward_tmp.fasta", "gp60result2.xml",
+                                                           "refseq.fa", "forwardseq_tmp.fasta", "forward_original_tmp.fasta",
+                                                            "reverseseq_tmp.fasta", "reverseseq_original_tmp.fasta",
+                                                            "blastn_contig_results.xml"]
+                                                        ]))
     for file in tmpfiles2remove:
         try:
             os.remove(file)

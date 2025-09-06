@@ -249,8 +249,7 @@ def test_sanger_contig_mode_gp60_two_reverse(caplog, input_dir = TEST_DATA_DIR):
         "-r", "P27277_Crypt242_Cmortiferum_R3.ab1",
         "-m", "gp60",
         "-t", "contig",
-        "-o", "P17705_Crypto242_gp60_sanger_contig",
-        "--verbose"
+        "-o", "P17705_Crypto242_gp60_sanger_contig"
     ]  
     
     sys.argv[1:] = args   
@@ -279,8 +278,7 @@ def test_different_valid_file_types_contig(caplog, input_dir = TEST_DATA_DIR):
         "-r", "P17705_Crypto16-2R-20170927_SSUR_H12_082.ab1",
         "-m", "18S",
         "-t", "contig",
-        "-o", "P17705_Crypto16_18S_sanger_contig",
-        "--verbose"
+        "-o", "P17705_Crypto16_18S_sanger_contig"
     ]  
     sys.argv[1:] = args   
     with pytest.raises(ValueError) as excinfo:
