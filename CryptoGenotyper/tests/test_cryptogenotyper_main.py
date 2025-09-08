@@ -312,7 +312,8 @@ def test_using_distant_actin_seq(caplog, input_dir = TEST_DATA_DIR):
         assert "Maybe not be an 18S Crypto sequence or outdated database" in caplog.text  or \
             "Maybe not be a gp60 Crypto sequence or outdated database" in caplog.text
         
-    
+#using an artificial contig formed from C.parvum try to see if we can recover original sequences and get expected fragment sizes
+#expected 728 forward + 137 overlap  + 699 reverse = 1564 bp. The forward seqeunce is truncated as it is >1000 bp to 865 bp      
 def test_contig_formation_18S(caplog, input_dir = TEST_DATA_DIR):
     print("Testing if contig of right size is formed")    
     caplog.set_level(logging.DEBUG)
@@ -332,8 +333,11 @@ def test_contig_formation_18S(caplog, input_dir = TEST_DATA_DIR):
     assert "865bp of forward" in caplog.text 
     assert "137bp overlap region" in caplog.text
     assert "699bp of reverse" in caplog.text 
+    assert "Trimming input sequence from 1045bp to 865bp" in caplog.text
+   
 
-        
+#using an artificial contig formed from C.meleagridis  try to see if we can recover original sequences and get expected fragment sizes
+#expected 303 forward + 197 overlap  + 303 reverse = 803 bp     
 def test_contig_formation_gp60(caplog, input_dir = TEST_DATA_DIR):
     print("Testing if contig of right size is formed")    
     caplog.set_level(logging.DEBUG)
@@ -354,5 +358,6 @@ def test_contig_formation_gp60(caplog, input_dir = TEST_DATA_DIR):
     assert "500bp of forward" in caplog.text 
     assert "197bp overlap region" in caplog.text
     assert "303bp of reverse" in caplog.text 
+   
 
 

@@ -1031,7 +1031,7 @@ class MixedSeq(object):
             else:
                 if abs(self.e-self.b) > 700:    
                     self.seq = list(record.seq[self.b:self.e].upper())
-                    LOG.info(f"Trimming input sequence to {len(self.seq)}bp from {len(record.seq)}bp (reduction {len(record.seq)-len(self.seq)}bp and {len(self.seq)/len(record.seq)*100 :.1f}% remained) ...")
+                    LOG.info(f"Trimming input sequence from {len(record.seq)}bp to {len(self.seq)}bp ({(len(record.seq)-len(self.seq))/len(record.seq)*100 :.1f}% reduction of {len(record.seq)-len(self.seq)}bp with{len(self.seq)/len(record.seq)*100 :.1f}% sequence remained) ...")
                 else:
                     self.seq = list(record.seq.upper())    
            

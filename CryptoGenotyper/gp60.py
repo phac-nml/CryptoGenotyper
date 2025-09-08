@@ -1366,7 +1366,7 @@ class analyzingGp60(object):
                 LOG.info(f"Top hit strand orientation (query={self.name}, target={br_alignment.accession}) is {hsp.strand}")
 
                 if hsp.strand == ("Plus", "Minus"):
-                    LOG.warning("The reverse complement query is being submitted (3'->5'). Performing reverse complement of the sequence (5'->3')")
+                    LOG.warning(f"The reverse complement query {self.name} is being submitted in 3'->5' orientation. Performing reverse complement of the sequence (5'->3')")
                     sequence = str(Seq(sequence).reverse_complement())
                     self.seq=sequence
                 
@@ -1643,6 +1643,8 @@ class analyzingGp60(object):
 
 
 #Function to build the contig of forward and reverse sequences
+#assumes that both s1 and s2 are in forward 5'->3' orientation
+#falls back to BLAST if CLUSTALW is giving aligment with identity lower than 90%
 def buildContig(s1, s2):
     contig=""
     LOG.info("Building a gp60 contig from sequences ...")
@@ -1681,7 +1683,7 @@ def buildContig(s1, s2):
             if char2 == '-':
                 gaps_in_seq2 += 1
                 
-            # Count positions where both sequences are not gaps
+            # Count positions where both sequences are not gaps (counts only regions were BOTH sequences have a base at a given position)
             if char1 != '-' and char2 != '-':
                 total_bases += 1
                 # Count exact matches
