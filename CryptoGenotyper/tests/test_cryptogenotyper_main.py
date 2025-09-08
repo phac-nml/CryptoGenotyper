@@ -311,5 +311,48 @@ def test_using_distant_actin_seq(caplog, input_dir = TEST_DATA_DIR):
             "Could not analyze. No species detected (potential reasons: not an 18S sequence, poor sequence quality, ref. database limitations, BLAST failure). Check manually." in secondrow
         assert "Maybe not be an 18S Crypto sequence or outdated database" in caplog.text  or \
             "Maybe not be a gp60 Crypto sequence or outdated database" in caplog.text
-        break
+        
     
+def test_contig_formation_18S(caplog, input_dir = TEST_DATA_DIR):
+    print("Testing if contig of right size is formed")    
+    caplog.set_level(logging.DEBUG)
+    args = ["-i", os.path.join(input_dir),
+        "-t", "contig",
+        "-m", "18S",
+        "-f", "test_forward_contig_18S.fasta",
+        "-r", "test_reverse_contig_18S.fasta",
+        "-o", "test_contig_formation_18S"]
+    sys.argv[1:] = args
+    cryptogenotyper_main()
+    lines=read_report_file("test_contig_formation_18S_cryptogenotyper_report.txt")  
+    secondrow = lines[1].split("\t")
+    assert "C.parvum" in secondrow
+    assert "1564" in secondrow
+    assert "1564bp contig formed" in caplog.text 
+    assert "865bp of forward" in caplog.text 
+    assert "137bp overlap region" in caplog.text
+    assert "699bp of reverse" in caplog.text 
+
+        
+def test_contig_formation_gp60(caplog, input_dir = TEST_DATA_DIR):
+    print("Testing if contig of right size is formed")    
+    caplog.set_level(logging.DEBUG)
+    args = ["-i", os.path.join(input_dir),
+        "-t", "contig",
+        "-m", "gp60",
+        "-f", "test_forward_contig_gp60.fasta",
+        "-r", "test_reverse_contig_gp60.fasta",
+        "-o", "test_contig_formation_gp60"]
+    sys.argv[1:] = args
+    cryptogenotyper_main()
+    lines=read_report_file("test_contig_formation_gp60_cryptogenotyper_report.txt")  
+    secondrow = lines[1].split("\t")
+    assert "C.meleagridis" in secondrow
+    assert "IIIbA22G1b" in secondrow
+    assert "803" in secondrow
+    assert "803bp contig formed" in caplog.text 
+    assert "500bp of forward" in caplog.text 
+    assert "197bp overlap region" in caplog.text
+    assert "303bp of reverse" in caplog.text 
+
+

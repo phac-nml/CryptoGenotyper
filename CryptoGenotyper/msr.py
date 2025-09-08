@@ -855,6 +855,7 @@ def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None):
         blast_records = list(NCBIXML.parse(open("blastn_contig_results.xml"))) 
         QUERY_LEN = len(forwardseq)
         SBJCT_LEN = len(reverseseq) # Length of the original reverse sequence
+        LOG.info(f"Building contig from forward {QUERY_LEN}bp and reverse {SBJCT_LEN} sequences");
 
         for record in blast_records:
             if record.alignments:
@@ -899,7 +900,7 @@ def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None):
                     contig = forwardseq[0 : query_end_0based] + str(working_reverseseq[sbjct_end_0based : ])
                     overlap_length = hsp.align_length
                     LOG.info(f"Prioritizing FORWARD (higher/equal PHRED score)") 
-                    LOG.info(f"A {len(contig)}bp contig formed (used {len(forwardseq[0 : query_end_0based])}bp of forward (incl. overlap region) + non-overlap {len(working_reverseseq[sbjct_end_0based : ])}bp of reverse)")
+                    LOG.info(f"A {len(contig)}bp contig formed (used {len(forwardseq[0 : query_end_0based])}bp of forward (incl. {overlap_length}bp overlap region) + non-overlap {len(working_reverseseq[sbjct_end_0based : ])}bp of reverse)")
                     LOG.info(f"Detected {overlap_length}bp overlap region between sequences ({overlap_length/len(contig)*100 :.1f}% of contig length) (forward sequence coordinates: {query_start_0based}:{query_end_0based})")
                 #For reverse sequence prioritized contig
                 else:
@@ -908,7 +909,7 @@ def buildContig(forwardseq, reverseseq, forwardObj=None, reverseObj=None):
                     contig = forwardseq[0 : query_start_0based] + str(working_reverseseq[sbjct_start_0based : ])
                     overlap_length = hsp.align_length
                     LOG.info(f"Prioritizing REVERSE sequence (higher PHRED score)")
-                    LOG.info(f"A {len(contig)}bp contig formed (used non-overlap {len(forwardseq[0 : query_start_0based])}bp of forward + {len(working_reverseseq[sbjct_end_0based : ])}bp of reverse (inlc. overlap region))")
+                    LOG.info(f"A {len(contig)}bp contig formed (used non-overlap {len(forwardseq[0 : query_start_0based])}bp of forward + {len(working_reverseseq[sbjct_end_0based : ])}bp of reverse (inlc. {overlap_length}bp overlap region))")
                     LOG.info(f"Detected {overlap_length}bp overlap region between sequences ({overlap_length/len(contig)*100 :.1f}% of contig length) (reverse sequence coordinates: {sbjct_start_0based}:{sbjct_end_0based})")
                   
             else:
@@ -1030,7 +1031,7 @@ class MixedSeq(object):
             else:
                 if abs(self.e-self.b) > 700:    
                     self.seq = list(record.seq[self.b:self.e].upper())
-                    LOG.info(f"Trimming input sequence to {len(self.seq)} bp from {len(record.seq)}bp ...")
+                    LOG.info(f"Trimming input sequence to {len(self.seq)}bp from {len(record.seq)}bp (reduction {len(record.seq)-len(self.seq)}bp and {len(self.seq)/len(record.seq)*100 :.1f}% remained) ...")
                 else:
                     self.seq = list(record.seq.upper())    
            
@@ -2935,7 +2936,7 @@ def msr_main(pathlist_unfiltered, forwardP, reverseP, typeSeq, expName, customda
   
     with open(tabfilename, 'w') as resultFile:
         resultFile.write(tabfile.getvalue())
-        print(resultFile)
+
 
     print("\n>>>18S RESULTS  REPORT (only first 10 lines are printed)")
     tabfile.seek(0)

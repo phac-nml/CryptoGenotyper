@@ -57,9 +57,9 @@ def cleanTempFastaFilesDir(temp_dir="tmp_fasta_files"):
     tmpfiles2remove = list(itertools.chain.from_iterable([glob.glob(e) for e in 
                                                           ["align.*","custom_db.*", "SSUresult.xml", "gp60result1.xml", "gp60result.xml",
                                                            "query*.txt", "result1.xml", "result2.xml", "forward_tmp.fasta", "gp60result2.xml",
-                                                           "refseq.fa", "forwardseq_tmp.fasta", "forward_original_tmp.fasta",
+                                                           "refseq.fa", "forwardseq_tmp.fasta", "forward_original_tmp.fasta", "query_tmp.fasta", "subject_tmp.fasta",
                                                             "reverseseq_tmp.fasta", "reverseseq_original_tmp.fasta",
-                                                            "blastn_contig_results.xml"]
+                                                            "blastn_contig_results.xml", ""]
                                                         ]))
     for file in tmpfiles2remove:
         try:

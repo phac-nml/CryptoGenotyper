@@ -1355,10 +1355,10 @@ class analyzingGp60(object):
                 br_alignment = blast_record.alignments[0]
                 hsp = br_alignment.hsps[0]
                 
-                top10hits=[f"\n{idx+1} - {a.hit_id}: accession:{a.accession}, length:{a.length}, bitscore:{a.hsps[0].bits}, score:{a.hsps[0].score},"\
-                            f"identity: {round((a.hsps[0].identities/a.hsps[0].align_length)*100,1)}%, query_coverage: {round((a.hsps[0].align_length/blast_record.query_length)*100)}%," \
-                            f"ref_coverage: {round(a.hsps[0].align_length/a.length*100,2)}% ,"\
-                            f"gaps:{a.hsps[0].gaps}, strand:{a.hsps[0].strand}, query match coordinates (start-end):{a.hsps[0].query_start}-{a.hsps[0].query_end}" 
+                top10hits=[f"\n{idx+1} - {a.hit_id}: {a.accession}, length:{a.length}, bitscore:{a.hsps[0].bits}, score:{a.hsps[0].score},"\
+                            f"identity: {round((a.hsps[0].identities/a.hsps[0].align_length)*100,1)}%, query_cov: {round((a.hsps[0].align_length/blast_record.query_length)*100)}%," \
+                            f"ref_cov: {round(a.hsps[0].align_length/a.length*100,2)}% ,"\
+                            f"gaps:{a.hsps[0].gaps}, strand:{a.hsps[0].strand}, query coord(start-end):{a.hsps[0].query_start}-{a.hsps[0].query_end}" 
                             for r in blast_records for idx,a in enumerate(r.alignments) if idx < 10]            
                 LOG.debug("Top 10 BLAST hits:"+"".join(top10hits))
             
@@ -1651,7 +1651,6 @@ def buildContig(s1, s2):
     elif s2 == "":
         return s1
     else:
-
         file = open("align.fa", 'w')
         file.write("\n>Seq1\n")
         file.write(str(s1))
@@ -1661,39 +1660,122 @@ def buildContig(s1, s2):
 
         clustalw_cline = ClustalwCommandline("clustalw", infile="align.fa")
         stdout, stderr = clustalw_cline()
+        LOG.debug(f"stdout:\n{stdout}\nstderr:\n{stderr}")
 
         align = AlignIO.read("align.aln", "clustal")
+        alignment_length = align.get_alignment_length()
+        seq1_aligned = str(align[0].seq)
+        seq2_aligned = str(align[1].seq)
+        gaps_in_seq1 = 0
+        gaps_in_seq2 = 0
+        total_bases = 0
+        exact_matches = 0
+        # Iterate through each column of the alignment
+        for i in range(alignment_length):
+            char1 = seq1_aligned[i]
+            char2 = seq2_aligned[i]
+            
+            # Count gaps
+            if char1 == '-':
+                gaps_in_seq1 += 1
+            if char2 == '-':
+                gaps_in_seq2 += 1
+                
+            # Count positions where both sequences are not gaps
+            if char1 != '-' and char2 != '-':
+                total_bases += 1
+                # Count exact matches
+                if char1 == char2:
+                    exact_matches += 1
+        percentage_identity = (exact_matches / total_bases) * 100 if total_bases > 0 else 0
+        LOG.info(f"ClustalW: identity {percentage_identity :.2f} %, exact matches: {exact_matches}, gaps in seq1: {gaps_in_seq1}, gaps in seq2: {gaps_in_seq2}")
 
-        for record in align:
-            if record.id == "Seq1":
-                seq1 = record.seq
-            else:
-                seq2 = record.seq
+        if percentage_identity > 90:
+            for record in align:
+                if record.id == "Seq1":
+                    seq1 = record.seq
+                else:
+                    seq2 = record.seq
 
-        # Calculate the length of the overlap based on the alignment
-        overlap_length = 0
-        for i in range(len(seq1)):
-            if seq1[i] != "-" and seq2[i] != "-":
-                overlap_length += 1
-        
-        # Log the overlap length and other info
-        
+            # Calculate the length of the overlap based on the alignment
+            overlap_length = 0
+            for i in range(len(seq1)):
+                if seq1[i] != "-" and seq2[i] != "-":
+                    overlap_length += 1
+            
+            # Log the overlap length and other info
+            
 
-        l = len(seq1)
+            l = len(seq1)
 
-        for i in range(0, l):
-            if seq1[i] == "-":
-                contig += seq2[i]
-            elif seq2[i] == "-":
-                contig+=seq1[i]
-            elif seq1[i] == seq2[i]:
-                contig += seq1[i]
-            elif i < l/2:
-                contig += seq1[i]
-            else:
-                contig += seq2[i]
-        LOG.info(f"A {len(contig)}bp contig formed ({len(s1)}bp of forward + {len(s2)}bp reverse)")
-        LOG.info(f"Detected {overlap_length}bp overlap region between sequences ({overlap_length/len(contig)*100 :.1f}% of contig length).")
+            for i in range(0, l):
+                if seq1[i] == "-":
+                    contig += seq2[i]
+                elif seq2[i] == "-":
+                    contig+=seq1[i]
+                elif seq1[i] == seq2[i]:
+                    contig += seq1[i]
+                elif i < l/2:
+                    contig += seq1[i]
+                else:
+                    contig += seq2[i]
+
+            LOG.info(f"A {len(contig)}bp contig formed ({len(s1)}bp of forward + {len(s2)}bp reverse) using ClustalW")
+            LOG.info(f"Detected {overlap_length}bp overlap region between sequences ({overlap_length/len(contig)*100 :.1f}% of contig length).")
+        else:
+            #build contig with BLASTN as a 2nd fallback option. Both sequences are in forward orientation
+            with open("query_tmp.fasta", "w") as f:
+                f.write(f">query_seq\n{s1}\n")
+
+            with open("subject_tmp.fasta", "w") as f:
+                f.write(f">subject_seq\n{s2}\n")
+    
+
+            blastn_cline = NcbiblastnCommandline(
+                query="query_tmp.fasta",
+                subject="subject_tmp.fasta",
+                task="dc-megablast", 
+                evalue=10, word_size=11,
+                outfmt=5,
+                out="blastn_contig_results.xml"
+            )
+            blastn_stdout, blastn_stderr = blastn_cline()
+
+            QUERY_LEN = len(s1)
+            SBJCT_LEN = len(s2) # Length of the original reverse sequence
+            LOG.info(f"Building contig from forward {QUERY_LEN}bp and reverse {SBJCT_LEN} sequences using BLASTN instead of ClustalW as alignment was poor (%identity < 90)");
+
+            # Read and parse the BLAST XML output
+            with open("blastn_contig_results.xml") as blast_results_file:
+                blast_records = NCBIXML.parse(blast_results_file)
+                    
+                # Get the first record, which contains our search results
+                first_record = next(blast_records)
+                    
+                # Check if there are any alignments found
+                if first_record.alignments:
+                    # Get the first (best) alignment
+                    best_alignment = first_record.alignments[0]
+                    hsp = best_alignment.hsps[0]
+
+                    query_start_0based = hsp.query_start - 1  #forward seq
+                    query_end_0based = hsp.query_end  #forward seq
+
+                    sbjct_start_0based = hsp.sbjct_start - 1
+                    sbjct_end_0based = hsp.sbjct_end
+
+
+                    contig = s1[0 : query_end_0based] + s2[sbjct_end_0based : ]
+                    overlap_length = hsp.align_length      
+            
+                        
+                    LOG.info(f"A {len(contig)}bp contig formed (used {len(s1[0 : query_end_0based])}bp of forward (incl. {overlap_length}bp overlap region) + non-overlap {len(s2[sbjct_end_0based : ])}bp of reverse)")            
+                else:
+                    print("No significant alignments found by BLAST.")
+
+
+
+  
         return contig
 
 
@@ -1820,7 +1902,7 @@ def gp60_main(pathlist_unfiltered, fPrimer, rPrimer, typeSeq, expName, customdat
         if len(pathlist)%2 == 0:
             for idx, path in enumerate(pathlist):
                 filetype = utilities.getFileType(path)
-                LOG.info(f"\n\n*** {idx+1}: Running sample {os.path.basename(pathlist[idx])} as {filetype} file type in contig mode ***")
+                LOG.info(f"\n\n*** {idx+1}: Running sample {os.path.basename(pathlist[idx])} and {os.path.basename(pathlist[idx+1])} as {filetype} in contig mode ***")
                 forward = analyzingGp60() #init forward read object
                 reverse = analyzingGp60() #init reverse read object
 
