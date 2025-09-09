@@ -135,8 +135,7 @@ def main():
         #get absolute path of a single file provided
         if any([seq_dir.endswith(file_ext) for file_ext in definitions.FILETYPES]):
             pathlist.append(os.path.abspath(seq_dir)) 
-        else:
-            LOG.info(f"Warning: The file '{full_path}' is not a valid file type. Supported extensions are: {', '.join(definitions.FILETYPES)}")    
+        
             
         pathlist = utilities.filter_files_by_suffix(pathlist,args.suffix)    
     
