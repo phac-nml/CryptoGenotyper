@@ -103,7 +103,7 @@ cryptogenotyper -i ./tests/Data/  -f "Cmortiferum_gp60_f" -r "Cmortiferum_gp60_r
 ```
 
 ## Galaxy workflows
-Galaxy workflows for running multiple files and instructions are found in the [`GalaxyWorkflows`](./Cryptogenotyper/GalaxyWorkflows/README.md) folder, along with installation instructions. 
+Galaxy workflows for running multiple files and instructions are found in the [`GalaxyWorkflows`](CryptoGenotyper/GalaxyWorkflows/README.md) folder, along with installation instructions. 
 
 ## Citation
 Please cite the following publication if you find this subtyping tool useful in your work.

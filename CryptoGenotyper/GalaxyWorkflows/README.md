@@ -28,14 +28,14 @@ The above workflows depend on one of the following dependencies to collate indiv
 	* description: Concatenates any text based files you select from your history
 	* owner: mandorodriguez
 	* version: 1.0.0
-	* revision: 0:(2015-09-28) 	
+	* revision: 0 (2015-09-28) 	
 	* [https://toolshed.g2.bx.psu.edu/view/mandorodriguez/concat_text_files](https://toolshed.g2.bx.psu.edu/view/mandorodriguez/concat_text_files)
 
 * `text_processing`
 	*  used by the Galaxy Europe workflows
 	*  description: Concatenate datasets
 	*  owner: bgruening
-	*  version: 0.1.0
+	*  version: 0.1.0 (2019-04-03)
 	*  revision: 13
-	*  [tool url](https://toolshed.g2.bx.psu.edu/repository/view_tool_metadata?repository_id=2593fd36ae8011aa&changeset_revision=0a8c6b61f0f4&tool_id=tp_cat&render_repository_actions_for=tool_shed)
+	*  [https://toolshed.g2.bx.psu.edu/repository/view_tool_metadata?repository_id=2593fd36ae8011aa&changeset_revision=0a8c6b61f0f4&tool_id=tp_cat&render_repository_actions_for=tool_shed](https://toolshed.g2.bx.psu.edu/repository/view_tool_metadata?repository_id=2593fd36ae8011aa&changeset_revision=0a8c6b61f0f4&tool_id=tp_cat&render_repository_actions_for=tool_shed)
 
