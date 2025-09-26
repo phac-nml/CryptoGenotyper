@@ -75,15 +75,35 @@ optional arguments:
 ```
 
 ## Examples
-The `example` folder contains a couple of sequences to try out by executing the following commands.
+The `example` folder contains a couple of sequences to try out by executing the following commands. The `-i` accepts either a single file input or directory. The `-f` and `-r` parameters allow to filter input folder files in case multiple files need to be processed, they are also used to create file pairs used for `contig` mode (i.e. `-t contig`).
 
 ```
+#Use a single Sanger file in a forward-only mode for the 18S marker
 cryptogenotyper -i example/P17705_Crypto16-2F-20170927_SSUF_G12_084.ab1 -m 18S -t forward -f SSUF -o test
-cryptogenotyper -i example/P17705_gp60-Crypt14-1F-20170927_gp60F_G07_051.ab1 -m gp60 -t forward -f gp60F -o test
+cryptogenotyper -i example/
+
+#Use a single Sanger file in a forward-only mode for the gp60 marker
+P17705_gp60-Crypt14-1F-20170927_gp60F_G07_051.ab1 -m gp60 -t forward -f gp60F -o test
+
+#use a pair of Sanger files in contig mode for the GP60 marker, using forward and reverse file filters specified by -f and -r
 cryptogenotyper -i example/ -m 18S -t contig -f SSUF -r SSUR -o test
 cryptogenotyper -i example/ -m gp60 -t contig -f gp60F -r gp60R -o test
 
+#Use a pair of FASTA files in contig mode for the GP60 marker found in the current directory
+cryptogenotyper -i . -f "forward.fasta" -r "reverse.fasta" -o tmp -t contig -m gp60
+
+#Use a single FASTA file in a forward-only mode for the GP60 marker
+cryptogenotyper -i ./tests/Data/Cmortiferum_gp60_f2.fasta  -o tmp -t forward -m gp60
+
+#to filter multiple files found in a directory, such as tests/Data/, use the filters specified by -f and/or -r
+cryptogenotyper -i ./tests/Data/  -f "_gp60_f" -o tmp -t forward -m gp60
+
+#to pair multiple files in contig mode, use the -f and/or -r to select forward and reverse files from a directory, such as tests/Data/ 
+cryptogenotyper -i ./tests/Data/  -f "Cmortiferum_gp60_f" -r "Cmortiferum_gp60_r" -o tmp -t contig -m gp60
 ```
+
+## Galaxy workflows
+Galaxy workflows for running multiple files and instructions are found in the [`GalaxyWorkflows`](./Cryptogenotyper/GalaxyWorkflows/README.md) folder, along with installation instructions. 
 
 ## Citation
 Please cite the following publication if you find this subtyping tool useful in your work.

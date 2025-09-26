@@ -1,0 +1,149 @@
+{
+    "a_galaxy_workflow": "true",
+    "annotation": "",
+    "format-version": "0.1",
+    "name": "Reverse reads collection - CryptoGenotyper ver 1.5.0",
+    "steps": {
+        "0": {
+            "annotation": "",
+            "content_id": null,
+            "errors": null,
+            "id": 0,
+            "input_connections": {},
+            "inputs": [],
+            "label": null,
+            "name": "Input dataset collection",
+            "outputs": [],
+            "position": {
+                "left": 0,
+                "top": 13.199966430664062
+            },
+            "tool_id": null,
+            "tool_state": "{\"optional\": false, \"tag\": null, \"collection_type\": \"list\"}",
+            "tool_version": null,
+            "type": "data_collection_input",
+            "uuid": "a28b7940-c8c3-4e90-8977-ff8b3f68c8e6",
+            "when": null,
+            "workflow_outputs": []
+        },
+        "1": {
+            "annotation": "",
+            "content_id": "toolshed.g2.bx.psu.edu/repos/nml/cryptogenotyper/CryptoGenotyper/1.5.0+galaxy0",
+            "errors": null,
+            "id": 1,
+            "input_connections": {
+                "primers|input": {
+                    "id": 0,
+                    "output_name": "output"
+                }
+            },
+            "inputs": [
+                {
+                    "description": "runtime parameter for tool CryptoGenotyper",
+                    "name": "db"
+                },
+                {
+                    "description": "runtime parameter for tool CryptoGenotyper",
+                    "name": "primers"
+                }
+            ],
+            "label": null,
+            "name": "CryptoGenotyper",
+            "outputs": [
+                {
+                    "name": "outfile_single",
+                    "type": "fasta"
+                },
+                {
+                    "name": "outfile_report_single",
+                    "type": "tabular"
+                }
+            ],
+            "position": {
+                "left": 260.7999572753906,
+                "top": 156.59996032714844
+            },
+            "post_job_actions": {},
+            "tool_id": "toolshed.g2.bx.psu.edu/repos/nml/cryptogenotyper/CryptoGenotyper/1.5.0+galaxy0",
+            "tool_shed_repository": {
+                "changeset_revision": "a91455432cd4",
+                "name": "cryptogenotyper",
+                "owner": "nml",
+                "tool_shed": "toolshed.g2.bx.psu.edu"
+            },
+            "tool_state": "{\"db\": {\"__class__\": \"RuntimeValue\"}, \"marker\": \"18S\", \"outputheader\": true, \"primers\": {\"seqtype\": \"reverse\", \"__current_case__\": 2, \"input\": {\"__class__\": \"RuntimeValue\"}}, \"show_log\": false, \"__page__\": null, \"__rerun_remap_job_id__\": null}",
+            "tool_version": "1.5.0+galaxy0",
+            "type": "tool",
+            "uuid": "329176b2-407b-4b82-872f-1d8e2eb55035",
+            "when": null,
+            "workflow_outputs": [
+                {
+                    "label": null,
+                    "output_name": "outfile_report_single",
+                    "uuid": "441e7e45-b6bc-4852-85d6-401aa05be41b"
+                },
+                {
+                    "label": null,
+                    "output_name": "outfile_single",
+                    "uuid": "b86c4c13-25b5-45e9-858c-024487fce832"
+                }
+            ]
+        },
+        "2": {
+            "annotation": "",
+            "content_id": "toolshed.g2.bx.psu.edu/repos/artbio/concatenate_multiple_datasets/cat_multi_datasets/1.4.1",
+            "errors": null,
+            "id": 2,
+            "input_connections": {
+                "global_condition|inputs": {
+                    "id": 1,
+                    "output_name": "outfile_report_single"
+                }
+            },
+            "inputs": [],
+            "label": null,
+            "name": "Concatenate multiple datasets",
+            "outputs": [
+                {
+                    "name": "out_file1",
+                    "type": "input"
+                }
+            ],
+            "position": {
+                "left": 561.8999938964844,
+                "top": 0
+            },
+            "post_job_actions": {
+                "RenameDatasetActionout_file1": {
+                    "action_arguments": {
+                        "newname": "OverallReport on #{global_condition.inputs}"
+                    },
+                    "action_type": "RenameDatasetAction",
+                    "output_name": "out_file1"
+                }
+            },
+            "tool_id": "toolshed.g2.bx.psu.edu/repos/artbio/concatenate_multiple_datasets/cat_multi_datasets/1.4.1",
+            "tool_shed_repository": {
+                "changeset_revision": "55cf9d9defd1",
+                "name": "concatenate_multiple_datasets",
+                "owner": "artbio",
+                "tool_shed": "toolshed.g2.bx.psu.edu"
+            },
+            "tool_state": "{\"dataset_names\": false, \"global_condition\": {\"input_type\": \"singles\", \"__current_case__\": 0, \"inputs\": {\"__class__\": \"ConnectedValue\"}}, \"headers\": \"0\", \"__page__\": null, \"__rerun_remap_job_id__\": null}",
+            "tool_version": "1.4.1",
+            "type": "tool",
+            "uuid": "0dddc88d-1148-4444-85e0-40d531a5637d",
+            "when": null,
+            "workflow_outputs": [
+                {
+                    "label": "report",
+                    "output_name": "out_file1",
+                    "uuid": "0879cbc6-2ed5-48e2-940b-ccec0f00796e"
+                }
+            ]
+        }
+    },
+    "tags": [],
+    "uuid": "a8783391-1d2d-4bcc-af92-278a8770a488",
+    "version": 2
+}

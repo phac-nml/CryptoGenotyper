@@ -1,0 +1,156 @@
+{
+    "a_galaxy_workflow": "true",
+    "annotation": "Run multiple Sanger and FASTA files as paired sets of reads (list of pairs collection) and generate a single report",
+    "comments": [],
+    "format-version": "0.1",
+    "name": "Contig (F and R) reads paired collection - CryptoGenotyper ver 1.5.0 - usegalaxy.eu",
+    "report": {
+        "markdown": "\n# Workflow Execution Report\n\n## Workflow Inputs\n```galaxy\ninvocation_inputs()\n```\n\n## Workflow Outputs\n```galaxy\ninvocation_outputs()\n```\n\n## Workflow\n```galaxy\nworkflow_display()\n```\n"
+    },
+    "steps": {
+        "0": {
+            "annotation": "",
+            "content_id": null,
+            "errors": null,
+            "id": 0,
+            "input_connections": {},
+            "inputs": [],
+            "label": null,
+            "name": "Input dataset collection",
+            "outputs": [],
+            "position": {
+                "left": 0,
+                "top": 0
+            },
+            "tool_id": null,
+            "tool_state": "{\"optional\": false, \"tag\": null, \"collection_type\": \"list:paired\", \"fields\": null}",
+            "tool_version": null,
+            "type": "data_collection_input",
+            "uuid": "ccabda67-ecb9-4f45-939a-11cfe3caf8b1",
+            "when": null,
+            "workflow_outputs": []
+        },
+        "1": {
+            "annotation": "",
+            "content_id": "toolshed.g2.bx.psu.edu/repos/nml/cryptogenotyper/CryptoGenotyper/1.5.0+galaxy0",
+            "errors": null,
+            "id": 1,
+            "input_connections": {
+                "primers|input": {
+                    "id": 0,
+                    "output_name": "output"
+                }
+            },
+            "inputs": [
+                {
+                    "description": "runtime parameter for tool CryptoGenotyper",
+                    "name": "db"
+                },
+                {
+                    "description": "runtime parameter for tool CryptoGenotyper",
+                    "name": "primers"
+                }
+            ],
+            "label": null,
+            "name": "CryptoGenotyper",
+            "outputs": [
+                {
+                    "name": "outfile_collection",
+                    "type": "fasta"
+                },
+                {
+                    "name": "outfile_report_collection",
+                    "type": "tabular"
+                }
+            ],
+            "position": {
+                "left": 253.00006103515625,
+                "top": 147.72857666015625
+            },
+            "post_job_actions": {},
+            "tool_id": "toolshed.g2.bx.psu.edu/repos/nml/cryptogenotyper/CryptoGenotyper/1.5.0+galaxy0",
+            "tool_shed_repository": {
+                "changeset_revision": "a91455432cd4",
+                "name": "cryptogenotyper",
+                "owner": "nml",
+                "tool_shed": "toolshed.g2.bx.psu.edu"
+            },
+            "tool_state": "{\"db\": {\"__class__\": \"RuntimeValue\"}, \"marker\": \"18S\", \"outputheader\": false, \"primers\": {\"seqtype\": \"contig\", \"__current_case__\": 0, \"input\": {\"__class__\": \"ConnectedValue\"}}, \"show_log\": false, \"__page__\": 0, \"__rerun_remap_job_id__\": null}",
+            "tool_version": "1.5.0+galaxy0",
+            "type": "tool",
+            "uuid": "4baec011-0320-4710-a881-c1866e23abd2",
+            "when": null,
+            "workflow_outputs": [
+                {
+                    "label": "CryptoGenotyper:input dataset(s):fastasCryptoGenotyper:input dataset(s):fastas",
+                    "output_name": "outfile_collection",
+                    "uuid": "b50236d2-3d42-4e32-b465-4756ab048fcc"
+                },
+                {
+                    "label": "CryptoGenotyper:input dataset(s):reports",
+                    "output_name": "outfile_report_collection",
+                    "uuid": "29e0dbc8-a051-4ecb-8496-e922855797fc"
+                }
+            ]
+        },
+        "2": {
+            "annotation": "",
+            "content_id": "toolshed.g2.bx.psu.edu/repos/bgruening/text_processing/tp_cat/0.1.0",
+            "errors": null,
+            "id": 2,
+            "input_connections": {
+                "inputs": {
+                    "id": 1,
+                    "output_name": "outfile_report_collection"
+                }
+            },
+            "inputs": [],
+            "label": null,
+            "name": "Concatenate datasets",
+            "outputs": [
+                {
+                    "name": "out_file1",
+                    "type": "input"
+                }
+            ],
+            "position": {
+                "left": 583,
+                "top": 145.5
+            },
+            "post_job_actions": {
+                "RenameDatasetActionout_file1": {
+                    "action_arguments": {
+                        "newname": "Overall report on #{inputs}"
+                    },
+                    "action_type": "RenameDatasetAction",
+                    "output_name": "out_file1"
+                }
+            },
+            "tool_id": "toolshed.g2.bx.psu.edu/repos/bgruening/text_processing/tp_cat/0.1.0",
+            "tool_shed_repository": {
+                "changeset_revision": "ddf54b12c295",
+                "name": "text_processing",
+                "owner": "bgruening",
+                "tool_shed": "toolshed.g2.bx.psu.edu"
+            },
+            "tool_state": "{\"inputs\": {\"__class__\": \"ConnectedValue\"}, \"queries\": [], \"__page__\": null, \"__rerun_remap_job_id__\": null}",
+            "tool_version": "0.1.0",
+            "type": "tool",
+            "uuid": "d7271cb9-08ce-4103-9806-ef1e87af0932",
+            "when": null,
+            "workflow_outputs": [
+                {
+                    "label": null,
+                    "output_name": "out_file1",
+                    "uuid": "2405b07d-b80f-46ba-8b90-1ff8f438038b"
+                }
+            ]
+        }
+    },
+    "tags": [
+        "cryptosporidium",
+        "typing"
+    ],
+    "uuid": "bf68430a-7ffe-4fcb-b19e-519e91ece045",
+    "version": 5
+}

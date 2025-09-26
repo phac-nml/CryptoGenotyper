@@ -1057,6 +1057,7 @@ class analyzingGp60(object):
             # Write a line to the file
             myfile.write(f">{self.name}\n")
             myfile.write(sequence)
+            query = sequence
 
             # Close the file
             myfile.close()
@@ -1075,11 +1076,11 @@ class analyzingGp60(object):
             result_handle = open("gp60result.xml", 'r')
             blast_records = NCBIXML.parse(result_handle)
             blast_record = next(blast_records)
-
+            
        
             if len(blast_record.alignments) == 0:
                 LOG.warning("No BLAST hits found! Check database global blast_gp60.fasta and if input sequence belongs to Cryptosporidium species")
-                #return "","","","","","",""
+                return "","","","","","","","",""
             else:
                 blast_record.alignments = utilities.sort_blast_hits_by_id_and_bitscore(blast_record)    
                 br_alignment = blast_record.alignments[0]
